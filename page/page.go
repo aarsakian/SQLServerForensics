@@ -32,15 +32,6 @@ type DataCol struct {
 }
 type DataCols []DataCol
 
-type PFSPage []PFS
-
-type PFS struct {
-	pageID uint8
-	status string
-}
-
-
-
 
 
 /*type IAMHeader struct {
@@ -183,6 +174,8 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 		allocMap = *page.SGAMExtents
 	} else if page.IAMExtents != nil {
 		allocMap = *page.IAMExtents
+	} else if page.PFSPage != nil {
+		allocMap = *page.PFSPage
 	}
 	return allocMap
 }
@@ -229,8 +222,8 @@ func (page *Page) parseSGAM(data []byte) {
 
 func (page *Page) parsePFS(data []byte) {
 	var pfsPage PFSPage
-	for _, entry := range data[page.slots[0]:page.Header.FreeData] {
-		pfsPage = append(pfsPage, PFS{uint8(entry), PFSStatus[uint8(entry)]})
+	for idx, entry := range data[page.slots[0]:page.Header.FreeData] {
+		pfsPage = append(pfsPage, PFS{uint8(idx), PFSStatus[uint8(entry)]})
 	}
 
 	page.PFSPage = &pfsPage
