@@ -39,25 +39,9 @@ type PFS struct {
 	status string
 }
 
-type GAMExtents []GAM
 
-type GAM struct {
-	extent    int
-	allocated bool
-}
 
-type SGAMExtents []SGAMExtent
 
-type SGAMExtent struct {
-	extent    int
-	allocated bool
-}
-type IAMExtents []IAMExtent
-
-type IAMExtent struct {
-	extent int 
-	allocated bool 
-}
 
 /*type IAMHeader struct {
 	sequenceNumber //position in the IAM chain
@@ -168,81 +152,8 @@ func (page Page) GetType() string {
 	return PageTypes[page.Header.Type]
 }
 
-func (gamExtents GAMExtents) ShowAllocations() {
-	var allocatedPages []int
-	pageRange := 0
-	for _, gamextent := range gamExtents {
-		if gamextent.allocated {
-
-		} else {
-			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("GAM allocated range %d \n", pageRange)
-
-		}
-		pageRange += 8
-	}
-
-}
-
-func (sgamExtents SGAMExtents) ShowAllocations() {
-	var allocatedPages []int
-	pageRange := 0
-	for _, sgamextent := range sgamExtents {
-		if sgamextent.allocated {
-
-		} else {
-			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("SGAM allocated range %d \n", pageRange)
-		}
-		pageRange += 8
-	}
-}
 
 
-func (iamExtents IAMExtents) ShowAllocations() {
-	var allocatedPages []int
-	pageRange := 0
-	for _, iamextent := range iamExtents {
-		if iamextent.allocated {
-
-		} else {
-			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("IAM allocated range %d \n", pageRange)
-		}
-		pageRange += 8
-	}
-}
-
-
-
-
-func (gamExtents GAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
-	return GAMExtents(utils.Filter(gamExtents, func(gam GAM) bool {
-		return gam.allocated == status
-	}))
-
-}
-
-func (sgamExtents SGAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
-	return SGAMExtents(utils.Filter(sgamExtents, func(sgam SGAMExtent) bool {
-		return sgam.allocated == status
-	}))
-
-}
-
-func (iamExtents IAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
-	return IAMExtents(utils.Filter(iamExtents, func(iam IAMExtent) bool {
-		return iam.allocated == status
-	}))
-}
-
-func (gamExtents GAMExtents) GetStats() (int, int) {
-	allocatedgamextents := gamExtents.FilterByAllocationStatus(true)
-	unallocatedgamextents := gamExtents.FilterByAllocationStatus(false)
-	return reflect.ValueOf(allocatedgamextents).Len() * 8,
-		reflect.ValueOf(unallocatedgamextents).Len() * 8
-
-}
 
 func (page Page) ShowGAMStats() {
 	allocatedPages, unallocatedPages := page.GAMExtents.GetStats()
@@ -256,7 +167,7 @@ func (page *Page) parseGAM(data []byte) {
 
 		for i := 0; i < 8; i++ {
 
-			gamExtents = append(gamExtents, GAM{i + idx*8, entry>>i&1 == 0})
+			gamExtents = append(gamExtents, GAMExtent{i + idx*8, entry>>i&1 == 0})
 
 		}
 
@@ -314,13 +225,7 @@ func (page *Page) parseSGAM(data []byte) {
 	page.SGAMExtents = &sgamExtents
 }
 
-func (sgamExtents SGAMExtents) GetStats() (int, int) {
-	allocatedgamextents := sgamExtents.FilterByAllocationStatus(true)
-	unallocatedgamextents := sgamExtents.FilterByAllocationStatus(false)
-	return reflect.ValueOf(allocatedgamextents).Len() * 8,
-		reflect.ValueOf(unallocatedgamextents).Len() * 8
 
-}
 
 func (page *Page) parsePFS(data []byte) {
 	var pfsPage PFSPage
