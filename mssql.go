@@ -23,7 +23,7 @@ package main
 import (
 	"MSSQLParser/reporter"
 	"MSSQLParser/page"
-	"MSSQLParser/db"
+	db "MSSQLParser/db"
 	"flag"
 	"fmt"
 	"os"
@@ -44,6 +44,7 @@ func main() {
 	showGamExtents := flag.Bool("gamextents", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgamextents", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iamextents", false, "show IAM extents for each page")
+	showDataCols := flag.Bool("showdatacols" ,false, "show data cols for each data row")
 	
 	flag.Parse()
 
@@ -64,10 +65,12 @@ func main() {
 
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 	var database db.Database
+	var pages page.Pages
 
 	reporter := reporter.Reporter{ShowGamExtents:*showGamExtents, 
 		    ShowSGamExtents:*showSGamExtents,
-		    ShowIAMExtents: *showIAMExtents}
+		    ShowIAMExtents: *showIAMExtents,
+			ShowDataCols: *showDataCols}
 		    
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
@@ -90,16 +93,18 @@ func main() {
 		if *toPage != -1 && (i/PAGELEN)> *toPage {
 			continue
 		}
-		page := db.ProcessPage(bs)
-		Pages = append(Pages, page)
+		page := database.ProcessPage(bs)
+		pages = append(pages, page)
+		
 		reporter.PrintHeaderInfo(page)
+		reporter.PrintDataRowInfo(page)
 
 		if page.Header.PageId != 0 {
-			fmt.Printf("Processed page %d type %s\n", page.Header.PageId)
+			fmt.Printf("Processed page %d\n", page.Header.PageId)
 		}
 
 	}
-	db.Pages = Pages
+	database.Pages = pages
 	reporter.ShowStats(database)
 
 }
