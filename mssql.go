@@ -21,24 +21,17 @@ Index allocation map (IAM) pages keep track of the extents used by a heap or ind
 package main
 
 import (
+	"MSSQLParser/reporter"
 	"MSSQLParser/page"
+	"MSSQLParser/db"
 	"flag"
 	"fmt"
 	"os"
 )
 
-type Database page.Pages
 
-func (db Database) ShowStats() {
-	for _, page := range db {
-		allocMap := page.GetAllocationMaps()
-		if allocMap == nil {
-			continue
-		}
-		allocMap.ShowAllocations()
-	}
 
-}
+
 
 func main() {
 
@@ -48,7 +41,10 @@ func main() {
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
-
+	showGamExtents := flag.Bool("gamextents", false, "show GAM extents for each page")
+	showSGamExtents := flag.Bool("sgamextents", false, "show SGAM extents for each page")
+	showIAMExtents := flag.Bool("iamextents", false, "show IAM extents for each page")
+	
 	flag.Parse()
 
 	file, err := os.Open(*inputfile) //
@@ -67,7 +63,12 @@ func main() {
 	defer file.Close()
 
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
-	var database Database
+	var database db.Database
+
+	reporter := reporter.Reporter{ShowGamExtents:*showGamExtents, 
+		    ShowSGamExtents:*showSGamExtents,
+		    ShowIAMExtents: *showIAMExtents}
+		    
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))
@@ -89,16 +90,16 @@ func main() {
 		if *toPage != -1 && (i/PAGELEN)> *toPage {
 			continue
 		}
+		page := db.ProcessPage(bs)
+		Pages = append(Pages, page)
+		reporter.PrintHeaderInfo(page)
 
-		var page *page.Page = new(page.Page)
-		page.Process(bs)
-		database = append(database, *page)
 		if page.Header.PageId != 0 {
-			fmt.Printf("Processed page %d type %s\n", page.Header.PageId, page.GetType())
+			fmt.Printf("Processed page %d type %s\n", page.Header.PageId)
 		}
-	
 
 	}
-	database.ShowStats()
+	db.Pages = Pages
+	reporter.ShowStats(database)
 
 }

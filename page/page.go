@@ -192,14 +192,23 @@ func (page *Page) parseDATA(data []byte) {
 	page.dataRows = dataRows
 }
 
-func (page Page) showData() {
+func (page Page) showData(showCols bool) {
+	fmt.Printf("Object is %d slots %d free space %d\n", 
+	page.Header.ObjectId, page.Header.SlotCnt, page.Header.FreeData)
 	for slotId, dataRow := range page.dataRows {
 		fmt.Printf("Slot %d Record size offset %x \n", slotId, page.slots[slotId])
-		for _, dataCol := range *dataRow.DataCols {
-			fmt.Printf("col id %d offset %x len %d \n",
-				dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
+		if showCols {
+			dataRow.showData()
 		}
+		
 
+	}
+}
+
+func (dataRow DataRow) showData(){
+	for _, dataCol := range *dataRow.DataCols {
+		fmt.Printf("col id %d offset %x len %d \n",
+			dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
 	}
 }
 
@@ -262,18 +271,16 @@ func (page *Page) Process(data []byte) {
 		page.parseSGAM(data)
 	case "DATA":
 		page.parseDATA(data)
-	//	page.showData()
+	
 	case "IAM":
 		page.parseIAM(data)
 	}
-
+	page.showData(false) //needs improvement
 	pos := slotsOffset[0]
 	for idx, slotOffset := range slotsOffset {
 		if idx == 0 {
 			continue
 		}
-
-		//data[pos : pos+nextlot]
 
 		pos += slotOffset
 	}
