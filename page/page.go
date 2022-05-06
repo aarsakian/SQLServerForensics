@@ -21,8 +21,8 @@ var PageTypeFlagBits = map[uint8]string{
 
 var PFSStatus = map[uint8]string{
 	0: "NOT ALLOCATED 0PCT_FULL", 8: "NOT ALLOCATED 100PCT_FULL", 68: "ALLOCATED 100FULL",
-	96: "ALLOCATED Mixed Extend 0PTC_FULL", 116: "ALLOCATED Mixed Extend IAM 100PCT_FULL",
-	112: "ALLOCATED Mixed Extend IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
+	96: "ALLOCATED Mixed Extent 0PTC_FULL", 116: "ALLOCATED Mixed Extent IAM 100PCT_FULL",
+	112: "ALLOCATED Mixed Extent IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
 	66: "ALLOCATED 80PCT_FULL", 67: "ALLOCATED 95PCT_FULL", 156: "UNUSED HAS_GHOST D 100PCT_FULL"}
 
 type DataCol struct {
@@ -32,8 +32,6 @@ type DataCol struct {
 }
 type DataCols []DataCol
 
-
-
 type PFSPage []PFS
 
 type PFS struct {
@@ -41,49 +39,66 @@ type PFS struct {
 	status string
 }
 
-type GAMPages []GAM
+type GAMExtents []GAM
 
 type GAM struct {
 	extent    int
 	allocated bool
 }
 
-type SGAMPages []SGAM
+type SGAMExtents []SGAMExtent
 
-type SGAM struct {
+type SGAMExtent struct {
 	extent    int
 	allocated bool
 }
+type IAMExtents []IAMExtent
+
+type IAMExtent struct {
+	extent int 
+	allocated bool 
+}
+
+/*type IAMHeader struct {
+	sequenceNumber //position in the IAM chain
+	status //
+	objectId //
+	indexId //
+	page_count 
+	start_pg 
+	//singlePageAllocation *singlePageAllocation 
+}*/
+
+type Pages []Page
 
 type Page struct {
 	Header    Header
 	slots     []utils.SlotOffset
 	dataRows  []DataRow
 	PFSPage   *PFSPage
-	GAMPages  *GAMPages
-	SGAMPages *SGAMPages
+	GAMExtents  *GAMExtents
+	SGAMExtents *SGAMExtents
+	IAMExtents *IAMExtents
 }
 
-
-
 type Header struct {
-	Version  uint8    //1
-	Type     uint8    // 1-2
-	unknown1 [2]byte  //2-4
-	FlagBits [2]byte  //4-6
-	unknown2 [8]byte  //6-14
-	PMinLen  uint16   //14-16  size of fixed len records
-	unknown3 [6]byte  //16-22
-	SlotCnt  uint16   //22-24   number of slots (records) that hold data
-	ObjectId uint32   //24-28
-	FreeCnt  uint16   //28-30 free space in bytes
-	FreeData uint16   //30-32 offset from the start of the page to the first byte after the last record
-	PageId   uint32   //32-36
-	FragId   uint32   //36-40
-	LSN      utils.LSN      //40-52
-	unknown5 [8]byte  //52-60
-	TornBits int32    //60-64
-	unknown6 [32]byte //64-96
+	Version  uint8     //1
+	Type     uint8     // 1-2
+	unknown1 [2]byte   //2-4
+	FlagBits [2]byte   //4-6
+	unknown2 [8]byte   //6-14
+	PMinLen  uint16    //14-16  size of fixed len records
+	unknown3 [6]byte   //16-22
+	SlotCnt  uint16    //22-24   number of slots (records) that hold data
+	ObjectId uint32    //24-28
+	FreeCnt  uint16    //28-30 free space in bytes
+	FreeData uint16    //30-32 offset from the start of the page to the first byte after the last record
+	PageId   uint32    //32-36
+	FragId   uint32    //36-40
+	LSN      utils.LSN //40-52
+	unknown5 [8]byte   //52-60
+	TornBits int32     //60-64
+	unknown6 [32]byte  //64-96
 }
 
 type DataRow struct {
@@ -153,15 +168,15 @@ func (page Page) GetType() string {
 	return PageTypes[page.Header.Type]
 }
 
-func (gamPages GAMPages) ShowAllocations() {
+func (gamExtents GAMExtents) ShowAllocations() {
 	var allocatedPages []int
 	pageRange := 0
-	for _, gampage := range gamPages {
-		if gampage.allocated {
+	for _, gamextent := range gamExtents {
+		if gamextent.allocated {
 
 		} else {
 			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("allocated range %d ", pageRange)
+			fmt.Printf("GAM allocated range %d \n", pageRange)
 
 		}
 		pageRange += 8
@@ -169,68 +184,94 @@ func (gamPages GAMPages) ShowAllocations() {
 
 }
 
-func (sgamPages SGAMPages) ShowAllocations() {
+func (sgamExtents SGAMExtents) ShowAllocations() {
 	var allocatedPages []int
 	pageRange := 0
-	for _, sgampage := range sgamPages {
-		if sgampage.allocated {
+	for _, sgamextent := range sgamExtents {
+		if sgamextent.allocated {
 
 		} else {
 			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("allocated range %d ", pageRange)
+			fmt.Printf("SGAM allocated range %d \n", pageRange)
 		}
 		pageRange += 8
 	}
 }
 
-func (gamPages GAMPages) FilterByAllocationStatus(status bool) AllocationMaps {
-	return GAMPages(utils.Filter(gamPages, func(gam GAM) bool {
+
+func (iamExtents IAMExtents) ShowAllocations() {
+	var allocatedPages []int
+	pageRange := 0
+	for _, iamextent := range iamExtents {
+		if iamextent.allocated {
+
+		} else {
+			allocatedPages = append(allocatedPages, pageRange)
+			fmt.Printf("IAM allocated range %d \n", pageRange)
+		}
+		pageRange += 8
+	}
+}
+
+
+
+
+func (gamExtents GAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
+	return GAMExtents(utils.Filter(gamExtents, func(gam GAM) bool {
 		return gam.allocated == status
 	}))
 
 }
 
-func (sgamPages SGAMPages) FilterByAllocationStatus(status bool) AllocationMaps {
-	return SGAMPages(utils.Filter(sgamPages, func(sgam SGAM) bool {
+func (sgamExtents SGAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
+	return SGAMExtents(utils.Filter(sgamExtents, func(sgam SGAMExtent) bool {
 		return sgam.allocated == status
 	}))
 
 }
 
-func (gamPages GAMPages) GetStats() (int, int) {
-	allocatedGamPages := gamPages.FilterByAllocationStatus(true)
-	unallocatedGamPages := gamPages.FilterByAllocationStatus(false)
-	return reflect.ValueOf(allocatedGamPages).Len() * 8,
-		reflect.ValueOf(unallocatedGamPages).Len() * 8
+func (iamExtents IAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
+	return IAMExtents(utils.Filter(iamExtents, func(iam IAMExtent) bool {
+		return iam.allocated == status
+	}))
+}
+
+func (gamExtents GAMExtents) GetStats() (int, int) {
+	allocatedgamextents := gamExtents.FilterByAllocationStatus(true)
+	unallocatedgamextents := gamExtents.FilterByAllocationStatus(false)
+	return reflect.ValueOf(allocatedgamextents).Len() * 8,
+		reflect.ValueOf(unallocatedgamextents).Len() * 8
 
 }
 
 func (page Page) ShowGAMStats() {
-	allocatedPages, unallocatedPages := page.GAMPages.GetStats()
+	allocatedPages, unallocatedPages := page.GAMExtents.GetStats()
 	fmt.Printf("GAM allocated %d unallocated %d \n", allocatedPages, unallocatedPages)
 }
 
 func (page *Page) parseGAM(data []byte) {
-	var gamPages GAMPages
+	var gamExtents GAMExtents
 	GAMLen := 4
 	for idx, entry := range data[int(page.slots[1])+GAMLen : page.Header.FreeData] {
 
 		for i := 0; i < 8; i++ {
 
-			gamPages = append(gamPages, GAM{i + idx*8, entry>>i&1 == 0})
+			gamExtents = append(gamExtents, GAM{i + idx*8, entry>>i&1 == 0})
 
 		}
 
 	}
-	page.GAMPages = &gamPages
+	page.GAMExtents = &gamExtents
 }
 
 func (page Page) GetAllocationMaps() AllocationMaps {
 	var allocMap AllocationMaps
-	if page.GAMPages != nil {
-		allocMap = *page.GAMPages
-	} else if page.SGAMPages != nil {
-		allocMap = *page.SGAMPages
+	if page.GAMExtents != nil {
+		allocMap = *page.GAMExtents
+	} else if page.SGAMExtents != nil {
+		allocMap = *page.SGAMExtents
+	} else if page.IAMExtents != nil {
+		allocMap = *page.IAMExtents
 	}
 	return allocMap
 }
@@ -259,25 +300,25 @@ func (page Page) showData() {
 }
 
 func (page *Page) parseSGAM(data []byte) {
-	var sgamPages SGAMPages
+	var sgamExtents SGAMExtents
 	SGAMLen := 4
 	for idx, entry := range data[int(page.slots[1])+SGAMLen : page.Header.FreeData] {
 
 		for i := 0; i < 8; i++ {
 
-			sgamPages = append(sgamPages, SGAM{i + idx*8, entry>>i&1 == 0})
+			sgamExtents = append(sgamExtents, SGAMExtent{i + idx*8, entry>>i&1 == 0})
 
 		}
 
 	}
-	page.SGAMPages = &sgamPages
+	page.SGAMExtents = &sgamExtents
 }
 
-func (sgamPages SGAMPages) GetStats() (int, int) {
-	allocatedGamPages := sgamPages.FilterByAllocationStatus(true)
-	unallocatedGamPages := sgamPages.FilterByAllocationStatus(false)
-	return reflect.ValueOf(allocatedGamPages).Len() * 8,
-		reflect.ValueOf(unallocatedGamPages).Len() * 8
+func (sgamExtents SGAMExtents) GetStats() (int, int) {
+	allocatedgamextents := sgamExtents.FilterByAllocationStatus(true)
+	unallocatedgamextents := sgamExtents.FilterByAllocationStatus(false)
+	return reflect.ValueOf(allocatedgamextents).Len() * 8,
+		reflect.ValueOf(unallocatedgamextents).Len() * 8
 
 }
 
@@ -288,6 +329,17 @@ func (page *Page) parsePFS(data []byte) {
 	}
 
 	page.PFSPage = &pfsPage
+}
+
+func (page *Page) parseIAM(data []byte) {
+	var iams IAMExtents
+	for idx, entry := range data[page.slots[1]:page.Header.FreeData] {
+		for i := 0; i < 8; i++ {
+			iams = append(iams, IAMExtent{i + idx*8, entry>>i&1 == 0})
+		}	
+	}
+
+	page.IAMExtents = &iams
 }
 
 func (page *Page) Process(data []byte) {
@@ -312,7 +364,9 @@ func (page *Page) Process(data []byte) {
 		page.parseSGAM(data)
 	case "DATA":
 		page.parseDATA(data)
-		page.showData()
+	//	page.showData()
+	case "IAM":
+		page.parseIAM(data)
 	}
 
 	pos := slotsOffset[0]
