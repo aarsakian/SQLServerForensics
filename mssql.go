@@ -32,6 +32,9 @@ type Database page.Pages
 func (db Database) ShowStats() {
 	for _, page := range db {
 		allocMap := page.GetAllocationMaps()
+		if allocMap == nil {
+			continue
+		}
 		allocMap.ShowAllocations()
 	}
 
