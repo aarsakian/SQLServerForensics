@@ -48,8 +48,8 @@ type Pages []Page
 
 type Page struct {
 	Header    Header
-	slots     []utils.SlotOffset
-	dataRows  []DataRow
+	Slots     []utils.SlotOffset
+	DataRows  []DataRow
 	PFSPage   *PFSPage
 	GAMExtents  *GAMExtents
 	SGAMExtents *SGAMExtents
@@ -127,6 +127,13 @@ func (dataRow *DataRow) Process(data []byte) {
 
 }
 
+func (dataRow DataRow) ShowData(){
+	for _, dataCol := range *dataRow.DataCols {
+		fmt.Printf("col id %d offset %x len %d \n",
+			dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
+	}
+}
+
 func retrieveSlots(data []byte) []utils.SlotOffset {
 	var slotsOffset []utils.SlotOffset
 
@@ -154,7 +161,7 @@ func (page Page) ShowGAMStats() {
 func (page *Page) parseGAM(data []byte) {
 	var gamExtents GAMExtents
 	GAMLen := 4
-	for idx, entry := range data[int(page.slots[1])+GAMLen : page.Header.FreeData] {
+	for idx, entry := range data[int(page.Slots[1])+GAMLen : page.Header.FreeData] {
 
 		for i := 0; i < 8; i++ {
 
@@ -182,40 +189,23 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 
 func (page *Page) parseDATA(data []byte) {
 	var dataRows []DataRow
-	for _, slotoffset := range page.slots {
+	for _, slotoffset := range page.Slots {
 		var dataRow DataRow
 		utils.Unmarshal(data[slotoffset:], &dataRow)
 
 		dataRow.Process(data[slotoffset:]) // from slot to end
 		dataRows = append(dataRows, dataRow)
 	}
-	page.dataRows = dataRows
+	page.DataRows = dataRows
 }
 
-func (page Page) showData(showCols bool) {
-	fmt.Printf("Object is %d slots %d free space %d\n", 
-	page.Header.ObjectId, page.Header.SlotCnt, page.Header.FreeData)
-	for slotId, dataRow := range page.dataRows {
-		fmt.Printf("Slot %d Record size offset %x \n", slotId, page.slots[slotId])
-		if showCols {
-			dataRow.showData()
-		}
-		
 
-	}
-}
 
-func (dataRow DataRow) showData(){
-	for _, dataCol := range *dataRow.DataCols {
-		fmt.Printf("col id %d offset %x len %d \n",
-			dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
-	}
-}
 
 func (page *Page) parseSGAM(data []byte) {
 	var sgamExtents SGAMExtents
 	SGAMLen := 4
-	for idx, entry := range data[int(page.slots[1])+SGAMLen : page.Header.FreeData] {
+	for idx, entry := range data[int(page.Slots[1])+SGAMLen : page.Header.FreeData] {
 
 		for i := 0; i < 8; i++ {
 
@@ -231,7 +221,7 @@ func (page *Page) parseSGAM(data []byte) {
 
 func (page *Page) parsePFS(data []byte) {
 	var pfsPage PFSPage
-	for idx, entry := range data[page.slots[0]:page.Header.FreeData] {
+	for idx, entry := range data[page.Slots[0]:page.Header.FreeData] {
 		pfsPage = append(pfsPage, PFS{uint8(idx), PFSStatus[uint8(entry)]})
 	}
 
@@ -240,7 +230,7 @@ func (page *Page) parsePFS(data []byte) {
 
 func (page *Page) parseIAM(data []byte) {
 	var iams IAMExtents
-	for idx, entry := range data[page.slots[1]:page.Header.FreeData] {
+	for idx, entry := range data[page.Slots[1]:page.Header.FreeData] {
 		for i := 0; i < 8; i++ {
 			iams = append(iams, IAMExtent{i + idx*8, entry>>i&1 == 0})
 		}	
@@ -260,7 +250,7 @@ func (page *Page) Process(data []byte) {
 	}
 	slotsOffset := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):])
 	sort.Sort(utils.SortedSlotsOffset(slotsOffset))
-	page.slots = slotsOffset
+	page.Slots = slotsOffset
 
 	switch page.GetType() {
 	case "PFS":
@@ -275,7 +265,7 @@ func (page *Page) Process(data []byte) {
 	case "IAM":
 		page.parseIAM(data)
 	}
-	page.showData(false) //needs improvement
+	
 	pos := slotsOffset[0]
 	for idx, slotOffset := range slotsOffset {
 		if idx == 0 {
