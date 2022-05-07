@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"reflect"
 	"sort"
 )
 
@@ -25,35 +24,26 @@ var PFSStatus = map[uint8]string{
 	112: "ALLOCATED Mixed Extent IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
 	66: "ALLOCATED 80PCT_FULL", 67: "ALLOCATED 95PCT_FULL", 156: "UNUSED HAS_GHOST D 100PCT_FULL"}
 
-type DataCol struct {
-	id      uint16
-	offset  uint16
-	content []byte
-}
-type DataCols []DataCol
-
-
-
 /*type IAMHeader struct {
 	sequenceNumber //position in the IAM chain
 	status //
 	objectId //
 	indexId //
-	page_count 
-	start_pg 
-	//singlePageAllocation *singlePageAllocation 
+	page_count
+	start_pg
+	//singlePageAllocation *singlePageAllocation
 }*/
 
 type Pages []Page
 
 type Page struct {
-	Header    Header
-	Slots     []utils.SlotOffset
-	DataRows  []DataRow
-	PFSPage   *PFSPage
+	Header      Header
+	Slots       []utils.SlotOffset
+	DataRows    []DataRow
+	PFSPage     *PFSPage
 	GAMExtents  *GAMExtents
 	SGAMExtents *SGAMExtents
-	IAMExtents *IAMExtents
+	IAMExtents  *IAMExtents
 }
 
 type Header struct {
@@ -76,24 +66,9 @@ type Header struct {
 	unknown6 [32]byte  //64-96
 }
 
-type DataRow struct {
-	StatusA               uint8  //1
-	StatusB               uint8  //2
-	NofColsOffset         uint16 //3-4
-	FixedLenCols          []byte
-	NumberOfCols          uint16
-	NullBitmap            uint8
-	NumberOfVarLengthCols uint16
-	DataCols              *DataCols
-}
-
 type AllocationMaps interface {
 	FilterByAllocationStatus(bool) AllocationMaps
 	ShowAllocations()
-}
-
-func (dataRow DataRow) Len() uint16 {
-	return uint16(reflect.ValueOf(dataRow.FixedLenCols).Len() + 9)
 }
 
 func (dataRow *DataRow) Process(data []byte) {
@@ -127,13 +102,6 @@ func (dataRow *DataRow) Process(data []byte) {
 
 }
 
-func (dataRow DataRow) ShowData(){
-	for _, dataCol := range *dataRow.DataCols {
-		fmt.Printf("col id %d offset %x len %d \n",
-			dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
-	}
-}
-
 func retrieveSlots(data []byte) []utils.SlotOffset {
 	var slotsOffset []utils.SlotOffset
 
@@ -149,9 +117,6 @@ func retrieveSlots(data []byte) []utils.SlotOffset {
 func (page Page) GetType() string {
 	return PageTypes[page.Header.Type]
 }
-
-
-
 
 func (page Page) ShowGAMStats() {
 	allocatedPages, unallocatedPages := page.GAMExtents.GetStats()
@@ -199,9 +164,6 @@ func (page *Page) parseDATA(data []byte) {
 	page.DataRows = dataRows
 }
 
-
-
-
 func (page *Page) parseSGAM(data []byte) {
 	var sgamExtents SGAMExtents
 	SGAMLen := 4
@@ -217,8 +179,6 @@ func (page *Page) parseSGAM(data []byte) {
 	page.SGAMExtents = &sgamExtents
 }
 
-
-
 func (page *Page) parsePFS(data []byte) {
 	var pfsPage PFSPage
 	for idx, entry := range data[page.Slots[0]:page.Header.FreeData] {
@@ -233,7 +193,7 @@ func (page *Page) parseIAM(data []byte) {
 	for idx, entry := range data[page.Slots[1]:page.Header.FreeData] {
 		for i := 0; i < 8; i++ {
 			iams = append(iams, IAMExtent{i + idx*8, entry>>i&1 == 0})
-		}	
+		}
 	}
 
 	page.IAMExtents = &iams
@@ -261,11 +221,11 @@ func (page *Page) Process(data []byte) {
 		page.parseSGAM(data)
 	case "DATA":
 		page.parseDATA(data)
-	
+
 	case "IAM":
 		page.parseIAM(data)
 	}
-	
+
 	pos := slotsOffset[0]
 	for idx, slotOffset := range slotsOffset {
 		if idx == 0 {
