@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math"
 	"reflect"
-	
 )
 
 type LSN struct {
@@ -63,10 +63,19 @@ func Unmarshal(data []byte, v interface{}) error {
 			field.SetUint(uint64(temp))
 			idx += 2
 		case reflect.Uint32:
+			name := structType.Elem().Field(i).Name
 			var temp uint32
-			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
-			field.SetUint(uint64(temp))
-			idx += 4
+			if name == "NullBitmap" {
+				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
+				bytesNeeded := int(math.Floor(float64(nofCols / 8)))
+				binary.Read(bytes.NewBuffer(data[idx:idx+bytesNeeded]), binary.LittleEndian, &temp)
+				field.SetUint(uint64(temp))
+				idx += bytesNeeded
+			} else {
+				binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
+				field.SetUint(uint64(temp))
+				idx += 4
+			}
 		case reflect.Int32:
 			var temp int32
 			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
@@ -91,8 +100,8 @@ func Unmarshal(data []byte, v interface{}) error {
 
 				field.Set(reflect.ValueOf(data[idx:nofColsOffset]))
 				idx += field.Len()
-			}
 
+			}
 		}
 
 	}

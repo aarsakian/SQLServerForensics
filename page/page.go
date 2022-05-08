@@ -79,10 +79,16 @@ func (dataRow *DataRow) Process(data []byte) {
 		if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
 			continue
 		}
-		dataCols = append(dataCols, DataCol{colId, colId * 4, data[4*cnt : 4*cnt+4]})
+
+		if 2*cnt >= len(data) {
+			break
+		}
+
+		dataCols = append(dataCols, DataCol{colId, colId * 2, data[2*cnt : 2*cnt+2]})
 		cnt++
 	}
 
+	// varying length cols processing
 	startVarColOffsets := dataRow.Len()                                 //where var col offsets start
 	endVarColOffsets := dataRow.Len() + 2*dataRow.NumberOfVarLengthCols //where var col offsets end
 	var endVarColOffset uint16                                          // where each var len col ends
