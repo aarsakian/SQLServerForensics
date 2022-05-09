@@ -1,15 +1,26 @@
 package page
 
-import ("fmt"
-		"MSSQLParser/utils")
-
+import (
+	"MSSQLParser/utils"
+	"fmt"
+)
 
 type IAMExtents []IAMExtent
 
 type IAMExtent struct {
-	extent int 
-	allocated bool 
+	extent    int
+	allocated bool
 }
+
+/*type IAMHeader struct {
+	sequenceNumber //position in the IAM chain
+	status //
+	objectId //
+	indexId //
+	page_count
+	start_pg
+	//singlePageAllocation *singlePageAllocation
+}*/
 
 func (iamExtents IAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
 	return IAMExtents(utils.Filter(iamExtents, func(iam IAMExtent) bool {
