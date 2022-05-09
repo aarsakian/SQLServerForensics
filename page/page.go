@@ -24,16 +24,6 @@ var PFSStatus = map[uint8]string{
 	112: "ALLOCATED Mixed Extent IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
 	66: "ALLOCATED 80PCT_FULL", 67: "ALLOCATED 95PCT_FULL", 156: "UNUSED HAS_GHOST D 100PCT_FULL"}
 
-/*type IAMHeader struct {
-	sequenceNumber //position in the IAM chain
-	status //
-	objectId //
-	indexId //
-	page_count
-	start_pg
-	//singlePageAllocation *singlePageAllocation
-}*/
-
 type Pages []Page
 
 type Page struct {
@@ -44,6 +34,8 @@ type Page struct {
 	GAMExtents  *GAMExtents
 	SGAMExtents *SGAMExtents
 	IAMExtents  *IAMExtents
+	PrevPage    *Page
+	NextPage    *Page
 }
 
 type Header struct {
