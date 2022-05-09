@@ -59,12 +59,7 @@ func Unmarshal(data []byte, v interface{}) error {
 			idx += 1
 		case reflect.Uint16:
 			var temp uint16
-			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
-			field.SetUint(uint64(temp))
-			idx += 2
-		case reflect.Uint32:
 			name := structType.Elem().Field(i).Name
-			var temp uint32
 			if name == "NullBitmap" {
 				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
 				bytesNeeded := int(math.Floor(float64(nofCols / 8)))
@@ -72,10 +67,16 @@ func Unmarshal(data []byte, v interface{}) error {
 				field.SetUint(uint64(temp))
 				idx += bytesNeeded
 			} else {
-				binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
+				binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
 				field.SetUint(uint64(temp))
-				idx += 4
+				idx += 2
 			}
+		case reflect.Uint32:
+			var temp uint32
+			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
+			field.SetUint(uint64(temp))
+			idx += 4
+
 		case reflect.Int32:
 			var temp int32
 			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
