@@ -24,7 +24,7 @@ type DataRow struct {
 	NofColsOffset         uint16 //3-4
 	FixedLenCols          []byte
 	NumberOfCols          uint16
-	NullBitmap            uint32
+	NullBitmap            uint16
 	NumberOfVarLengthCols uint16
 	DataCols              *DataCols
 }
