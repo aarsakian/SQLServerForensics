@@ -39,13 +39,17 @@ type Page struct {
 }
 
 type Header struct {
-	Version  uint8     //1
-	Type     uint8     // 1-2
-	unknown1 [2]byte   //2-4
-	FlagBits [2]byte   //4-6
-	unknown2 [8]byte   //6-14
-	PMinLen  uint16    //14-16  size of fixed len records
-	unknown3 [6]byte   //16-22
+	Version  uint8   //1
+	Type     uint8   // 1-2
+	unknown1 [2]byte //2-4
+	FlagBits [2]byte //4-6
+	IndexId  uint16  //6-8
+	PrevPage uint16  //8-10
+	unknown2 [4]byte //10-14
+	PMinLen  uint16  //14-16  size of fixed len records
+	NextPage uint16  //16-18
+	unknown3 [2]byte
+	MIndexId uint16    //20-22
 	SlotCnt  uint16    //22-24   number of slots (records) that hold data
 	ObjectId uint32    //24-28
 	FreeCnt  uint16    //28-30 free space in bytes
@@ -156,8 +160,8 @@ func (page *Page) parseDATA(data []byte) {
 		var dataRow DataRow
 		utils.Unmarshal(data[slotoffset:], &dataRow)
 
-		dataRow.Process(data[slotoffset:]) // from slot to end
-		dataRows = append(dataRows, dataRow)
+		//	dataRow.Process(data[slotoffset:]) // from slot to end
+		//		dataRows = append(dataRows, dataRow)
 	}
 	page.DataRows = dataRows
 }
@@ -180,7 +184,7 @@ func (page *Page) parseSGAM(data []byte) {
 func (page *Page) parsePFS(data []byte) {
 	var pfsPage PFSPage
 	for idx, entry := range data[page.Slots[0]:page.Header.FreeData] {
-		pfsPage = append(pfsPage, PFS{uint8(idx), PFSStatus[uint8(entry)]})
+		pfsPage = append(pfsPage, PFS{uint32(idx), PFSStatus[uint8(entry)]})
 	}
 
 	page.PFSPage = &pfsPage
