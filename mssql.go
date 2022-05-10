@@ -37,11 +37,11 @@ func main() {
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
-	showGamExtents := flag.Bool("gamextents", false, "show GAM extents for each page")
-	showSGamExtents := flag.Bool("sgamextents", false, "show SGAM extents for each page")
-	showIAMExtents := flag.Bool("iamextents", false, "show IAM extents for each page")
-	showDataCols := flag.Bool("showdatacols", false, "show data cols for each data row")
-	showPFS := flag.Bool("showpfs", false, "show pfm page")
+	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
+	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
+	showIAMExtents := flag.Bool("iam", false, "show IAM extents for each page")
+	showDataCols := flag.Bool("datacols", false, "show data cols for each data row")
+	showPFS := flag.Bool("pfs", false, "show pfm page")
 	flag.Parse()
 
 	file, err := os.Open(*inputfile) //
