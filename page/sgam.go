@@ -1,10 +1,10 @@
 package page
 
-import ("fmt"
-		"reflect"
-		"MSSQLParser/utils")
-
-
+import (
+	"MSSQLParser/utils"
+	"fmt"
+	"reflect"
+)
 
 type SGAMExtents []SGAMExtent
 
@@ -14,17 +14,27 @@ type SGAMExtent struct {
 }
 
 func (sgamExtents SGAMExtents) ShowAllocations() {
-	var allocatedPages []int
-	pageRange := 0
-	for _, sgamextent := range sgamExtents {
-		if sgamextent.allocated {
 
-		} else {
-			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("SGAM allocated range %d \n", pageRange)
+	prevAllocated := true
+	startPageId := 0
+	endPageId := 0
+	lastPageId := 0
+
+	fmt.Printf("SGAM allocation map \n")
+	for _, sgamextent := range sgamExtents {
+		if sgamextent.allocated != prevAllocated {
+			endPageId = sgamextent.extent
+			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
+				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+
+			startPageId = sgamextent.extent
 		}
-		pageRange += 8
+		lastPageId = sgamextent.extent
+		prevAllocated = sgamextent.allocated
 	}
+
+	fmt.Printf("(%d:%d) = %s \n", startPageId*8, lastPageId*8,
+		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
 }
 
 func (sgamExtents SGAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {

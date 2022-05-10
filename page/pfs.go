@@ -13,9 +13,20 @@ type PFS struct {
 }
 
 func (pfsPage PFSPage) ShowAllocations() {
+	prevStatus := ""
+	startPageId := 0
+	endPageId := 0
+	lastPageId := 0
 	for _, pfs := range pfsPage {
-		fmt.Printf("page %d status %s \n", pfs.pageID, pfs.status)
+		if pfs.status != prevStatus {
+			endPageId = int(pfs.pageID)
+			fmt.Printf("(%d:%d) = %s \n", startPageId, endPageId, prevStatus)
+			startPageId = int(pfs.pageID)
+		}
+		prevStatus = pfs.status
+		lastPageId = int(pfs.pageID)
 	}
+	fmt.Printf("(%d:%d) = %s \n", startPageId, lastPageId, prevStatus)
 }
 
 /*to be checked*/

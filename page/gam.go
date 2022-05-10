@@ -1,11 +1,10 @@
 package page
 
-import ("fmt"
-		"reflect"
-		"MSSQLParser/utils")
-
-
-
+import (
+	"MSSQLParser/utils"
+	"fmt"
+	"reflect"
+)
 
 type GAMExtents []GAMExtent
 
@@ -15,19 +14,28 @@ type GAMExtent struct {
 }
 
 func (gamExtents GAMExtents) ShowAllocations() {
-	var allocatedPages []int
-	pageRange := 0
+
+	prevAllocated := true
+	startPageId := 0
+	endPageId := 0
+	lastPageId := 0
+
+	fmt.Printf("GAM allocation map \n")
+
 	for _, gamextent := range gamExtents {
-		if gamextent.allocated {
+		if gamextent.allocated != prevAllocated {
+			endPageId = gamextent.extent
+			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
+				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
 
-		} else {
-			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("GAM allocated range %d \n", pageRange)
-
+			startPageId = gamextent.extent
 		}
-		pageRange += 8
+		lastPageId = gamextent.extent
+		prevAllocated = gamextent.allocated
 	}
 
+	fmt.Printf("(%d:%d) = %s \n", startPageId*8, lastPageId*8,
+		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
 }
 
 func (gamExtents GAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
@@ -44,4 +52,3 @@ func (gamExtents GAMExtents) GetStats() (int, int) {
 		reflect.ValueOf(unallocatedgamextents).Len() * 8
 
 }
-

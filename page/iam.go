@@ -29,15 +29,24 @@ func (iamExtents IAMExtents) FilterByAllocationStatus(status bool) AllocationMap
 }
 
 func (iamExtents IAMExtents) ShowAllocations() {
-	var allocatedPages []int
-	pageRange := 0
-	for _, iamextent := range iamExtents {
-		if iamextent.allocated {
+	prevAllocated := true
+	startPageId := 0
+	endPageId := 0
+	lastPageId := 0
 
-		} else {
-			allocatedPages = append(allocatedPages, pageRange)
-			fmt.Printf("IAM allocated range %d \n", pageRange)
+	fmt.Printf("IAM allocation map \n")
+	for _, iamextent := range iamExtents {
+		if iamextent.allocated != prevAllocated {
+			endPageId = iamextent.extent
+			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
+				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+
+			startPageId = iamextent.extent
 		}
-		pageRange += 8
+		lastPageId = iamextent.extent
+		prevAllocated = iamextent.allocated
 	}
+
+	fmt.Printf("(%d:%d) = %s \n", startPageId*8, lastPageId*8,
+		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
 }
