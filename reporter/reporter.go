@@ -21,8 +21,10 @@ func (rp Reporter) ShowStats(database db.Database) {
 			continue
 		}
 
-		if rp.ShowPFS || rp.ShowIAMExtents ||
-			rp.ShowGamExtents || rp.ShowSGamExtents {
+		if rp.ShowPFS && page.GetType() == "PFS" ||
+			rp.ShowIAMExtents && page.GetType() == "IAM" ||
+			rp.ShowGamExtents && page.GetType() == "GAM" ||
+			rp.ShowSGamExtents && page.GetType() == "SGAM" {
 			allocMap.ShowAllocations()
 		}
 
