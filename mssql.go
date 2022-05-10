@@ -21,17 +21,13 @@ Index allocation map (IAM) pages keep track of the extents used by a heap or ind
 package main
 
 import (
-	"MSSQLParser/reporter"
-	"MSSQLParser/page"
 	db "MSSQLParser/db"
+	"MSSQLParser/page"
+	"MSSQLParser/reporter"
 	"flag"
 	"fmt"
 	"os"
 )
-
-
-
-
 
 func main() {
 
@@ -44,8 +40,8 @@ func main() {
 	showGamExtents := flag.Bool("gamextents", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgamextents", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iamextents", false, "show IAM extents for each page")
-	showDataCols := flag.Bool("showdatacols" ,false, "show data cols for each data row")
-	
+	showDataCols := flag.Bool("showdatacols", false, "show data cols for each data row")
+	showPFS := flag.Bool("showpfs", false, "show pfm page")
 	flag.Parse()
 
 	file, err := os.Open(*inputfile) //
@@ -67,41 +63,36 @@ func main() {
 	var database db.Database
 	var pages page.Pages
 
-	reporter := reporter.Reporter{ShowGamExtents:*showGamExtents, 
-		    ShowSGamExtents:*showSGamExtents,
-		    ShowIAMExtents: *showIAMExtents,
-			ShowDataCols: *showDataCols}
-		    
+	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
+		ShowSGamExtents: *showSGamExtents,
+		ShowIAMExtents:  *showIAMExtents,
+		ShowDataCols:    *showDataCols,
+		ShowPFS:         *showPFS}
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))
 
 		if err != nil {
 			fmt.Printf("error reading file --->%s prev offset %d  mod %d",
-			 err, i/PAGELEN, i%PAGELEN)
+				err, i/PAGELEN, i%PAGELEN)
 			return
 		}
 
 		if *selectedPage != -1 && (i/PAGELEN < *selectedPage || i/PAGELEN > *selectedPage) {
 			continue
 		}
-		
-		if (i/PAGELEN) < *fromPage {
+
+		if (i / PAGELEN) < *fromPage {
 			continue
 		}
 
-		if *toPage != -1 && (i/PAGELEN)> *toPage {
+		if *toPage != -1 && (i/PAGELEN) > *toPage {
 			continue
 		}
 		page := database.ProcessPage(bs)
 		pages = append(pages, page)
-		
-		reporter.PrintHeaderInfo(page)
-		reporter.PrintDataRowInfo(page)
 
-		if page.Header.PageId != 0 {
-			fmt.Printf("Processed page %d\n", page.Header.PageId)
-		}
+		fmt.Printf("Processed page %s %d\n", page.GetType(), page.Header.PageId)
 
 	}
 	database.Pages = pages
