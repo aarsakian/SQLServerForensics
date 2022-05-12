@@ -43,6 +43,7 @@ func main() {
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iam", false, "show IAM extents for each page")
 	showDataCols := flag.Bool("datacols", false, "show data cols for each data row")
+	showSlots := flag.Bool("slots", false, "show page slots")
 	showPFS := flag.Bool("pfs", false, "show pfm page")
 	flag.Parse()
 
@@ -70,7 +71,8 @@ func main() {
 		ShowIAMExtents:  *showIAMExtents,
 		ShowDataCols:    *showDataCols,
 		ShowPFS:         *showPFS,
-		ShowHeader:      *showHeader}
+		ShowHeader:      *showHeader,
+		ShowSlots:       *showSlots}
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))
@@ -100,7 +102,7 @@ func main() {
 	}
 	database.Pages = pages
 	if *pageType != "" {
-		database.FilterPagesByType(*pageType) //mutable
+		database.Pages = pages.FilterByType(*pageType) //mutable
 	}
 	reporter.ShowStats(database)
 

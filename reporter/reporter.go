@@ -13,14 +13,12 @@ type Reporter struct {
 	ShowDataCols    bool
 	ShowPFS         bool
 	ShowHeader      bool
+	ShowSlots       bool
 }
 
 func (rp Reporter) ShowStats(database db.Database) {
 	for _, page := range database.Pages {
 		allocMap := page.GetAllocationMaps()
-		if allocMap == nil {
-			continue
-		}
 
 		if rp.ShowPFS && page.GetType() == "PFS" ||
 			rp.ShowIAMExtents && page.GetType() == "IAM" ||
@@ -29,7 +27,7 @@ func (rp Reporter) ShowStats(database db.Database) {
 			allocMap.ShowAllocations()
 		}
 		if rp.ShowHeader {
-			page.PrintHeader()
+			page.PrintHeader(rp.ShowSlots)
 		}
 
 	}

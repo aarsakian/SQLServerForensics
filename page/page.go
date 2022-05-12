@@ -43,7 +43,7 @@ type Header struct {
 	Type     uint8   // 1-2
 	unknown1 [2]byte //2-4
 	FlagBits [2]byte //4-6
-	IndexId  uint16  //6-8
+	IndexId  uint16  //6-8  0 = Heap 1 = Clustered Index
 	PrevPage uint16  //8-10
 	unknown2 [4]byte //10-14
 	PMinLen  uint16  //14-16  size of fixed len records
@@ -196,11 +196,17 @@ func (page *Page) parsePFS(data []byte) {
 	page.PFSPage = &pfsPage
 }
 
-func (page Page) PrintHeader() {
+func (page Page) PrintHeader(showSlots bool) {
 	header := page.Header
+	if showSlots {
+
+		fmt.Printf(" %x ", page.Slots)
+
+	}
 	fmt.Printf("%d %s %d slots %d free space %d Prev page %d  Next page %d\n",
 		header.PageId, page.GetType(),
 		header.ObjectId, header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
+
 }
 
 func (page *Page) parseIAM(data []byte) {
