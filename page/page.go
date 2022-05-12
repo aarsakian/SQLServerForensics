@@ -67,6 +67,12 @@ type AllocationMaps interface {
 	ShowAllocations()
 }
 
+func (pages Pages) FilterByType(pageType string) Pages {
+	return utils.Filter(pages, func(page Page) bool {
+		return page.GetType() == pageType
+	})
+}
+
 func (dataRow *DataRow) Process(data []byte) {
 	nofColsFixedLen := dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols
 	cnt := 1
@@ -192,8 +198,8 @@ func (page *Page) parsePFS(data []byte) {
 
 func (page Page) PrintHeader() {
 	header := page.Header
-	fmt.Printf("%s %d slots %d free space %d Prev page %d  Next page %d\n",
-		page.GetType(),
+	fmt.Printf("%d %s %d slots %d free space %d Prev page %d  Next page %d\n",
+		header.PageId, page.GetType(),
 		header.ObjectId, header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 }
 

@@ -14,3 +14,7 @@ func (db Database) ProcessPage(bs []byte) page.Page {
 
 	return *page
 }
+
+func (db *Database) FilterPagesByType(pageType string) {
+	db.Pages = db.Pages.FilterByType(pageType)
+}
