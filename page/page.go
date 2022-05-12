@@ -190,6 +190,13 @@ func (page *Page) parsePFS(data []byte) {
 	page.PFSPage = &pfsPage
 }
 
+func (page Page) PrintHeader() {
+	header := page.Header
+	fmt.Printf("%s %d slots %d free space %d Prev page %d  Next page %d\n",
+		page.GetType(),
+		header.ObjectId, header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
+}
+
 func (page *Page) parseIAM(data []byte) {
 	var iams IAMExtents
 	for idx, entry := range data[page.Slots[1]:page.Header.FreeData] {

@@ -12,6 +12,7 @@ type Reporter struct {
 	ShowIAMExtents  bool
 	ShowDataCols    bool
 	ShowPFS         bool
+	ShowHeader      bool
 }
 
 func (rp Reporter) ShowStats(database db.Database) {
@@ -27,15 +28,12 @@ func (rp Reporter) ShowStats(database db.Database) {
 			rp.ShowSGamExtents && page.GetType() == "SGAM" {
 			allocMap.ShowAllocations()
 		}
+		if rp.ShowHeader {
+			page.PrintHeader()
+		}
 
 	}
 
-}
-
-func (rp Reporter) PrintHeaderInfo(page page.Page) {
-	header := page.Header
-	fmt.Printf("Type %s Object is %d slots %d free space %d\n", page.GetType(),
-		header.ObjectId, header.SlotCnt, header.FreeData)
 }
 
 func (rp Reporter) PrintDataRowInfo(page page.Page) {

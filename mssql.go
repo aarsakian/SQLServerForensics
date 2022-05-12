@@ -37,6 +37,7 @@ func main() {
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
+	showHeader := flag.Bool("header", false, "show page header")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iam", false, "show IAM extents for each page")
@@ -67,7 +68,8 @@ func main() {
 		ShowSGamExtents: *showSGamExtents,
 		ShowIAMExtents:  *showIAMExtents,
 		ShowDataCols:    *showDataCols,
-		ShowPFS:         *showPFS}
+		ShowPFS:         *showPFS,
+		ShowHeader:      *showHeader}
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))
