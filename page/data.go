@@ -12,6 +12,20 @@ type DataCol struct {
 	content []byte
 }
 
+type ColInfo struct {
+	uknown       [4]byte
+	ObjectId     uint32 //4 - 8
+	unknown2     [2]byte
+	Colorder     uint16 //10 - 12
+	Unknown3     byte
+	Xtype        uint8  // 14
+	Utype        uint32 //15-19
+	Colsize      uint16 //19-21
+	unknown4     [30]byte
+	ColRecordlen uint16 // 51-53
+	Colname      string
+}
+
 type DataCols []DataCol
 
 var DataRecord = map[uint8]string{0: "Primary", 1: "Forwarded", 2: "Forwarded Stub",

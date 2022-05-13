@@ -39,27 +39,26 @@ type Page struct {
 }
 
 type Header struct {
-	Version  uint8   //1
-	Type     uint8   // 1-2
-	unknown1 [2]byte //2-4
-	FlagBits [2]byte //4-6
-	IndexId  uint16  //6-8  0 = Heap 1 = Clustered Index
-	PrevPage uint16  //8-10
-	unknown2 [4]byte //10-14
-	PMinLen  uint16  //14-16  size of fixed len records
-	NextPage uint16  //16-18
-	unknown3 [2]byte
-	MIndexId uint16    //20-22
-	SlotCnt  uint16    //22-24   number of slots (records) that hold data
-	ObjectId uint32    //24-28
-	FreeCnt  uint16    //28-30 free space in bytes
-	FreeData uint16    //30-32 offset from the start of the page to the first byte after the last record
-	PageId   uint32    //32-36
-	FragId   uint32    //36-40
-	LSN      utils.LSN //40-52
-	unknown5 [8]byte   //52-60
-	TornBits int32     //60-64
-	unknown6 [32]byte  //64-96
+	Version        uint8     //1
+	Type           uint8     // 1-2
+	unknown1       [2]byte   //2-4
+	FlagBits       [2]byte   //4-6
+	IndexId        uint16    //6-8  0 = Heap 1 = Clustered Index
+	PrevPage       uint32    //8-12
+	PreviousFileId uint16    //12-14
+	PMinLen        uint16    //14-16  size of fixed len records
+	NextPage       uint32    //16-20
+	NextPageFileId uint16    //20-22
+	SlotCnt        uint16    //22-24   number of slots (records) that hold data
+	ObjectId       uint32    //24-28
+	FreeCnt        uint16    //28-30 free space in bytes
+	FreeData       uint16    //30-32 offset from the start of the page to the first byte after the last record
+	PageId         uint32    //32-36
+	FragId         uint32    //36-40
+	LSN            utils.LSN //40-52
+	unknown5       [8]byte   //52-60
+	TornBits       int32     //60-64
+	unknown6       [32]byte  //64-96
 }
 
 type AllocationMaps interface {
@@ -163,8 +162,13 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 func (page *Page) parseDATA(data []byte) {
 	var dataRows []DataRow
 	for _, slotoffset := range page.Slots {
-		var dataRow DataRow
-		utils.Unmarshal(data[slotoffset:], &dataRow)
+		if page.Header.ObjectId == 41 {
+			var colinfo ColInfo
+			utils.Unmarshal(data[slotoffset:], &colinfo)
+		} else {
+			var dataRow DataRow
+			utils.Unmarshal(data[slotoffset:], &dataRow)
+		}
 
 		//	dataRow.Process(data[slotoffset:]) // from slot to end
 		//		dataRows = append(dataRows, dataRow)
