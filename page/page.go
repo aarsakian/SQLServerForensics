@@ -29,7 +29,7 @@ type Pages []Page
 type Page struct {
 	Header      Header
 	Slots       []utils.SlotOffset
-	DataRows    []DataRow
+	DataRows    DataRows
 	PFSPage     *PFSPage
 	GAMExtents  *GAMExtents
 	SGAMExtents *SGAMExtents
@@ -160,18 +160,26 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 }
 
 func (page *Page) parseDATA(data []byte) {
-	var dataRows []DataRow
+	var dataRows DataRows
 	for _, slotoffset := range page.Slots {
 		if page.Header.ObjectId == 41 {
 			var colinfo ColInfo
 			utils.Unmarshal(data[slotoffset:], &colinfo)
+			if colinfo.ObjectId == 0x22 ||
+				colinfo.ObjectId == 0x37 ||
+				colinfo.ObjectId == 0x05 ||
+				colinfo.ObjectId == 0x07 {
+				dataRows = append(dataRows, &colinfo)
+			}
+
 		} else {
 			var dataRow DataRow
 			utils.Unmarshal(data[slotoffset:], &dataRow)
+			dataRows = append(dataRows, dataRow)
 		}
 
 		//	dataRow.Process(data[slotoffset:]) // from slot to end
-		//		dataRows = append(dataRows, dataRow)
+
 	}
 	page.DataRows = dataRows
 }

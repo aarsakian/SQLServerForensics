@@ -26,6 +26,10 @@ type ColInfo struct {
 	Colname      string
 }
 
+type DataRows []interface {
+	ShowData()
+}
+
 type DataCols []DataCol
 
 var DataRecord = map[uint8]string{0: "Primary", 1: "Forwarded", 2: "Forwarded Stub",
@@ -59,4 +63,11 @@ func (dataRow DataRow) ShowData() {
 		fmt.Printf("col id %d offset %x len %d \n",
 			dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
 	}
+}
+
+func (colinfo ColInfo) ShowData() {
+
+	fmt.Printf("col id %d offset %d len %d \n",
+		colinfo.ObjectId, colinfo.Colorder, colinfo.Colsize)
+
 }
