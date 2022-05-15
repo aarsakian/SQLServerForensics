@@ -41,16 +41,17 @@ type Page struct {
 type Header struct {
 	Version        uint8     //1
 	Type           uint8     // 1-2
-	unknown1       [2]byte   //2-4
+	TypeFlagBits   uint8     //2-3
+	Level          uint8     // 0 = leaf
 	FlagBits       [2]byte   //4-6
-	IndexId        uint16    //6-8  0 = Heap 1 = Clustered Index
+	IndexId        uint16    //6-8  0 = Heap 1 = Clustered Index  (AllocUnitId.idInd))
 	PrevPage       uint32    //8-12
 	PreviousFileId uint16    //12-14
 	PMinLen        uint16    //14-16  size of fixed len records
 	NextPage       uint32    //16-20
 	NextPageFileId uint16    //20-22
 	SlotCnt        uint16    //22-24   number of slots (records) that hold data
-	ObjectId       uint32    //24-28
+	ObjectId       uint32    //24-28 AllocUnitId.idObj
 	FreeCnt        uint16    //28-30 free space in bytes
 	FreeData       uint16    //30-32 offset from the start of the page to the first byte after the last record
 	PageId         uint32    //32-36
@@ -58,7 +59,7 @@ type Header struct {
 	LSN            utils.LSN //40-52
 	unknown5       [8]byte   //52-60
 	TornBits       int32     //60-64
-	unknown6       [32]byte  //64-96
+	reserved       [32]byte  //64-96
 }
 
 type AllocationMaps interface {
@@ -162,8 +163,8 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 func (page *Page) parseDATA(data []byte) {
 	var dataRows DataRows
 	for _, slotoffset := range page.Slots {
-		if page.Header.ObjectId == 41 {
-			var colinfo ColInfo
+		if page.Header.ObjectId == 0x29 {
+			var colinfo SysColpars
 			utils.Unmarshal(data[slotoffset:], &colinfo)
 			if colinfo.ObjectId == 0x22 ||
 				colinfo.ObjectId == 0x37 ||
