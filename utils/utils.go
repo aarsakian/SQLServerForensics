@@ -6,6 +6,8 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	"unicode/utf16"
+	"unicode/utf8"
 )
 
 type LSN struct {
@@ -20,6 +22,18 @@ type SortedSlotsOffset []SlotOffset
 
 func (s SortedSlotsOffset) Len() int {
 	return len(s)
+
+}
+
+func DecodeUTF16(b []byte) string {
+	utf := make([]uint16, (len(b)+(2-1))/2) // utf-16 2 bytes for each char
+	for i := 0; i+(2-1) < len(b); i += 2 {
+		utf[i/2] = binary.LittleEndian.Uint16(b[i:])
+	}
+	if len(b)/2 < len(utf) { // the "error" Rune or "Unicode replacement character"
+		utf[len(utf)-1] = utf8.RuneError
+	}
+	return string(utf16.Decode(utf))
 
 }
 
@@ -51,7 +65,13 @@ func Unmarshal(data []byte, v interface{}) error {
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
 		field := structValPtr.Elem().Field(i) //StructField type
 		switch field.Kind() {
+		case reflect.String:
+			name := structType.Elem().Field(i).Name
 
+			if name == "Colname" {
+				colRecordLen := structValPtr.Elem().FieldByName("ColRecordlen").Uint()
+				field.SetString(DecodeUTF16(data[idx : idx+int(colRecordLen)]))
+			}
 		case reflect.Uint8:
 			var temp uint8
 			binary.Read(bytes.NewBuffer(data[idx:idx+1]), binary.LittleEndian, &temp)
