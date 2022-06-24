@@ -74,36 +74,34 @@ func (pages Pages) FilterByType(pageType string) Pages {
 }
 
 func (dataRow *DataRow) Process(data []byte) {
-	nofColsFixedLen := dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols
-	cnt := 1
+	nofColsFixedLen := int(dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols)
+	colOffset := 4 //fixed cols start from offset 0x04
 	var dataCols DataCols
-	for colId := uint16(0); colId < nofColsFixedLen; colId++ {
+	for colId := 0; colId < nofColsFixedLen; colId++ {
+
 		if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
 			continue
 		}
 
-		if 2*cnt >= len(data) {
+		if colOffset+2 >= len(data) {
 			break
 		}
 
-		dataCols = append(dataCols, DataCol{colId, colId * 2, data[2*cnt : 2*cnt+2]})
-		cnt++
+		dataCols = append(dataCols, DataCol{uint16(colId), uint16(colOffset), data[colOffset : colOffset+2]}) // fixed size col =2 bytes
+		colOffset += 2
 	}
 
-	// varying length cols processing
-	startVarColOffsets := dataRow.Len()                                 //where var col offsets start
-	endVarColOffsets := dataRow.Len() + 2*dataRow.NumberOfVarLengthCols //where var col offsets end
-	var endVarColOffset uint16                                          // where each var len col ends
-	for colId := uint16(0); colId < dataRow.NumberOfVarLengthCols; colId++ {
-		if colId+nofColsFixedLen == uint16(dataRow.NullBitmap&1<<colId) { //col is NULL skip
+	startVarColOffset := dataRow.GetVarCalOffset()
+
+	for colId := 0; colId < int(dataRow.NumberOfVarLengthCols); colId++ {
+		if colId+nofColsFixedLen == int(dataRow.NullBitmap&1<<colId) { //col is NULL skip
 			continue
 		}
-		binary.Read(bytes.NewBuffer(data[startVarColOffsets+2*colId:startVarColOffsets+2*colId+2]),
-			binary.LittleEndian, &endVarColOffset)
-		if colId == 0 {
-			dataCols = append(dataCols, DataCol{colId + nofColsFixedLen,
-				endVarColOffsets, data[endVarColOffsets:endVarColOffset]})
-		}
+		endVarColOffset := dataRow.VarLengthColOffsets[colId]
+
+		dataCols = append(dataCols, DataCol{uint16(colId + nofColsFixedLen),
+			startVarColOffset, data[startVarColOffset:endVarColOffset]})
+		startVarColOffset = endVarColOffset
 
 	}
 	dataRow.DataCols = &dataCols
@@ -163,23 +161,25 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 func (page *Page) parseDATA(data []byte) {
 	var dataRows DataRows
 	for _, slotoffset := range page.Slots {
-		if page.Header.ObjectId == 0x29 {
+		if page.Header.ObjectId == 0x29 { //colinfo page
 			var colinfo SysColpars
 			utils.Unmarshal(data[slotoffset:], &colinfo)
-			if colinfo.ObjectId == 0x22 ||
-				colinfo.ObjectId == 0x37 ||
-				colinfo.ObjectId == 0x05 ||
-				colinfo.ObjectId == 0x07 {
+			if colinfo.Id == 0x22 || //sysschobjs
+				colinfo.Id == 0x37 || //sysiscols,
+				colinfo.Id == 0x05 || //sysrowsets, and
+				colinfo.Id == 0x07 { //sysallocationunits
 				dataRows = append(dataRows, &colinfo)
+
+				colinfo.GetType()
 			}
 
 		} else {
 			var dataRow DataRow
 			utils.Unmarshal(data[slotoffset:], &dataRow)
+			dataRow.Process(data[slotoffset:]) // from slot to end
 			dataRows = append(dataRows, dataRow)
-		}
 
-		//	dataRow.Process(data[slotoffset:]) // from slot to end
+		}
 
 	}
 	page.DataRows = dataRows
@@ -233,6 +233,10 @@ func (page *Page) parseIAM(data []byte) {
 	page.IAMExtents = &iams
 }
 
+func (page *Page) parseIndex(data []byte) {
+
+}
+
 func (page *Page) Process(data []byte) {
 	HEADERLEN := 96
 	PAGELEN := 8192
@@ -255,7 +259,8 @@ func (page *Page) Process(data []byte) {
 		page.parseSGAM(data)
 	case "DATA":
 		page.parseDATA(data)
-
+	case "Index":
+		page.parseIndex(data)
 	case "IAM":
 		page.parseIAM(data)
 	}
