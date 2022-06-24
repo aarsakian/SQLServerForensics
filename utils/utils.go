@@ -68,8 +68,8 @@ func Unmarshal(data []byte, v interface{}) error {
 		case reflect.String:
 			name := structType.Elem().Field(i).Name
 
-			if name == "Colname" {
-				colRecordLen := structValPtr.Elem().FieldByName("ColRecordlen").Uint()
+			if name == "Name" {
+				colRecordLen := structValPtr.Elem().FieldByName("Length").Uint()
 				field.SetString(DecodeUTF16(data[idx : idx+int(colRecordLen)]))
 			}
 		case reflect.Uint8:
@@ -82,7 +82,7 @@ func Unmarshal(data []byte, v interface{}) error {
 			name := structType.Elem().Field(i).Name
 			if name == "NullBitmap" {
 				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
-				bytesNeeded := int(math.Floor(float64(nofCols / 8)))
+				bytesNeeded := int(math.Ceil(float64(nofCols) / 8))
 				binary.Read(bytes.NewBuffer(data[idx:idx+bytesNeeded]), binary.LittleEndian, &temp)
 				field.SetUint(uint64(temp))
 				idx += bytesNeeded
@@ -122,6 +122,17 @@ func Unmarshal(data []byte, v interface{}) error {
 				field.Set(reflect.ValueOf(data[idx:nofColsOffset]))
 				idx += field.Len()
 
+			} else if name == "VarLengthColOffsets" {
+				var temp uint16
+				var arr []uint16
+				nofVarLenCols := structValPtr.Elem().FieldByName("NumberOfVarLengthCols").Uint()
+
+				for colId := 0; colId < int(nofVarLenCols); colId++ {
+					binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+					arr = append(arr, temp)
+					idx += 2
+				}
+				field.Set(reflect.ValueOf(arr))
 			}
 		}
 
