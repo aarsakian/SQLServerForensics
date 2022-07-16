@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"math"
 	"reflect"
@@ -14,6 +15,26 @@ type LSN struct {
 	P1 uint32
 	P2 uint32
 	P3 uint32
+}
+
+type Auid struct {
+	UniqueId uint16
+	ObjectId uint32
+	Zeros    uint32
+}
+
+func ToStructAuid(data []byte) Auid {
+
+	var auid Auid
+	Unmarshal(data, &auid)
+	return auid
+
+}
+
+func ToInt(data []byte) int {
+	var temp int64
+	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
+	return int(temp)
 }
 
 type SlotOffset uint16
@@ -37,6 +58,12 @@ func DecodeUTF16(b []byte) string {
 
 }
 
+func Hexify(bslice []byte) string {
+
+	return hex.EncodeToString(bslice)
+
+}
+
 func (s SortedSlotsOffset) Less(i, j int) bool {
 	return s[i] < s[j]
 }
@@ -55,6 +82,14 @@ func Filter[T any](s []T, f func(T) bool) []T {
 	return r
 }
 
+func Values[M ~map[K]V, K comparable, V any](m M) []V {
+	r := make([]V, 0, len(m)) // allocate memory
+	for _, v := range m {
+		r = append(r, v)
+	}
+	return r
+}
+
 func Unmarshal(data []byte, v interface{}) error {
 	idx := 0
 	structValPtr := reflect.ValueOf(v)
@@ -63,15 +98,13 @@ func Unmarshal(data []byte, v interface{}) error {
 		return errors.New("must be a struct")
 	}
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
+		if idx >= reflect.ValueOf(data).Len() {
+			break
+		}
 		field := structValPtr.Elem().Field(i) //StructField type
 		switch field.Kind() {
 		case reflect.String:
-			name := structType.Elem().Field(i).Name
 
-			if name == "Name" {
-				colRecordLen := structValPtr.Elem().FieldByName("Length").Uint()
-				field.SetString(DecodeUTF16(data[idx : idx+int(colRecordLen)]))
-			}
 		case reflect.Uint8:
 			var temp uint8
 			binary.Read(bytes.NewBuffer(data[idx:idx+1]), binary.LittleEndian, &temp)
@@ -96,6 +129,13 @@ func Unmarshal(data []byte, v interface{}) error {
 			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
 			field.SetUint(uint64(temp))
 			idx += 4
+		case reflect.Uint64:
+			var temp uint64
+
+			binary.Read(bytes.NewBuffer(data[idx:idx+8]), binary.LittleEndian, &temp)
+			idx += 8
+
+			field.SetUint(temp)
 
 		case reflect.Int32:
 			var temp int32
@@ -112,6 +152,13 @@ func Unmarshal(data []byte, v interface{}) error {
 			}
 
 		case reflect.Array:
+			arrT := reflect.ArrayOf(field.Len(), reflect.TypeOf(data[0])) //create array type to hold the slice
+			arr := reflect.New(arrT).Elem()                               //initialize and access array
+			for idx, val := range data[idx : idx+field.Len()] {
+				arr.Index(idx).Set(reflect.ValueOf(val))
+			}
+
+			field.Set(arr)
 			idx += field.Len()
 		case reflect.Slice:
 			name := structType.Elem().Field(i).Name
