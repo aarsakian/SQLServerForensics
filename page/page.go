@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -17,6 +18,10 @@ var PageTypes = map[uint8]string{
 var PageTypeFlagBits = map[uint8]string{
 	1: "Ghost record", 4: "Fixed size rows",
 }
+
+var SystemTablesFlags = map[string]uint8{
+	"syscolpars": 0x29, "sysrowsets": 0x05, "sysiscols": 0x37, "sysallocationunits": 0x07,
+	"sysschobjs": 0x22}
 
 var PFSStatus = map[uint8]string{
 	0: "NOT ALLOCATED 0PCT_FULL", 8: "NOT ALLOCATED 100PCT_FULL", 68: "ALLOCATED 100FULL",
@@ -57,14 +62,22 @@ type Header struct {
 	PageId         uint32    //32-36
 	FragId         uint32    //36-40
 	LSN            utils.LSN //40-52
-	unknown5       [8]byte   //52-60
+	Unknown5       [8]byte   //52-60
 	TornBits       int32     //60-64
-	reserved       [32]byte  //64-96
+	Reserved       [32]byte  //64-96
 }
 
 type AllocationMaps interface {
 	FilterByAllocationStatus(bool) AllocationMaps
 	ShowAllocations()
+}
+
+func (page Page) FilterByTable(tablename string) DataRows {
+	return utils.Filter(page.DataRows, func(datarow DataRow) bool {
+		return datarow.SystemTable.GetName() == tablename
+
+	})
+
 }
 
 func (pages Pages) FilterByType(pageType string) Pages {
@@ -73,10 +86,51 @@ func (pages Pages) FilterByType(pageType string) Pages {
 	})
 }
 
-func (dataRow *DataRow) Process(data []byte) {
-	nofColsFixedLen := int(dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols)
-	colOffset := 4 //fixed cols start from offset 0x04
-	var dataCols DataCols
+func (pages Pages) FilterBySystemTables(systemTable string) Pages {
+	return utils.Filter(pages, func(page Page) bool {
+		if systemTable == "all" {
+			return page.Header.ObjectId == 0x22 ||
+				page.Header.ObjectId == 0x37 || //sysiscols,
+				page.Header.ObjectId == 0x05 || //sysrowsets, and
+				page.Header.ObjectId == 0x07 //sysallocationunits
+		} else {
+			return page.Header.ObjectId == uint32(SystemTablesFlags[systemTable])
+		}
+	})
+}
+
+type SystemTable interface {
+	GetName() string
+	SetName([]byte)
+	ShowData()
+	GetData() (int32, string)
+}
+
+func (dataRow *DataRow) ProcessVaryingCols(data []byte) {
+
+	startVarColOffset := dataRow.GetVarCalOffset()
+	endVarColOffset := dataRow.VarLengthColOffsets[0]
+	if endVarColOffset > startVarColOffset {
+		cpy := make([]byte, endVarColOffset-startVarColOffset)
+		copy(cpy, data[startVarColOffset:endVarColOffset])
+		if dataRow.SystemTable != nil {
+			dataRow.SystemTable.SetName(cpy)
+		}
+
+	}
+
+}
+
+func (dataRow *DataRow) ProcessData(datacols *DataCols) {
+
+}
+
+func (dataRow *DataRow) Process(systemtable SystemTable) {
+	//nofColsFixedLen := int(dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols)
+
+	utils.Unmarshal(dataRow.FixedLenCols, systemtable)
+	dataRow.SystemTable = systemtable
+	/*var dataCols DataCols
 	for colId := 0; colId < nofColsFixedLen; colId++ {
 
 		if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
@@ -89,11 +143,9 @@ func (dataRow *DataRow) Process(data []byte) {
 
 		dataCols = append(dataCols, DataCol{uint16(colId), uint16(colOffset), data[colOffset : colOffset+2]}) // fixed size col =2 bytes
 		colOffset += 2
-	}
+	}*/
 
-	startVarColOffset := dataRow.GetVarCalOffset()
-
-	for colId := 0; colId < int(dataRow.NumberOfVarLengthCols); colId++ {
+	/*for colId := 0; colId < int(dataRow.NumberOfVarLengthCols); colId++ {
 		if colId+nofColsFixedLen == int(dataRow.NullBitmap&1<<colId) { //col is NULL skip
 			continue
 		}
@@ -104,7 +156,8 @@ func (dataRow *DataRow) Process(data []byte) {
 		startVarColOffset = endVarColOffset
 
 	}
-	dataRow.DataCols = &dataCols
+
+	dataRow.DataCols = &dataCols*/
 
 }
 
@@ -160,27 +213,57 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 
 func (page *Page) parseDATA(data []byte) {
 	var dataRows DataRows
-	for _, slotoffset := range page.Slots {
-		if page.Header.ObjectId == 0x29 { //colinfo page
-			var colinfo SysColpars
-			utils.Unmarshal(data[slotoffset:], &colinfo)
-			if colinfo.Id == 0x22 || //sysschobjs
-				colinfo.Id == 0x37 || //sysiscols,
-				colinfo.Id == 0x05 || //sysrowsets, and
-				colinfo.Id == 0x07 { //sysallocationunits
-				dataRows = append(dataRows, &colinfo)
-
-				colinfo.GetType()
-			}
-
+	for slotnum, slotoffset := range page.Slots {
+		var dataRowLen utils.SlotOffset
+		if slotnum+1 < reflect.ValueOf(page.Slots).Len() {
+			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
 		} else {
-			var dataRow DataRow
-			utils.Unmarshal(data[slotoffset:], &dataRow)
-			dataRow.Process(data[slotoffset:]) // from slot to end
-			dataRows = append(dataRows, dataRow)
-
+			dataRowLen = 8192 - slotoffset //last slot
 		}
 
+		var dataRow *DataRow = new(DataRow)
+		utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
+		//	fmt.Println(slotoffset, slotnum, reflect.ValueOf(page.Slots).Len())
+		if page.Header.ObjectId == 0x29 { //syscolpars
+
+			var syscolpars *SysColpars = new(SysColpars)
+
+			dataRow.Process(syscolpars)
+
+			if syscolpars.Id == 0x22 || //sysschobjs
+				syscolpars.Id == 0x37 || //sysiscols,
+				syscolpars.Id == 0x05 || //sysrowsets, and
+				syscolpars.Id == 0x07 { //sysallocationunits
+
+				syscolpars.GetType()
+			}
+
+		} else if page.Header.ObjectId == 0x22 {
+
+			var sysschobjs *Sysschobjs = new(Sysschobjs)
+
+			dataRow.Process(sysschobjs) // from slot to end
+
+		} else if page.Header.ObjectId == 0x07 {
+			var sysallocationunits *SysAllocUnits = new(SysAllocUnits)
+			dataRow.Process(sysallocationunits)
+
+		} else if page.Header.ObjectId == 0x05 {
+			var sysrowsets *SysRowSets = new(SysRowSets)
+			dataRow.Process(sysrowsets)
+		} else if page.Header.ObjectId == 0x37 {
+			var sysiscols *sysIsCols = new(sysIsCols)
+			dataRow.Process(sysiscols)
+		} else {
+			var datacols *DataCols = new(DataCols)
+			dataRow.ProcessData(datacols)
+			//	fmt.Printf("%d obj id %x \n", page.Header.PageId, page.Header.ObjectId)
+		}
+
+		if dataRow.NumberOfVarLengthCols != 0 {
+			dataRow.ProcessVaryingCols(data[slotoffset : slotoffset+dataRowLen])
+		}
+		dataRows = append(dataRows, *dataRow)
 	}
 	page.DataRows = dataRows
 }
@@ -220,6 +303,16 @@ func (page Page) PrintHeader(showSlots bool) {
 		header.PageId, page.GetType(),
 		header.ObjectId, header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 
+}
+
+func (page Page) ShowRowData() {
+	for _, datarow := range page.DataRows {
+		//datarow.ShowData()
+		if datarow.SystemTable != nil {
+			datarow.SystemTable.ShowData()
+		}
+
+	}
 }
 
 func (page *Page) parseIAM(data []byte) {
