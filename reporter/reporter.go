@@ -30,6 +30,10 @@ func (rp Reporter) ShowStats(database db.Database) {
 			page.PrintHeader(rp.ShowSlots)
 		}
 
+		if rp.ShowDataCols {
+			page.ShowRowData()
+		}
+
 	}
 
 }
