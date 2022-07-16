@@ -37,7 +37,8 @@ func main() {
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
-	pageType := flag.String("type", "", "filter by page type IAM Index, GAM, SGAM, PFS, Data")
+	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
+	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
@@ -45,6 +46,8 @@ func main() {
 	showDataCols := flag.Bool("datacols", false, "show data cols for each data row")
 	showSlots := flag.Bool("slots", false, "show page slots")
 	showPFS := flag.Bool("pfs", false, "show pfm page")
+	tableName := flag.String("table", "", "get info about user table")
+
 	flag.Parse()
 
 	file, err := os.Open(*inputfile) //
@@ -97,13 +100,32 @@ func main() {
 		page := database.ProcessPage(bs)
 		pages = append(pages, page)
 
-		//fmt.Printf("Processed page %s %d\n", page.GetType(), page.Header.PageId)
+		//	fmt.Printf("Processed page %s %d cnt %d\n", page.GetType(), page.Header.PageId, i)
 
 	}
-	database.Pages = pages
+
 	if *pageType != "" {
-		database.Pages = pages.FilterByType(*pageType) //mutable
+		pages = pages.FilterByType(*pageType) //mutable
 	}
+
+	if *systemTables != "" {
+		pages = pages.FilterBySystemTables(*systemTables)
+
+	}
+
+	if *tableName != "" {
+		pages = pages.FilterBySystemTables("sysschobjs")
+		for _, page := range pages {
+
+			datarows := page.FilterByTable(*tableName)
+			for _, datarow := range datarows {
+				datarow.SystemTable.ShowData()
+			}
+
+		}
+	}
+	database.Pages = pages
 	reporter.ShowStats(database)
+	database.GetTablesInformation()
 
 }
