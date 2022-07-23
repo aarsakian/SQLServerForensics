@@ -40,13 +40,14 @@ func main() {
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
+	tableName := flag.String("table", "", "show tables restructured")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iam", false, "show IAM extents for each page")
 	showDataCols := flag.Bool("datacols", false, "show data cols for each data row")
 	showSlots := flag.Bool("slots", false, "show page slots")
 	showPFS := flag.Bool("pfs", false, "show pfm page")
-	tableName := flag.String("table", "", "get info about user table")
+	userTable := flag.String("usertable", "", "get system table info about user table")
 
 	flag.Parse()
 
@@ -67,7 +68,7 @@ func main() {
 
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 	var database db.Database
-	var pages page.Pages
+	pages := map[uint32][]page.Page{}
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
 		ShowSGamExtents: *showSGamExtents,
@@ -75,7 +76,8 @@ func main() {
 		ShowDataCols:    *showDataCols,
 		ShowPFS:         *showPFS,
 		ShowHeader:      *showHeader,
-		ShowSlots:       *showSlots}
+		ShowSlots:       *showSlots,
+		TableName:       *tableName}
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))
@@ -98,34 +100,30 @@ func main() {
 			continue
 		}
 		page := database.ProcessPage(bs)
-		pages = append(pages, page)
+		pages[page.Header.ObjectId] = append(pages[page.Header.ObjectId], page)
 
 		//	fmt.Printf("Processed page %s %d cnt %d\n", page.GetType(), page.Header.PageId, i)
 
 	}
 
 	if *pageType != "" {
-		pages = pages.FilterByType(*pageType) //mutable
+		database.FilterByType(*pageType)
+
 	}
 
 	if *systemTables != "" {
-		pages = pages.FilterBySystemTables(*systemTables)
+		database.FilterBySystemTables(*systemTables)
 
 	}
 
-	if *tableName != "" {
-		pages = pages.FilterBySystemTables("sysschobjs")
-		for _, page := range pages {
-
-			datarows := page.FilterByTable(*tableName)
-			for _, datarow := range datarows {
-				datarow.SystemTable.ShowData()
-			}
-
-		}
+	if *userTable != "" {
+		database.FilterBySystemTables("sysschobjs")
 	}
+
 	database.Pages = pages
+	tables := database.GetTablesInformation()
+	database.Tables = tables
+
 	reporter.ShowStats(database)
-	database.GetTablesInformation()
 
 }
