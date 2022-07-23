@@ -2,10 +2,12 @@ package db
 
 import (
 	"MSSQLParser/page"
+	"fmt"
 )
 
 type Database struct {
-	Pages page.Pages
+	Pages  page.Pages
+	Tables []Table
 }
 
 func (db Database) ProcessPage(bs []byte) page.Page {
@@ -15,48 +17,88 @@ func (db Database) ProcessPage(bs []byte) page.Page {
 	return *page
 }
 
-func (db Database) GetTablesInformation() {
-	tablePages := db.Pages.FilterBySystemTables("sysschobjs")
-	tableCols := db.Pages.FilterBySystemTables("syscolpars")
-	tableAllocs := db.Pages.FilterBySystemTables("sysrowsets")
-	tables := map[int32]string{}
-	cols := map[int32][]string{}
+func (db *Database) FilterByType(pageType string) {
+	db.Pages = db.Pages.FilterByType(pageType) //mutable
+}
 
-	tableAlcs := map[int32]string{}
+func (db *Database) FilterBySystemTables(systemTables string) {
+	db.Pages = db.Pages.FilterBySystemTables(systemTables)
+}
 
-	for _, tablePage := range tablePages {
-		for _, datarow := range tablePage.DataRows {
-			tobjectId, tname := datarow.SystemTable.GetData()
-			tables[tobjectId] = tname
+func (db Database) createMap(tablename string) map[any]any {
+	results := map[any]any{}
+	systemPages := db.Pages.FilterBySystemTables(tablename)
+	for _, tablePages := range systemPages {
+		for _, tablePage := range tablePages {
+			for _, datarow := range tablePage.DataRows {
+				objectId, val := datarow.SystemTable.GetData()
+
+				results[objectId] = val
+
+			}
+		}
+
+	}
+	return results
+}
+
+func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, uint16] {
+	results := map[int32][]page.Result[string, string, uint16]{}
+	systemPages := db.Pages.FilterBySystemTables(tablename)
+	for _, tablePages := range systemPages {
+		for _, tablePage := range tablePages {
+			for _, datarow := range tablePage.DataRows {
+				objectId, res := datarow.SystemTable.GetData()
+
+				results[(objectId).(int32)] = append(results[(objectId).(int32)], res.(page.Result[string, string, uint16]))
+			}
 
 		}
 	}
-	for _, tablecol := range tableCols {
-		for _, datarow := range tablecol.DataRows {
-			colid, colname := datarow.SystemTable.GetData()
-			cols[colid] = append(cols[colid], colname)
+	return results
+}
+
+func (db Database) ShowTables(tablename string) {
+	for _, table := range db.Tables {
+		if table.Name != tablename {
+			continue
 		}
+		table.printCols()
 	}
 
-	for _, tablealloc := range tableAllocs {
-		for _, datarow := range tablealloc.DataRows {
-			tobjecId, partitionId := datarow.SystemTable.GetData()
-			tableAlcs[tobjecId] = partitionId
-		}
-	}
+}
 
-	for tobjectId, tname := range tables {
-		cols, ok := cols[tobjectId]
+func (db Database) GetTablesInformation() []Table {
+	tablesMap := db.createMap("sysschobjs")
+	colsMap := db.createMapList("syscolpars")
+	tableAllocsMap := db.createMap("sysrowsets")
+	tableSysAllocsMap := db.createMap("sysallocationunits")
 
-		var table Table
-		table.Name = tname
+	var tables []Table
+	for tobjectId, tname := range tablesMap {
+		results, ok := colsMap[tobjectId.(int32)]
+
+		table := Table{Name: tname.(string), ObjectId: tobjectId.(int32)}
+
 		if ok {
-			table.addColumns(cols)
+
+			table.addColumns(results)
 		}
-		if len(table.Columns) != 0 {
-			table.printCols()
+		partitionId, ok := tableAllocsMap[tobjectId]
+		if ok {
+			table.PartitionId = partitionId.(uint64)
 		}
 
+		pageObjetId, ok := tableSysAllocsMap[table.PartitionId]
+
+		if ok {
+			fmt.Printf("%d", pageObjetId)
+			//table.getContent(db.Pages[pageObjetId.(uint32)])
+		}
+
+		tables = append(tables, table)
 	}
+
+	return tables
 
 }
