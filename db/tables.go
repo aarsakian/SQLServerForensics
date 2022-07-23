@@ -1,34 +1,64 @@
 package db
 
-import "fmt"
+import (
+	"MSSQLParser/page"
+	"fmt"
+)
 
 type Table struct {
-	Name    string
-	Columns []Column
+	Name         string
+	ObjectId     int32
+	Columns      []Column
+	PartitionId  uint64
+	PageObjectId int32
 }
 
 type Column struct {
 	Name string
+	Type string
+	Size uint16
 }
 
-func (table *Table) addColumn(name string) []Column {
-	col := Column{name}
+func (c Column) isStatic() bool {
+
+	if c.Type == "varchar" || c.Type == "nvarchar" ||
+		c.Type == "varbinary" || c.Type == "xml" {
+		return false
+	} else {
+		return true
+	}
+
+}
+
+func (table *Table) addColumn(name string, coltype string, size uint16) []Column {
+	col := Column{name, coltype, size}
 	table.Columns = append(table.Columns, col)
 	return table.Columns
 }
 
-func (table *Table) addColumns(names []string) []Column {
+func (table *Table) addColumns(results []page.Result[string, string, uint16]) []Column {
 	var columns []Column
-	for _, colname := range names {
-		columns = table.addColumn(colname)
+	for _, res := range results {
+		columns = table.addColumn(res.First, res.Second, res.Third)
 	}
 	return columns
 }
 
 func (table Table) printCols() {
-	fmt.Printf("\n table %s ", table.Name)
-	for _, col := range table.Columns {
-		fmt.Printf("%s ", col.Name)
+	if table.Columns != nil {
+		fmt.Printf("\n table %s objectID %d  PartitionId %d page Object Id %d \n", table.Name,
+			table.ObjectId, table.PartitionId, table.PageObjectId)
+		for _, col := range table.Columns {
+			fmt.Printf("%s %s ", col.Name, col.Type)
+		}
 	}
 
+}
+
+func (table Table) getContent(tablePages []page.Page) {
+	for _, page := range tablePages {
+		for _, datarow := range page.DataRows {
+			fmt.Println(datarow)
+		}
+	}
 }
