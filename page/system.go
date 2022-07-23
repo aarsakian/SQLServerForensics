@@ -87,6 +87,12 @@ type Sysschobjs struct {
 	Name     []byte
 }
 
+type Result[T, U, L any] struct {
+	First  T
+	Second U
+	Third  L
+}
+
 func (sysrowsets *SysRowSets) SetName([]byte) {
 
 }
@@ -99,8 +105,8 @@ func (sysrowsets SysRowSets) ShowData() {
 	fmt.Printf("sysrowsets %d %d \n", sysrowsets.Rowsetid, sysrowsets.Status)
 }
 
-func (sysrowsets SysRowSets) GetData() (int32, string) {
-	return int32(sysrowsets.Idmajor), "" // sysrowsets.Rowsetid
+func (sysrowsets SysRowSets) GetData() (any, any) {
+	return int32(sysrowsets.Idmajor), sysrowsets.Rowsetid
 }
 
 func (sysiscols *sysIsCols) SetName([]byte) {
@@ -111,7 +117,7 @@ func (sysiscols sysIsCols) GetName() string {
 	return ""
 }
 
-func (sysiscols sysIsCols) GetData() (int32, string) {
+func (sysiscols sysIsCols) GetData() (any, any) {
 	return 0, ""
 }
 
@@ -127,8 +133,8 @@ func (sysallocunits SysAllocUnits) GetName() string {
 	return ""
 }
 
-func (sysallocunits SysAllocUnits) GetData() (int32, string) {
-	return int32(sysallocunits.getPageId()), ""
+func (sysallocunits SysAllocUnits) GetData() (any, any) {
+	return sysallocunits.OwnerId, uint32(sysallocunits.getPageId())
 }
 
 func (sysallocunits SysAllocUnits) getIndexId() int {
@@ -142,7 +148,8 @@ func (sysallocunits SysAllocUnits) getPageId() int {
 func (sysallocunits SysAllocUnits) ShowData() {
 
 	pageId := sysallocunits.getPageId()
-	fmt.Printf("sysalloc %d %d %d  %x %x %d\n", pageId, sysallocunits.Type, sysallocunits.OwnerId,
+	fmt.Printf("sysalloc Page ObjectId %d AllocUID %d %d  PartitionId  %d  %x %x %d\n", pageId, utils.ToInt(sysallocunits.Auid[:]),
+		sysallocunits.Type, sysallocunits.OwnerId,
 		sysallocunits.PgFirst, sysallocunits.PgFirstIAM, sysallocunits.PcData)
 }
 
@@ -152,8 +159,8 @@ func (syscolpars SysColpars) GetName() string {
 
 }
 
-func (syscolpars SysColpars) GetData() (int32, string) {
-	return int32(syscolpars.Id), syscolpars.GetName()
+func (syscolpars SysColpars) GetData() (any, any) {
+	return int32(syscolpars.Id), Result[string, string, uint16]{syscolpars.GetName(), syscolpars.GetType(), syscolpars.Colsize}
 
 }
 
@@ -162,10 +169,36 @@ func (syscolpars *SysColpars) SetName(name []byte) {
 }
 
 func (syscolpars SysColpars) GetType() string {
-	if syscolpars.Xtype == 0x38 {
-		return "Static"
+	if syscolpars.Xtype == 0x7f {
+		return "bigint"
+	} else if syscolpars.Xtype == 0xAD {
+		return "binary"
+	} else if syscolpars.Xtype == 0x6A {
+		return "bit"
+	} else if syscolpars.Xtype == 0xAF {
+		return "char"
+	} else if syscolpars.Xtype == 0x3D {
+		return "datetime"
+	} else if syscolpars.Xtype == 0x28 {
+		return "date"
+	} else if syscolpars.Xtype == 0x38 {
+		return "int"
+	} else if syscolpars.Xtype == 0xEF {
+		return "nchar"
+	} else if syscolpars.Xtype == 0x06 {
+		return "numeric"
+	} else if syscolpars.Xtype == 0x23 {
+		return "text"
+	} else if syscolpars.Xtype == 0x24 {
+		return "timestamp"
+	} else if syscolpars.Xtype == 0x30 {
+		return "tinyint"
+	} else if syscolpars.Xtype == 0xA7 {
+		return "varchar"
+	} else {
+		return "Type not Found"
 	}
-	return ""
+
 }
 
 func (syscolpars SysColpars) ShowData() {
@@ -182,7 +215,7 @@ func (sysschobjs Sysschobjs) GetName() string {
 	return utils.DecodeUTF16(sysschobjs.Name)
 }
 
-func (sysschobjs Sysschobjs) GetData() (int32, string) {
+func (sysschobjs Sysschobjs) GetData() (any, any) {
 	return sysschobjs.Id, utils.DecodeUTF16(sysschobjs.Name)
 
 }

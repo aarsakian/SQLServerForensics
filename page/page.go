@@ -29,7 +29,7 @@ var PFSStatus = map[uint8]string{
 	112: "ALLOCATED Mixed Extent IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
 	66: "ALLOCATED 80PCT_FULL", 67: "ALLOCATED 95PCT_FULL", 156: "UNUSED HAS_GHOST D 100PCT_FULL"}
 
-type Pages []Page
+type Pages map[uint32][]Page
 
 type Page struct {
 	Header      Header
@@ -81,13 +81,13 @@ func (page Page) FilterByTable(tablename string) DataRows {
 }
 
 func (pages Pages) FilterByType(pageType string) Pages {
-	return utils.Filter(pages, func(page Page) bool {
+	return utils.FilterMap(pages, func(page Page) bool {
 		return page.GetType() == pageType
 	})
 }
 
 func (pages Pages) FilterBySystemTables(systemTable string) Pages {
-	return utils.Filter(pages, func(page Page) bool {
+	return utils.FilterMap(pages, func(page Page) bool {
 		if systemTable == "all" {
 			return page.Header.ObjectId == 0x22 ||
 				page.Header.ObjectId == 0x37 || //sysiscols,
@@ -103,7 +103,7 @@ type SystemTable interface {
 	GetName() string
 	SetName([]byte)
 	ShowData()
-	GetData() (int32, string)
+	GetData() (any, any)
 }
 
 func (dataRow *DataRow) ProcessVaryingCols(data []byte) {
@@ -296,10 +296,10 @@ func (page Page) PrintHeader(showSlots bool) {
 	header := page.Header
 	if showSlots {
 
-		fmt.Printf(" %x ", page.Slots)
+		fmt.Printf("slots %x ", page.Slots)
 
 	}
-	fmt.Printf("%d %s %d slots %d free space %d Prev page %d  Next page %d\n",
+	fmt.Printf("Page Id %d type %s objectid %d slots %d free space %d Prev page %d  Next page %d \n",
 		header.PageId, page.GetType(),
 		header.ObjectId, header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 
