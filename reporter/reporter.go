@@ -14,26 +14,34 @@ type Reporter struct {
 	ShowPFS         bool
 	ShowHeader      bool
 	ShowSlots       bool
+	TableName       string
 }
 
 func (rp Reporter) ShowStats(database db.Database) {
-	for _, page := range database.Pages {
-		allocMap := page.GetAllocationMaps()
+	for _, pages := range database.Pages {
+		for _, page := range pages {
+			allocMap := page.GetAllocationMaps()
 
-		if rp.ShowPFS && page.GetType() == "PFS" ||
-			rp.ShowIAMExtents && page.GetType() == "IAM" ||
-			rp.ShowGamExtents && page.GetType() == "GAM" ||
-			rp.ShowSGamExtents && page.GetType() == "SGAM" {
-			allocMap.ShowAllocations()
-		}
-		if rp.ShowHeader {
-			page.PrintHeader(rp.ShowSlots)
+			if rp.ShowPFS && page.GetType() == "PFS" ||
+				rp.ShowIAMExtents && page.GetType() == "IAM" ||
+				rp.ShowGamExtents && page.GetType() == "GAM" ||
+				rp.ShowSGamExtents && page.GetType() == "SGAM" {
+				allocMap.ShowAllocations()
+			}
+			if rp.ShowHeader {
+				page.PrintHeader(rp.ShowSlots)
+			}
+
+			if rp.ShowDataCols {
+				page.ShowRowData()
+			}
+
 		}
 
-		if rp.ShowDataCols {
-			page.ShowRowData()
-		}
-
+	}
+	if rp.TableName != "" {
+		tablename := rp.TableName
+		database.ShowTables(tablename)
 	}
 
 }
