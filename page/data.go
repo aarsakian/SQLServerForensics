@@ -44,7 +44,8 @@ func (dataRow DataRow) GetFlags() string {
 
 func (dataRow DataRow) GetVarCalOffset() uint16 {
 
-	return dataRow.NofColsOffset + uint16(unsafe.Sizeof(dataRow.NumberOfCols)) + uint16(unsafe.Sizeof(dataRow.NullBitmap)) +
+	return dataRow.NofColsOffset + uint16(unsafe.Sizeof(dataRow.NumberOfCols)) +
+		uint16(unsafe.Sizeof(dataRow.NullBitmap)) +
 		uint16(unsafe.Sizeof(dataRow.NumberOfVarLengthCols)) +
 		uint16(reflect.ValueOf(dataRow.VarLengthColOffsets).Len()*2)
 }
