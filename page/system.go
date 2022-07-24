@@ -87,10 +87,11 @@ type Sysschobjs struct {
 	Name     []byte
 }
 
-type Result[T, U, L any] struct {
-	First  T
-	Second U
-	Third  L
+type Result[F, S, T, FH any] struct {
+	First  F
+	Second S
+	Third  T
+	Fourth FH
 }
 
 func (sysrowsets *SysRowSets) SetName([]byte) {
@@ -160,7 +161,9 @@ func (syscolpars SysColpars) GetName() string {
 }
 
 func (syscolpars SysColpars) GetData() (any, any) {
-	return int32(syscolpars.Id), Result[string, string, uint16]{syscolpars.GetName(), syscolpars.GetType(), syscolpars.Colsize}
+	return int32(syscolpars.Id),
+		Result[string, string, uint16, uint16]{syscolpars.GetName(),
+			syscolpars.GetType(), syscolpars.Colsize, syscolpars.ColOrder}
 
 }
 
