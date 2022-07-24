@@ -42,15 +42,16 @@ func (db Database) createMap(tablename string) map[any]any {
 	return results
 }
 
-func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, uint16] {
-	results := map[int32][]page.Result[string, string, uint16]{}
+func (db Database) createMapList(tablename string) map[int32][]page.Result[
+	string, string, uint16, uint16] {
+	results := map[int32][]page.Result[string, string, uint16, uint16]{}
 	systemPages := db.Pages.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
 				objectId, res := datarow.SystemTable.GetData()
 
-				results[(objectId).(int32)] = append(results[(objectId).(int32)], res.(page.Result[string, string, uint16]))
+				results[(objectId).(int32)] = append(results[(objectId).(int32)], res.(page.Result[string, string, uint16, uint16]))
 			}
 
 		}
@@ -93,7 +94,7 @@ func (db Database) GetTablesInformation() []Table {
 
 		if ok {
 			fmt.Printf("%d", pageObjetId)
-			//table.getContent(db.Pages[pageObjetId.(uint32)])
+			table.getContent(db.Pages[pageObjetId.(uint32)])
 		}
 
 		tables = append(tables, table)
