@@ -46,7 +46,7 @@ func (c *Column) addContent(datarows page.DataRows) {
 }
 
 func (table *Table) addColumn(name string, coltype string, size uint16, order uint16) []Column {
-	col := Column{Name: name, Type: coltype, Size: size}
+	col := Column{Name: name, Type: coltype, Size: size, Order: order}
 	table.Columns = append(table.Columns, col)
 	return table.Columns
 }

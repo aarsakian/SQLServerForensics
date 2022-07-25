@@ -107,22 +107,38 @@ type SystemTable interface {
 }
 
 func (dataRow *DataRow) ProcessVaryingCols(data []byte) {
-
+	var datacols DataCols
 	startVarColOffset := dataRow.GetVarCalOffset()
-	endVarColOffset := dataRow.VarLengthColOffsets[0]
-	if endVarColOffset > startVarColOffset {
+	for _, endVarColOffset := range dataRow.VarLengthColOffsets {
+		if endVarColOffset < startVarColOffset || endVarColOffset > 8096 {
+			break
+		}
 		cpy := make([]byte, endVarColOffset-startVarColOffset)
 		copy(cpy, data[startVarColOffset:endVarColOffset])
+		startVarColOffset = endVarColOffset
 		if dataRow.SystemTable != nil {
 			dataRow.SystemTable.SetName(cpy)
+		} else {
+			datacols = append(datacols, DataCol{content: cpy})
 		}
-
 	}
+	dataRow.VarLenCols = &datacols
 
 }
 
-func (dataRow *DataRow) ProcessData(datacols *DataCols) {
+func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool) (data []byte) {
+	if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
+		return
+	} else {
+		if static {
+			return dataRow.FixedLenCols[0:colsize]
+		} else {
 
+			return (*dataRow.VarLenCols)[0].content
+
+		}
+
+	}
 }
 
 func (dataRow *DataRow) Process(systemtable SystemTable) {
@@ -230,14 +246,6 @@ func (page *Page) parseDATA(data []byte) {
 
 			dataRow.Process(syscolpars)
 
-			if syscolpars.Id == 0x22 || //sysschobjs
-				syscolpars.Id == 0x37 || //sysiscols,
-				syscolpars.Id == 0x05 || //sysrowsets, and
-				syscolpars.Id == 0x07 { //sysallocationunits
-
-				syscolpars.GetType()
-			}
-
 		} else if page.Header.ObjectId == 0x22 {
 
 			var sysschobjs *Sysschobjs = new(Sysschobjs)
@@ -254,10 +262,6 @@ func (page *Page) parseDATA(data []byte) {
 		} else if page.Header.ObjectId == 0x37 {
 			var sysiscols *sysIsCols = new(sysIsCols)
 			dataRow.Process(sysiscols)
-		} else {
-			var datacols *DataCols = new(DataCols)
-			dataRow.ProcessData(datacols)
-			//	fmt.Printf("%d obj id %x \n", page.Header.PageId, page.Header.ObjectId)
 		}
 
 		if dataRow.NumberOfVarLengthCols != 0 {

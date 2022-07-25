@@ -31,7 +31,7 @@ type DataRow struct {
 	NullBitmap            uint16 //1-2
 	NumberOfVarLengthCols uint16 //0-
 	VarLengthColOffsets   []uint16
-	DataCols              *DataCols
+	VarLenCols            *DataCols
 	SystemTable           SystemTable
 }
 
@@ -51,7 +51,7 @@ func (dataRow DataRow) GetVarCalOffset() uint16 {
 }
 
 func (dataRow DataRow) ShowData() {
-	for _, dataCol := range *dataRow.DataCols {
+	for _, dataCol := range *dataRow.VarLenCols {
 		fmt.Printf("col id %d offset %x len %d \n",
 			dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
 	}

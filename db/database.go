@@ -17,10 +17,6 @@ func (db Database) ProcessPage(bs []byte) page.Page {
 	return *page
 }
 
-func (db *Database) FilterByType(pageType string) {
-	db.Pages = db.Pages.FilterByType(pageType) //mutable
-}
-
 func (db *Database) FilterBySystemTables(systemTables string) {
 	db.Pages = db.Pages.FilterBySystemTables(systemTables)
 }
@@ -42,8 +38,7 @@ func (db Database) createMap(tablename string) map[any]any {
 	return results
 }
 
-func (db Database) createMapList(tablename string) map[int32][]page.Result[
-	string, string, uint16, uint16] {
+func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, uint16, uint16] {
 	results := map[int32][]page.Result[string, string, uint16, uint16]{}
 	systemPages := db.Pages.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
