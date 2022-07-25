@@ -68,7 +68,7 @@ func main() {
 
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 	var database db.Database
-	pages := map[uint32][]page.Page{}
+	pages := page.Pages{}
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
 		ShowSGamExtents: *showSGamExtents,
@@ -107,17 +107,17 @@ func main() {
 	}
 
 	if *pageType != "" {
-		database.FilterByType(*pageType)
+		pages = pages.FilterByType(*pageType) //mutable
 
 	}
 
 	if *systemTables != "" {
-		database.FilterBySystemTables(*systemTables)
+		pages = pages.FilterBySystemTables(*systemTables)
 
 	}
 
 	if *userTable != "" {
-		database.FilterBySystemTables("sysschobjs")
+		pages = pages.FilterBySystemTables("sysschobjs")
 	}
 
 	database.Pages = pages
