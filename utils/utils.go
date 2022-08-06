@@ -31,8 +31,14 @@ func ToStructAuid(data []byte) Auid {
 
 }
 
-func ToInt(data []byte) int {
+func ToInt64(data []byte) int {
 	var temp int64
+	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
+	return int(temp)
+}
+
+func ToInt32(data []byte) int {
+	var temp int32
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
 	return int(temp)
 }
@@ -128,7 +134,12 @@ func Unmarshal(data []byte, v interface{}) error {
 			if name == "NullBitmap" {
 				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
 				bytesNeeded := int(math.Ceil(float64(nofCols) / 8))
-				binary.Read(bytes.NewBuffer(data[idx:idx+bytesNeeded]), binary.LittleEndian, &temp)
+				if bytesNeeded == 1 {
+					temp = uint16(data[idx : idx+bytesNeeded][0])
+				} else {
+					binary.Read(bytes.NewBuffer(data[idx:idx+bytesNeeded]), binary.LittleEndian, &temp)
+				}
+
 				field.SetUint(uint64(temp))
 				idx += bytesNeeded
 			} else {
@@ -166,7 +177,14 @@ func Unmarshal(data []byte, v interface{}) error {
 		case reflect.Array:
 			arrT := reflect.ArrayOf(field.Len(), reflect.TypeOf(data[0])) //create array type to hold the slice
 			arr := reflect.New(arrT).Elem()                               //initialize and access array
-			for idx, val := range data[idx : idx+field.Len()] {
+			var end int
+			if idx+field.Len() > len(data) {
+				end = len(data)
+			} else {
+				end = idx + field.Len()
+			}
+			for idx, val := range data[idx:end] {
+
 				arr.Index(idx).Set(reflect.ValueOf(val))
 			}
 
@@ -177,8 +195,10 @@ func Unmarshal(data []byte, v interface{}) error {
 			if name == "FixedLenCols" {
 
 				nofColsOffset := structValPtr.Elem().FieldByName("NofColsOffset").Uint()
+				dst := make([]byte, nofColsOffset-uint64(idx))
 
-				field.Set(reflect.ValueOf(data[idx:nofColsOffset]))
+				copy(dst, data[idx:nofColsOffset])
+				field.Set(reflect.ValueOf(dst))
 				idx += field.Len()
 
 			} else if name == "VarLengthColOffsets" {
