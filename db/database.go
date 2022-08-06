@@ -59,7 +59,8 @@ func (db Database) ShowTables(tablename string) {
 		if table.Name != tablename {
 			continue
 		}
-		table.printCols()
+		table.printSchema()
+		table.printData()
 	}
 
 }
@@ -78,7 +79,19 @@ func (db Database) GetTablesInformation() []Table {
 
 		if ok {
 
-			table.addColumns(results)
+			columns := table.addColumns(results)
+			vid := 1 // keeps order var len cols
+			for _, c := range columns {
+				if c.isStatic() {
+					c.VarLenOrder = 0
+				} else {
+
+					c.VarLenOrder = uint16(vid)
+					vid++
+				}
+
+			}
+
 		}
 		partitionId, ok := tableAllocsMap[tobjectId]
 		if ok {
@@ -89,7 +102,7 @@ func (db Database) GetTablesInformation() []Table {
 
 		if ok {
 			fmt.Printf("%d", pageObjetId)
-			table.getContent(db.Pages[pageObjetId.(uint32)])
+			table.setContent(db.Pages[pageObjetId.(uint32)])
 		}
 
 		tables = append(tables, table)
