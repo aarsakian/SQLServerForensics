@@ -139,17 +139,18 @@ func (sysallocunits SysAllocUnits) GetData() (any, any) {
 }
 
 func (sysallocunits SysAllocUnits) getIndexId() int {
-	return utils.ToInt(sysallocunits.Auid[:]) >> 48
+	return utils.ToInt64(sysallocunits.Auid[:]) >> 48
 }
 
 func (sysallocunits SysAllocUnits) getPageId() int {
 	indexId := sysallocunits.getIndexId()
-	return (utils.ToInt(sysallocunits.Auid[:]) - (indexId << 48)) >> 16
+	return (utils.ToInt64(sysallocunits.Auid[:]) - (indexId << 48)) >> 16
 }
 func (sysallocunits SysAllocUnits) ShowData() {
 
 	pageId := sysallocunits.getPageId()
-	fmt.Printf("sysalloc Page ObjectId %d AllocUID %d %d  PartitionId  %d  %x %x %d\n", pageId, utils.ToInt(sysallocunits.Auid[:]),
+	fmt.Printf("sysalloc Page ObjectId %d AllocUID %d %d  PartitionId  %d  %x %x %d\n",
+		pageId, utils.ToInt64(sysallocunits.Auid[:]),
 		sysallocunits.Type, sysallocunits.OwnerId,
 		sysallocunits.PgFirst, sysallocunits.PgFirstIAM, sysallocunits.PcData)
 }

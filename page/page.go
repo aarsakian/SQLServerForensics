@@ -110,7 +110,9 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) {
 	var datacols DataCols
 	startVarColOffset := dataRow.GetVarCalOffset()
 	for _, endVarColOffset := range dataRow.VarLengthColOffsets {
-		if endVarColOffset < startVarColOffset || endVarColOffset > 8096 {
+		if endVarColOffset <= startVarColOffset {
+			continue
+		} else if endVarColOffset > uint16(len(data)) || endVarColOffset > 8096 {
 			break
 		}
 		cpy := make([]byte, endVarColOffset-startVarColOffset)
@@ -126,15 +128,22 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) {
 
 }
 
-func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool) (data []byte) {
-	if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
-		return
+func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, valorder uint16) (data []byte) {
+	if dataRow.NullBitmap>>(colId-1)&1 == 1 { //col is NULL set to zero
+		return []byte{0x00}
 	} else {
 		if static {
-			return dataRow.FixedLenCols[0:colsize]
-		} else {
+			if int(colsize) > len(dataRow.FixedLenCols) {
+				return dataRow.FixedLenCols[:]
+			} else {
+				return dataRow.FixedLenCols[:colsize]
+			}
 
-			return (*dataRow.VarLenCols)[0].content
+		} else {
+			nullVarBitmapCols := dataRow.NumberOfVarLengthCols - uint16(len(*dataRow.VarLenCols))
+
+			fmt.Println(valorder, nullVarBitmapCols, len(*dataRow.VarLenCols))
+			return (*dataRow.VarLenCols)[valorder].content
 
 		}
 
