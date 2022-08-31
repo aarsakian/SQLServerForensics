@@ -140,9 +140,7 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, v
 			}
 
 		} else {
-			nullVarBitmapCols := dataRow.NumberOfVarLengthCols - uint16(len(*dataRow.VarLenCols))
 
-			fmt.Println(valorder, nullVarBitmapCols, len(*dataRow.VarLenCols))
 			return (*dataRow.VarLenCols)[valorder].content
 
 		}
