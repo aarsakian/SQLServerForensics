@@ -88,7 +88,7 @@ func (table Table) printData() {
 }
 
 func (table *Table) setContent(tablePages []page.Page) {
-	fmt.Printf("Processing table %s \n", table.Name)
+
 	for _, page := range tablePages {
 
 		if page.GetType() != "DATA" {
