@@ -37,9 +37,9 @@ func (c Column) isStatic() bool {
 
 }
 
-func (c *Column) addContent(datarow page.DataRow) []byte {
+func (c *Column) addContent(datarow page.DataRow, skippedVarCols int) []byte {
 
-	return datarow.ProcessData(c.Order, c.Size, c.isStatic(), c.VarLenOrder)
+	return datarow.ProcessData(c.Order, c.Size, c.isStatic(), c.VarLenOrder-uint16(skippedVarCols))
 
 }
 
@@ -95,19 +95,21 @@ func (table *Table) setContent(tablePages []page.Page) {
 			continue
 		}
 
-		var rows []ColMap
 		for _, datarow := range page.DataRows {
 			m := make(ColMap)
+			skippedVarCols := 0 // counts skipped var cols
 			for _, col := range table.Schema {
+				if datarow.NullBitmap>>(col.Order-1)&1 == 1 { //col is NULL skip
+					skippedVarCols++
+					continue
+				}
 
-				m[col.Name] = col.addContent(datarow)
+				m[col.Name] = col.addContent(datarow, skippedVarCols)
 
 			}
-			rows = append(rows, m)
+			table.rows = append(table.rows, m)
 
 		}
-
-		table.rows = rows
 
 	}
 
