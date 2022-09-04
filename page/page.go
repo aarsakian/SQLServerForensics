@@ -106,46 +106,60 @@ type SystemTable interface {
 	GetData() (any, any)
 }
 
-func (dataRow *DataRow) ProcessVaryingCols(data []byte) {
+func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // from slot offset to end
 	var datacols DataCols
+	var inlineBlob *InlineBLob = new(InlineBLob)
 	startVarColOffset := dataRow.GetVarCalOffset()
-	for _, endVarColOffset := range dataRow.VarLengthColOffsets {
+	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
 		if endVarColOffset <= startVarColOffset {
 			continue
-		} else if endVarColOffset > uint16(len(data)) || endVarColOffset > 8096 {
+		} else if int(startVarColOffset) > len(data) {
 			break
+		} else if int(endVarColOffset) > len(data) ||
+			int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
+			endVarColOffset = uint16(len(data))
+
 		}
 		cpy := make([]byte, endVarColOffset-startVarColOffset)
 		copy(cpy, data[startVarColOffset:endVarColOffset])
 		startVarColOffset = endVarColOffset
+
+		var rowId *RowId = new(RowId)
+		if len(cpy) == 24 && endVarColOffset == uint16(len(data)) { // only way to guess that we have a row overflow data
+
+			utils.Unmarshal(cpy, inlineBlob)
+			utils.Unmarshal(cpy[12:], rowId)
+
+		}
+
+		inlineBlob.RowIds = append(inlineBlob.RowIds, *rowId)
+
 		if dataRow.SystemTable != nil {
 			dataRow.SystemTable.SetName(cpy)
 		} else {
-			datacols = append(datacols, DataCol{content: cpy})
+			datacols = append(datacols, DataCol{id: idx, content: cpy, offset: startVarColOffset})
 		}
 	}
+	dataRow.InlineBLob = inlineBlob
 	dataRow.VarLenCols = &datacols
 
 }
 
 func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, valorder uint16) (data []byte) {
-	if dataRow.NullBitmap>>(colId-1)&1 == 1 { //col is NULL set to zero
-		return []byte{0x00}
-	} else {
-		if static {
-			if int(colsize) > len(dataRow.FixedLenCols) {
-				return dataRow.FixedLenCols[:]
-			} else {
-				return dataRow.FixedLenCols[:colsize]
-			}
 
+	if static {
+		if int(colsize) > len(dataRow.FixedLenCols) {
+			return dataRow.FixedLenCols[:]
 		} else {
-
-			return (*dataRow.VarLenCols)[valorder].content
-
+			return dataRow.FixedLenCols[:colsize]
 		}
 
+	} else {
+
+		return (*dataRow.VarLenCols)[valorder].content
+
 	}
+
 }
 
 func (dataRow *DataRow) Process(systemtable SystemTable) {
@@ -240,8 +254,8 @@ func (page *Page) parseDATA(data []byte) {
 		var dataRowLen utils.SlotOffset
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() {
 			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
-		} else {
-			dataRowLen = 8192 - slotoffset //last slot
+		} else { //last slot
+			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
 
 		var dataRow *DataRow = new(DataRow)
