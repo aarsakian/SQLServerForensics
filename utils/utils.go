@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	"strconv"
 	"unicode/utf16"
 	"unicode/utf8"
 )
@@ -49,6 +50,25 @@ type SortedSlotsOffset []SlotOffset
 
 func (s SortedSlotsOffset) Len() int {
 	return len(s)
+
+}
+
+func HasFlagSet(bitmap []byte, flagPos int) bool {
+	var temp uint32
+	if len(bitmap) == 1 {
+		temp = uint32(bitmap[0])
+	} else {
+		binary.Read(bytes.NewBuffer(bitmap), binary.LittleEndian, &temp)
+	}
+
+	if temp == 0 {
+		return false
+	} else {
+		bitrepresentation := strconv.FormatUint(uint64(temp), 2)
+		bitflag := bitrepresentation[len(bitrepresentation)-flagPos]
+		return bitflag == 49 // ascii 49 = 1
+
+	}
 
 }
 
@@ -130,28 +150,18 @@ func Unmarshal(data []byte, v interface{}) error {
 			idx += 1
 		case reflect.Uint16:
 			var temp uint16
-			name := structType.Elem().Field(i).Name
-			if name == "NullBitmap" {
-				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
-				bytesNeeded := int(math.Ceil(float64(nofCols) / 8))
-				if bytesNeeded == 1 {
-					temp = uint16(data[idx : idx+bytesNeeded][0])
-				} else {
-					binary.Read(bytes.NewBuffer(data[idx:idx+bytesNeeded]), binary.LittleEndian, &temp)
-				}
 
-				field.SetUint(uint64(temp))
-				idx += bytesNeeded
-			} else {
-				binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
-				field.SetUint(uint64(temp))
-				idx += 2
-			}
+			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+			field.SetUint(uint64(temp))
+			idx += 2
+
 		case reflect.Uint32:
 			var temp uint32
+
 			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
 			field.SetUint(uint64(temp))
 			idx += 4
+
 		case reflect.Uint64:
 			var temp uint64
 
@@ -201,6 +211,14 @@ func Unmarshal(data []byte, v interface{}) error {
 				field.Set(reflect.ValueOf(dst))
 				idx += field.Len()
 
+			} else if name == "NullBitmap" {
+				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
+				bytesNeeded := int(math.Ceil(float64(nofCols) / 8))
+				byteArrayDst := make([]byte, bytesNeeded)
+				copy(byteArrayDst, data[idx:idx+bytesNeeded])
+
+				field.Set(reflect.ValueOf(byteArrayDst))
+				idx += bytesNeeded
 			} else if name == "VarLengthColOffsets" {
 				var temp uint16
 				var arr []uint16
