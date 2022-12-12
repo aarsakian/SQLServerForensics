@@ -47,7 +47,7 @@ type DataRow struct {
 	NofColsOffset         uint16 //2
 	FixedLenCols          []byte //1-
 	NumberOfCols          uint16 //2
-	NullBitmap            uint16 //1-2
+	NullBitmap            []byte //1-
 	NumberOfVarLengthCols uint16 //0-
 	VarLengthColOffsets   []uint16
 	VarLenCols            *DataCols
@@ -65,7 +65,7 @@ func (dataRow DataRow) GetFlags() string {
 func (dataRow DataRow) GetVarCalOffset() uint16 {
 
 	return dataRow.NofColsOffset + uint16(unsafe.Sizeof(dataRow.NumberOfCols)) +
-		uint16(unsafe.Sizeof(dataRow.NullBitmap)) +
+		uint16(reflect.ValueOf(dataRow.NullBitmap).Len()) +
 		uint16(unsafe.Sizeof(dataRow.NumberOfVarLengthCols)) +
 		uint16(reflect.ValueOf(dataRow.VarLengthColOffsets).Len()*2)
 }

@@ -4,6 +4,7 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
+	"reflect"
 )
 
 type ColMap map[string][]byte
@@ -99,7 +100,11 @@ func (table *Table) setContent(tablePages []page.Page) {
 			m := make(ColMap)
 			skippedVarCols := 0 // counts skipped var cols
 			for _, col := range table.Schema {
-				if datarow.NullBitmap>>(col.Order-1)&1 == 1 { //col is NULL skip
+				len := reflect.ValueOf(datarow.NullBitmap).Len()
+				if len*8 < int(col.Order) {
+					fmt.Println("BOR")
+				}
+				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order)) { //col is NULL skip when ASCII 49  (1)
 					skippedVarCols++
 					continue
 				}
