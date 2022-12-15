@@ -53,22 +53,28 @@ func (s SortedSlotsOffset) Len() int {
 
 }
 
-func HasFlagSet(bitmap []byte, flagPos int) bool {
-	var temp uint32
+func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
+	var bitrepresentation string
 	if len(bitmap) == 1 {
-		temp = uint32(bitmap[0])
-	} else {
+
+		temp := uint(bitmap[0])
+		bitrepresentation = strconv.FormatUint(uint64(temp), 2)
+	} else if len(bitmap) == 2 {
+		var temp uint16
 		binary.Read(bytes.NewBuffer(bitmap), binary.LittleEndian, &temp)
-	}
-
-	if temp == 0 {
-		return false
+		bitrepresentation = strconv.FormatUint(uint64(temp), 2)
 	} else {
-		bitrepresentation := strconv.FormatUint(uint64(temp), 2)
-		bitflag := bitrepresentation[len(bitrepresentation)-flagPos]
-		return bitflag == 49 // ascii 49 = 1
-
+		var temp uint32
+		binary.Read(bytes.NewBuffer(bitmap), binary.LittleEndian, &temp)
+		bitrepresentation = strconv.FormatUint(uint64(temp), 2)
 	}
+
+	for len(bitrepresentation) <= nofCols {
+		bitrepresentation = "0" + bitrepresentation
+	}
+
+	bitflag := bitrepresentation[len(bitrepresentation)-flagPos]
+	return bitflag == 49 // ascii 49 = 1
 
 }
 
