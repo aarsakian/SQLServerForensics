@@ -83,19 +83,20 @@ func (db Database) ShowTables(tablename string) {
 }
 
 func (db Database) GetTablesInformation() []Table {
-	tablesMap := db.createMap("sysschobjs")
-	colsMap := db.createMapList("syscolpars")
-	tableAllocsMap := db.createMap("sysrowsets")
-	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits")
+	tablesMap := db.createMap("sysschobjs")   // table information holds a map of object ids and table names
+	colsMap := db.createMapList("syscolpars") //table objectid = name , type, size, colorder
+
+	tableAllocsMap := db.createMap("sysrowsets")                       //(ttable objectid) = sysrowsets.Rowsetid
+	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //table  ObjectId =  OwnerId, getPageId()
 
 	var tables []Table
 	for tobjectId, tname := range tablesMap {
-		results, ok := colsMap[tobjectId.(int32)]
-		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
+		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
+
 		table := Table{Name: tname.(string), ObjectId: tobjectId.(int32)}
 
 		if ok {
-
+			fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
 			columns := table.addColumns(results)
 			vid := 0 // keeps order var len cols
 			//range copies values
@@ -111,16 +112,18 @@ func (db Database) GetTablesInformation() []Table {
 			}
 
 		}
-		partitionId, ok := tableAllocsMap[tobjectId]
+
+		rowsetId, ok := tableAllocsMap[tobjectId] // from sysrowsets idmajor => rowsetid
 		if ok {
-			table.PartitionId = partitionId.(uint64)
+			table.Rowsetid = rowsetId.(uint64) // rowsetid
 		}
 
-		pageObjectIds, ok := tableSysAllocsMap[table.PartitionId]
+		pageObjectIds, ok := tableSysAllocsMap[table.Rowsetid] // from sysallocunits rowsetid => pageId
 
 		if ok {
 			for _, pageObjectId := range pageObjectIds {
-				table.setContent(db.Pages[pageObjectId.(uint32)])
+				table_alloc_pages := db.Pages[pageObjectId.(uint32)] // find the pages the table was allocated
+				table.setContent(table_alloc_pages)                  // correlerate with page object ids
 			}
 
 		}
