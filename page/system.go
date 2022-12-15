@@ -107,7 +107,7 @@ func (sysrowsets SysRowSets) ShowData() {
 }
 
 func (sysrowsets SysRowSets) GetData() (any, any) {
-	return int32(sysrowsets.Idmajor), sysrowsets.Rowsetid
+	return int32(sysrowsets.Idmajor), sysrowsets.Rowsetid // table object ID
 }
 
 func (sysiscols *sysIsCols) SetName([]byte) {
