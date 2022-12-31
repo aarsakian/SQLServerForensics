@@ -32,6 +32,10 @@ func ToStructAuid(data []byte) Auid {
 
 }
 
+func RemoveSignBit(val int16) int16 {
+	return int16(uint16(val<<1) >> 1)
+}
+
 func ToInt64(data []byte) int {
 	var temp int64
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
@@ -226,8 +230,8 @@ func Unmarshal(data []byte, v interface{}) error {
 				field.Set(reflect.ValueOf(byteArrayDst))
 				idx += bytesNeeded
 			} else if name == "VarLengthColOffsets" {
-				var temp uint16
-				var arr []uint16
+				var temp int16
+				var arr []int16
 				nofVarLenCols := structValPtr.Elem().FieldByName("NumberOfVarLengthCols").Uint()
 
 				for colId := 0; colId < int(nofVarLenCols); colId++ {
