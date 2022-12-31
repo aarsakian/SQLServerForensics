@@ -8,9 +8,10 @@ import (
 )
 
 type DataCol struct {
-	id      int
-	offset  uint16
-	content []byte
+	id         int
+	offset     uint16
+	content    []byte
+	InlineBLob *InlineBLob
 }
 
 type DataRows []DataRow
@@ -37,7 +38,7 @@ type InlineBLob struct {
 	Unused     byte
 	UpdateSeq  uint32
 	Timestamp  uint32
-	RowIds     RowIds
+	RowIds     RowIds //12-
 }
 
 type DataRow struct {
@@ -49,9 +50,8 @@ type DataRow struct {
 	NumberOfCols          uint16 //2
 	NullBitmap            []byte //1-
 	NumberOfVarLengthCols uint16 //0-
-	VarLengthColOffsets   []uint16
+	VarLengthColOffsets   []int16
 	VarLenCols            *DataCols
-	InlineBLob            *InlineBLob
 	SystemTable           SystemTable
 }
 
@@ -62,12 +62,28 @@ func (dataRow DataRow) GetFlags() string {
 	return strings.Join([]string{recordType, nullBitmap, varLenCols}, " ")
 }
 
-func (dataRow DataRow) GetVarCalOffset() uint16 {
+func (dataCol DataCol) hasBlob() bool {
+	return dataCol.InlineBLob != nil
 
-	return dataRow.NofColsOffset + uint16(unsafe.Sizeof(dataRow.NumberOfCols)) +
-		uint16(reflect.ValueOf(dataRow.NullBitmap).Len()) +
-		uint16(unsafe.Sizeof(dataRow.NumberOfVarLengthCols)) +
-		uint16(reflect.ValueOf(dataRow.VarLengthColOffsets).Len()*2)
+}
+
+func (dataCol DataCol) GetLOBPage() uint32 {
+	if dataCol.hasBlob() {
+		return dataCol.InlineBLob.RowIds[0].PageId // needs check for more rowids
+	}
+	return 0
+}
+
+func (dataRow DataRow) GetBloBPageId(colNum int) uint16 {
+	return uint16((*dataRow.VarLenCols)[colNum].GetLOBPage())
+}
+
+func (dataRow DataRow) GetVarCalOffset() int16 { // start offset for var col len
+
+	return int16(dataRow.NofColsOffset) + int16(unsafe.Sizeof(dataRow.NumberOfCols)) +
+		int16(reflect.ValueOf(dataRow.NullBitmap).Len()) +
+		int16(unsafe.Sizeof(dataRow.NumberOfVarLengthCols)) +
+		int16(reflect.ValueOf(dataRow.VarLengthColOffsets).Len()*2)
 }
 
 func (dataRow DataRow) ShowData() {
