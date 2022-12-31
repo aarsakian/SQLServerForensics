@@ -10,7 +10,7 @@ import (
 )
 
 var PageTypes = map[uint8]string{
-	1: "DATA", 2: "Index", 3: "Text", 4: "Text", 7: "Sort", 8: "GAM", 9: "SGAM",
+	1: "DATA", 2: "Index", 3: "LOB", 4: "Text", 7: "Sort", 8: "GAM", 9: "SGAM",
 	10: "IAM", 11: "PFS", 13: "Boot", 15: "File Header",
 	16: "Differential Changed Map", 17: "Buck Change Map",
 }
@@ -31,10 +31,13 @@ var PFSStatus = map[uint8]string{
 
 type Pages map[uint32][]Page
 
+type LOBS []LOB
+
 type Page struct {
 	Header      Header
 	Slots       []utils.SlotOffset
 	DataRows    DataRows
+	LOBS        LOBS
 	PFSPage     *PFSPage
 	GAMExtents  *GAMExtents
 	SGAMExtents *SGAMExtents
@@ -106,41 +109,47 @@ type SystemTable interface {
 	GetData() (any, any)
 }
 
-func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // from slot offset to end
+func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 	var datacols DataCols
 	var inlineBlob *InlineBLob = new(InlineBLob)
 	startVarColOffset := dataRow.GetVarCalOffset()
 	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
+
+		if endVarColOffset < 0 {
+			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
+		}
+
 		if endVarColOffset <= startVarColOffset {
 			continue
 		} else if int(startVarColOffset) > len(data) {
 			break
 		} else if int(endVarColOffset) > len(data) ||
 			int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
-			endVarColOffset = uint16(len(data))
+			endVarColOffset = int16(len(data))
 
 		}
-		cpy := make([]byte, endVarColOffset-startVarColOffset)
+		cpy := make([]byte, endVarColOffset-startVarColOffset) // var col length
 		copy(cpy, data[startVarColOffset:endVarColOffset])
 		startVarColOffset = endVarColOffset
 
 		var rowId *RowId = new(RowId)
-		if len(cpy) == 24 && endVarColOffset == uint16(len(data)) { // only way to guess that we have a row overflow data
+		if len(cpy) == 24 { // only way to guess that we have a row overflow data
 
 			utils.Unmarshal(cpy, inlineBlob)
 			utils.Unmarshal(cpy[12:], rowId)
+			inlineBlob.RowIds = append(inlineBlob.RowIds, *rowId)
 
 		}
-
-		inlineBlob.RowIds = append(inlineBlob.RowIds, *rowId)
 
 		if dataRow.SystemTable != nil {
 			dataRow.SystemTable.SetName(cpy)
 		} else {
-			datacols = append(datacols, DataCol{id: idx, content: cpy, offset: startVarColOffset})
+			datacols = append(datacols,
+				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBLob: inlineBlob})
 		}
+
 	}
-	dataRow.InlineBLob = inlineBlob
+
 	dataRow.VarLenCols = &datacols
 
 }
@@ -155,7 +164,6 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, v
 		}
 
 	} else {
-
 		return (*dataRow.VarLenCols)[valorder].content
 
 	}
@@ -248,8 +256,21 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 	return allocMap
 }
 
+func (page *Page) parseLOB(data []byte) {
+	var lobs []LOB
+	for _, slotoffset := range page.Slots {
+		var lob *LOB = new(LOB)
+		utils.Unmarshal(data[slotoffset:slotoffset+14], lob) // 14 byte lob header
+		lob.Content = data[slotoffset+14 : slotoffset+utils.SlotOffset(lob.Length)]
+		lobs = append(lobs, *lob)
+	}
+	page.LOBS = lobs
+
+}
+
 func (page *Page) parseDATA(data []byte) {
 	var dataRows DataRows
+	fmt.Println(page.Header.PageId)
 	for slotnum, slotoffset := range page.Slots {
 		var dataRowLen utils.SlotOffset
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() {
@@ -260,7 +281,7 @@ func (page *Page) parseDATA(data []byte) {
 
 		var dataRow *DataRow = new(DataRow)
 		utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
-		//	fmt.Println(slotoffset, slotnum, reflect.ValueOf(page.Slots).Len())
+		//fmt.Println(slotoffset, slotnum, page.Header.PageId)
 		if page.Header.ObjectId == 0x29 { //syscolpars
 
 			var syscolpars *SysColpars = new(SysColpars)
@@ -288,6 +309,7 @@ func (page *Page) parseDATA(data []byte) {
 		if dataRow.NumberOfVarLengthCols != 0 {
 			dataRow.ProcessVaryingCols(data[slotoffset : slotoffset+dataRowLen])
 		}
+
 		dataRows = append(dataRows, *dataRow)
 	}
 	page.DataRows = dataRows
@@ -377,6 +399,8 @@ func (page *Page) Process(data []byte) {
 		page.parseSGAM(data)
 	case "DATA":
 		page.parseDATA(data)
+	case "LOB":
+		page.parseLOB(data)
 	case "Index":
 		page.parseIndex(data)
 	case "IAM":
