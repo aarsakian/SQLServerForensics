@@ -114,8 +114,14 @@ func (table *Table) setContent(tablePages []page.Page) {
 					skippedVarCols++
 					continue
 				}
-
-				m[col.Name] = col.addContent(datarow, skippedVarCols)
+				if !col.isStatic() {
+					pageId := datarow.GetBloBPageId(skippedVarCols)
+					if pageId != 0 {
+						fmt.Println("LOB", pageId)
+					}
+				} else {
+					m[col.Name] = col.addContent(datarow, skippedVarCols)
+				}
 
 			}
 			table.rows = append(table.rows, m)
