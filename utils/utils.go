@@ -108,8 +108,8 @@ func (s SortedSlotsOffset) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func FilterMap[T any, K comparable](s map[K][]T, f func(T) bool) map[K][]T {
-	r := map[K][]T{}
+func FilterMap[L any, T ~[]L, K comparable](s map[K]T, f func(L) bool) map[K]T {
+	r := map[K]T{}
 	for k, Vs := range s {
 		for _, v := range Vs {
 			if f(v) {
