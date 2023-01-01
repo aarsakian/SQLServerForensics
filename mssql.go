@@ -68,7 +68,7 @@ func main() {
 
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 	var database db.Database
-	pages := page.Pages{}
+	pages := page.PagesMap{}
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
 		ShowSGamExtents: *showSGamExtents,
@@ -120,7 +120,7 @@ func main() {
 		pages = pages.FilterBySystemTables("sysschobjs")
 	}
 
-	database.Pages = pages
+	database.PagesMap = pages
 	tables := database.GetTablesInformation()
 	database.Tables = tables
 

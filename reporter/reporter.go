@@ -18,7 +18,7 @@ type Reporter struct {
 }
 
 func (rp Reporter) ShowStats(database db.Database) {
-	for _, pages := range database.Pages {
+	for _, pages := range database.PagesMap {
 		for _, page := range pages {
 			allocMap := page.GetAllocationMaps()
 
