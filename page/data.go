@@ -74,8 +74,8 @@ func (dataCol DataCol) GetLOBPage() uint32 {
 	return 0
 }
 
-func (dataRow DataRow) GetBloBPageId(colNum int) uint16 {
-	return uint16((*dataRow.VarLenCols)[colNum].GetLOBPage())
+func (dataRow DataRow) GetBloBPageId(colNum int) uint32 {
+	return (*dataRow.VarLenCols)[colNum].GetLOBPage()
 }
 
 func (dataRow DataRow) GetVarCalOffset() int16 { // start offset for var col len
