@@ -6,8 +6,8 @@ import (
 )
 
 type Database struct {
-	Pages  page.Pages
-	Tables []Table
+	PagesMap page.PagesMap
+	Tables   []Table
 }
 
 func (db Database) ProcessPage(bs []byte) page.Page {
@@ -18,12 +18,12 @@ func (db Database) ProcessPage(bs []byte) page.Page {
 }
 
 func (db *Database) FilterBySystemTables(systemTables string) {
-	db.Pages = db.Pages.FilterBySystemTables(systemTables)
+	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTables)
 }
 
 func (db Database) createMap(tablename string) map[any]any {
 	results := map[any]any{}
-	systemPages := db.Pages.FilterBySystemTables(tablename)
+	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
@@ -40,7 +40,7 @@ func (db Database) createMap(tablename string) map[any]any {
 
 func (db Database) createMapListGeneric(tablename string) map[any][]any {
 	results := map[any][]any{}
-	systemPages := db.Pages.FilterBySystemTables(tablename)
+	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
@@ -57,7 +57,7 @@ func (db Database) createMapListGeneric(tablename string) map[any][]any {
 
 func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, uint16, uint16] {
 	results := map[int32][]page.Result[string, string, uint16, uint16]{}
-	systemPages := db.Pages.FilterBySystemTables(tablename)
+	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
@@ -122,8 +122,9 @@ func (db Database) GetTablesInformation() []Table {
 
 		if ok {
 			for _, pageObjectId := range pageObjectIds {
-				table_alloc_pages := db.Pages[pageObjectId.(uint32)] // find the pages the table was allocated
-				table.setContent(table_alloc_pages)                  // correlerate with page object ids
+				table_alloc_pages := db.PagesMap[pageObjectId.(uint32)] // find the pages the table was allocated
+				dataPages := table_alloc_pages.FilterByType("DATA")
+				table.setContent(dataPages) // correlerate with page object ids
 			}
 
 		}
