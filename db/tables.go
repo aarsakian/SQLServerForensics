@@ -89,43 +89,49 @@ func (table Table) printData() {
 }
 
 func (table *Table) setContent(tablePages []page.Page) {
+	var lobPages map[uint32]page.Page
 
 	for _, page := range tablePages {
+		fmt.Println(page.GetType())
+		if page.GetType() == "LOB" {
+			lobPages[page.Header.PageId] = page
+		} else if page.GetType() == "DATA" {
 
-		if page.GetType() != "DATA" {
-			continue
-		}
+			for _, datarow := range page.DataRows {
+				m := make(ColMap)
+				skippedVarCols := 0 // counts skipped var cols
+				nofCols := len(table.Schema)
 
-		for _, datarow := range page.DataRows {
-			m := make(ColMap)
-			skippedVarCols := 0 // counts skipped var cols
-			nofCols := len(table.Schema)
-
-			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-				continue
-			}
-
-			for _, col := range table.Schema {
-				len := reflect.ValueOf(datarow.NullBitmap).Len()
-				if len*8 < int(col.Order) {
-					fmt.Println("BOR")
-				}
-				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
-					skippedVarCols++
+				if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 					continue
 				}
-				if !col.isStatic() {
-					pageId := datarow.GetBloBPageId(skippedVarCols)
-					if pageId != 0 {
-						fmt.Println("LOB", pageId)
+
+				for _, col := range table.Schema {
+					len := reflect.ValueOf(datarow.NullBitmap).Len()
+					if len*8 < int(col.Order) {
+						fmt.Println("BOR")
 					}
-				} else {
-					m[col.Name] = col.addContent(datarow, skippedVarCols)
+					if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
+						skippedVarCols++
+						continue
+					}
+					if !col.isStatic() {
+						pageId := datarow.GetBloBPageId(skippedVarCols)
+						if pageId != 0 {
+							fmt.Println("LOB", pageId)
+							lobPage := lobPages[pageId]
+							for _, lob := range lobPage.LOBS {
+								m[col.Name] = lob.Content
+							}
+						}
+					} else {
+						m[col.Name] = col.addContent(datarow, skippedVarCols)
+					}
+
 				}
+				table.rows = append(table.rows, m)
 
 			}
-			table.rows = append(table.rows, m)
-
 		}
 
 	}
