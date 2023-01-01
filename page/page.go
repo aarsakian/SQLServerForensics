@@ -29,7 +29,9 @@ var PFSStatus = map[uint8]string{
 	112: "ALLOCATED Mixed Extent IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
 	66: "ALLOCATED 80PCT_FULL", 67: "ALLOCATED 95PCT_FULL", 156: "UNUSED HAS_GHOST D 100PCT_FULL"}
 
-type Pages map[uint32][]Page
+type Pages []Page
+
+type PagesMap map[uint32]Pages
 
 type LOBS []LOB
 
@@ -84,13 +86,19 @@ func (page Page) FilterByTable(tablename string) DataRows {
 }
 
 func (pages Pages) FilterByType(pageType string) Pages {
-	return utils.FilterMap(pages, func(page Page) bool {
+	return utils.Filter(pages, func(page Page) bool {
 		return page.GetType() == pageType
 	})
 }
 
-func (pages Pages) FilterBySystemTables(systemTable string) Pages {
-	return utils.FilterMap(pages, func(page Page) bool {
+func (pagesMap PagesMap) FilterByType(pageType string) PagesMap {
+	return utils.FilterMap(pagesMap, func(page Page) bool {
+		return page.GetType() == pageType
+	})
+}
+
+func (pagesMap PagesMap) FilterBySystemTables(systemTable string) PagesMap {
+	return utils.FilterMap(pagesMap, func(page Page) bool {
 		if systemTable == "all" {
 			return page.Header.ObjectId == 0x22 ||
 				page.Header.ObjectId == 0x37 || //sysiscols,
