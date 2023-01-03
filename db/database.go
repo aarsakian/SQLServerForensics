@@ -87,7 +87,7 @@ func (db Database) GetTablesInformation() []Table {
 	colsMap := db.createMapList("syscolpars") //table objectid = name , type, size, colorder
 
 	tableAllocsMap := db.createMap("sysrowsets")                       //(ttable objectid) = sysrowsets.Rowsetid
-	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //table  ObjectId =  OwnerId, getPageId()
+	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  OwnerId, page ObjectId
 
 	var tables []Table
 	for tobjectId, tname := range tablesMap {
@@ -118,14 +118,16 @@ func (db Database) GetTablesInformation() []Table {
 			table.Rowsetid = rowsetId.(uint64) // rowsetid
 		}
 
-		pageObjectIds, ok := tableSysAllocsMap[table.Rowsetid] // from sysallocunits rowsetid => pageId
-
+		pageObjectIds, ok := tableSysAllocsMap[table.Rowsetid] // from sysallocunits rowsetid => page ObjectId
+		var table_alloc_pages page.Pages
 		if ok {
 			for _, pageObjectId := range pageObjectIds {
-				table_alloc_pages := db.PagesMap[pageObjectId.(uint32)] // find the pages the table was allocated
-				dataPages := table_alloc_pages.FilterByType("DATA")
-				table.setContent(dataPages) // correlerate with page object ids
+				table_alloc_pages = append(table_alloc_pages, db.PagesMap[pageObjectId.(uint32)]...) // find the pages the table was allocated
+
 			}
+			dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
+			lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
+			table.setContent(dataPages, lobPages) // correlerate with page object ids
 
 		}
 

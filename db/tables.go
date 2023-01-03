@@ -38,9 +38,9 @@ func (c Column) isStatic() bool {
 
 }
 
-func (c *Column) addContent(datarow page.DataRow, skippedVarCols int) []byte {
+func (c *Column) addContent(datarow page.DataRow, skippedVarCols int, lobPages page.PageMap) []byte {
 
-	return datarow.ProcessData(c.Order, c.Size, c.isStatic(), c.VarLenOrder-uint16(skippedVarCols))
+	return datarow.ProcessData(c.Order, c.Size, c.isStatic(), c.VarLenOrder-uint16(skippedVarCols), lobPages)
 
 }
 
@@ -88,52 +88,35 @@ func (table Table) printData() {
 	}
 }
 
-func (table *Table) setContent(tablePages []page.Page) {
-	var lobPages map[uint32]page.Page
+func (table *Table) setContent(dataPages page.PageMap, lobPages page.PageMap) {
 
-	for _, page := range tablePages {
-		fmt.Println(page.GetType())
-		if page.GetType() == "LOB" {
-			lobPages[page.Header.PageId] = page
-		} else if page.GetType() == "DATA" {
+	for _, page := range dataPages {
 
-			for _, datarow := range page.DataRows {
-				m := make(ColMap)
-				skippedVarCols := 0 // counts skipped var cols
-				nofCols := len(table.Schema)
+		for _, datarow := range page.DataRows {
+			m := make(ColMap)
+			skippedVarCols := 0 // counts skipped var cols
+			nofCols := len(table.Schema)
 
-				if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
+			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
+				continue
+			}
+
+			for _, col := range table.Schema {
+				len := reflect.ValueOf(datarow.NullBitmap).Len()
+				if len*8 < int(col.Order) {
+					fmt.Println("BOR")
+				}
+				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
+					skippedVarCols++
 					continue
 				}
 
-				for _, col := range table.Schema {
-					len := reflect.ValueOf(datarow.NullBitmap).Len()
-					if len*8 < int(col.Order) {
-						fmt.Println("BOR")
-					}
-					if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
-						skippedVarCols++
-						continue
-					}
-					if !col.isStatic() {
-						pageId := datarow.GetBloBPageId(skippedVarCols)
-						if pageId != 0 {
-							fmt.Println("LOB", pageId)
-							lobPage := lobPages[pageId]
-							for _, lob := range lobPage.LOBS {
-								m[col.Name] = lob.Content
-							}
-						}
-					} else {
-						m[col.Name] = col.addContent(datarow, skippedVarCols)
-					}
-
-				}
-				table.rows = append(table.rows, m)
+				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages)
 
 			}
-		}
+			table.rows = append(table.rows, m)
 
+		}
 	}
 
 }
