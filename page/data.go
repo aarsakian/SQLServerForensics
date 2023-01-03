@@ -74,7 +74,7 @@ func (dataCol DataCol) GetLOBPage() uint32 {
 	return 0
 }
 
-func (dataRow DataRow) GetBloBPageId(colNum int) uint32 {
+func (dataRow DataRow) GetBloBPageId(colNum uint16) uint32 {
 	return (*dataRow.VarLenCols)[colNum].GetLOBPage()
 }
 
