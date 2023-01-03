@@ -71,13 +71,19 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 	return results
 }
 
-func (db Database) ShowTables(tablename string) {
+func (db Database) ShowTables(tablename string, showSchema bool, showContent bool) {
 	for _, table := range db.Tables {
 		if table.Name != tablename {
 			continue
 		}
-		table.printSchema()
-		table.printData()
+
+		if showSchema {
+			table.printSchema()
+		}
+		if showContent {
+			table.printData()
+		}
+
 	}
 
 }
