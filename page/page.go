@@ -33,6 +33,8 @@ type Pages []Page
 
 type PagesMap map[uint32]Pages
 
+type PageMap map[uint32]Page
+
 type LOBS []LOB
 
 type Page struct {
@@ -85,12 +87,11 @@ func (page Page) FilterByTable(tablename string) DataRows {
 
 }
 
-func (pages Pages) FilterByType(pageType string) Pages {
-	return utils.Filter(pages, func(page Page) bool {
-		return page.GetType() == pageType
+func (pages Pages) FilterByTypeToMap(pageType string) PageMap {
+	return utils.FilterToMap(pages, func(page Page) (bool, uint32) {
+		return page.GetType() == pageType, page.Header.PageId
 	})
 }
-
 func (pagesMap PagesMap) FilterByType(pageType string) PagesMap {
 	return utils.FilterMap(pagesMap, func(page Page) bool {
 		return page.GetType() == pageType
@@ -119,7 +120,7 @@ type SystemTable interface {
 
 func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 	var datacols DataCols
-	var inlineBlob *InlineBLob = new(InlineBLob)
+	var inlineBlob *InlineBLob
 	startVarColOffset := dataRow.GetVarCalOffset()
 	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
 
@@ -142,7 +143,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 
 		var rowId *RowId = new(RowId)
 		if len(cpy) == 24 { // only way to guess that we have a row overflow data
-
+			inlineBlob = new(InlineBLob)
 			utils.Unmarshal(cpy, inlineBlob)
 			utils.Unmarshal(cpy[12:], rowId)
 			inlineBlob.RowIds = append(inlineBlob.RowIds, *rowId)
@@ -151,9 +152,12 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 
 		if dataRow.SystemTable != nil {
 			dataRow.SystemTable.SetName(cpy)
-		} else {
+		} else if inlineBlob != nil {
 			datacols = append(datacols,
 				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBLob: inlineBlob})
+		} else {
+			datacols = append(datacols,
+				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset)})
 		}
 
 	}
@@ -162,7 +166,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 
 }
 
-func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, valorder uint16) (data []byte) {
+func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, valorder uint16, lobPages PageMap) (data []byte) {
 
 	if static {
 		if int(colsize) > len(dataRow.FixedLenCols) {
@@ -172,7 +176,16 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, v
 		}
 
 	} else {
-		return (*dataRow.VarLenCols)[valorder].content
+
+		pageId := dataRow.GetBloBPageId(valorder)
+		if pageId != 0 {
+			fmt.Println("LOB", pageId)
+			lobPage := lobPages[pageId]
+			return lobPage.LOBS[0].Content // might change
+
+		} else {
+			return (*dataRow.VarLenCols)[valorder].content
+		}
 
 	}
 
@@ -278,7 +291,7 @@ func (page *Page) parseLOB(data []byte) {
 
 func (page *Page) parseDATA(data []byte) {
 	var dataRows DataRows
-	fmt.Println(page.Header.PageId)
+
 	for slotnum, slotoffset := range page.Slots {
 		var dataRowLen utils.SlotOffset
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() {
