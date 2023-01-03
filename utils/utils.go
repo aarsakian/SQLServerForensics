@@ -120,6 +120,17 @@ func FilterMap[L any, T ~[]L, K comparable](s map[K]T, f func(L) bool) map[K]T {
 	return r
 }
 
+func FilterToMap[T any, K comparable](s []T, f func(T) (bool, K)) map[K]T {
+	r := map[K]T{}
+	for _, v := range s {
+		status, id := f(v)
+		if status {
+			r[id] = v
+		}
+	}
+	return r
+}
+
 func Filter[T any](s []T, f func(T) bool) []T {
 	var r []T
 	for _, v := range s {
