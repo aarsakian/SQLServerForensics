@@ -40,7 +40,9 @@ func main() {
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
-	tableName := flag.String("table", "", "show tables restructured")
+	tableName := flag.String("table", "", "show table")
+	showTableContent := flag.Bool("showContent", false, "show table contents")
+	showTableSchema := flag.Bool("showSchema", true, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iam", false, "show IAM extents for each page")
@@ -71,13 +73,15 @@ func main() {
 	pages := page.PagesMap{}
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
-		ShowSGamExtents: *showSGamExtents,
-		ShowIAMExtents:  *showIAMExtents,
-		ShowDataCols:    *showDataCols,
-		ShowPFS:         *showPFS,
-		ShowHeader:      *showHeader,
-		ShowSlots:       *showSlots,
-		TableName:       *tableName}
+		ShowSGamExtents:  *showSGamExtents,
+		ShowIAMExtents:   *showIAMExtents,
+		ShowDataCols:     *showDataCols,
+		ShowPFS:          *showPFS,
+		ShowHeader:       *showHeader,
+		ShowSlots:        *showSlots,
+		TableName:        *tableName,
+		ShowTableSchema:  *showTableSchema,
+		ShowTableContent: *showTableContent}
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))
