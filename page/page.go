@@ -282,7 +282,9 @@ func (page *Page) parseLOB(data []byte) {
 	for _, slotoffset := range page.Slots {
 		var lob *LOB = new(LOB)
 		utils.Unmarshal(data[slotoffset:slotoffset+14], lob) // 14 byte lob header
-		lob.Content = data[slotoffset+14 : slotoffset+utils.SlotOffset(lob.Length)]
+		content := make([]byte, slotoffset+utils.SlotOffset(lob.Length)-slotoffset+14)
+		copy(content, data[slotoffset+14:slotoffset+utils.SlotOffset(lob.Length)])
+		lob.Content = content
 		lobs = append(lobs, *lob)
 	}
 	page.LOBS = lobs
