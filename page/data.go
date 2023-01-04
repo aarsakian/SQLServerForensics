@@ -8,10 +8,11 @@ import (
 )
 
 type DataCol struct {
-	id         int
-	offset     uint16
-	content    []byte
-	InlineBLob *InlineBLob
+	id           int
+	offset       uint16
+	content      []byte
+	InlineBlob24 *InlineBLob24
+	InlineBlob16 *InlineBLob16
 }
 
 type DataRows []DataRow
@@ -31,14 +32,19 @@ type RowId struct {
 	SlotNumber uint16
 }
 
-type InlineBLob struct {
+type InlineBLob24 struct {
 	Type       uint8
 	Link       uint8
 	IndexLevel uint8
 	Unused     byte
 	UpdateSeq  uint32
 	Timestamp  uint32
-	RowIds     RowIds //12-
+	RowId      RowId //12-
+}
+
+type InlineBLob16 struct { //points to text lob
+	Timestamp uint32
+	RowId     RowId //4-
 }
 
 type DataRow struct {
@@ -62,14 +68,21 @@ func (dataRow DataRow) GetFlags() string {
 	return strings.Join([]string{recordType, nullBitmap, varLenCols}, " ")
 }
 
-func (dataCol DataCol) hasBlob() bool {
-	return dataCol.InlineBLob != nil
+func (dataCol DataCol) hasBlob24() bool {
+	return dataCol.InlineBlob24 != nil
+
+}
+
+func (dataCol DataCol) hasBlob16() bool {
+	return dataCol.InlineBlob16 != nil
 
 }
 
 func (dataCol DataCol) GetLOBPage() uint32 {
-	if dataCol.hasBlob() {
-		return dataCol.InlineBLob.RowIds[0].PageId // needs check for more rowids
+	if dataCol.hasBlob16() {
+		return dataCol.InlineBlob16.RowId.PageId // needs check for more rowids
+	} else if dataCol.hasBlob24() {
+		return dataCol.InlineBlob24.RowId.PageId // needs check for more rowids
 	}
 	return 0
 }
