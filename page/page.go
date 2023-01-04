@@ -120,7 +120,8 @@ type SystemTable interface {
 
 func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 	var datacols DataCols
-	var inlineBlob *InlineBLob
+	var inlineBlob24 *InlineBLob24
+	var inlineBlob16 *InlineBLob16
 	startVarColOffset := dataRow.GetVarCalOffset()
 	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
 
@@ -143,18 +144,27 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 
 		var rowId *RowId = new(RowId)
 		if len(cpy) == 24 { // only way to guess that we have a row overflow data
-			inlineBlob = new(InlineBLob)
-			utils.Unmarshal(cpy, inlineBlob)
+			inlineBlob24 = new(InlineBLob24)
+			utils.Unmarshal(cpy, inlineBlob24)
 			utils.Unmarshal(cpy[12:], rowId)
-			inlineBlob.RowIds = append(inlineBlob.RowIds, *rowId)
+			inlineBlob24.RowId = *rowId
 
+		} else if len(cpy) == 16 {
+			inlineBlob16 = new(InlineBLob16)
+			utils.Unmarshal(cpy, inlineBlob16)
+			utils.Unmarshal(cpy[4:], rowId)
+			inlineBlob16.RowId = *rowId
 		}
 
 		if dataRow.SystemTable != nil {
 			dataRow.SystemTable.SetName(cpy)
-		} else if inlineBlob != nil {
+		} else if inlineBlob16 != nil {
 			datacols = append(datacols,
-				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBLob: inlineBlob})
+				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
+		} else if inlineBlob24 != nil {
+			datacols = append(datacols,
+				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob24: inlineBlob24})
+
 		} else {
 			datacols = append(datacols,
 				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset)})
@@ -179,9 +189,10 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, v
 
 		pageId := dataRow.GetBloBPageId(valorder)
 		if pageId != 0 {
-			fmt.Println("LOB", pageId)
+
 			lobPage := lobPages[pageId]
-			return lobPage.LOBS[0].Content // might change
+
+			return lobPage.LOBS[0].GetData(lobPages) // might change
 
 		} else {
 			return (*dataRow.VarLenCols)[valorder].content
@@ -282,9 +293,16 @@ func (page *Page) parseLOB(data []byte) {
 	for _, slotoffset := range page.Slots {
 		var lob *LOB = new(LOB)
 		utils.Unmarshal(data[slotoffset:slotoffset+14], lob) // 14 byte lob header
-		content := make([]byte, slotoffset+utils.SlotOffset(lob.Length)-slotoffset+14)
-		copy(content, data[slotoffset+14:slotoffset+utils.SlotOffset(lob.Length)])
-		lob.Content = content
+
+		if lob.Type == 3 { // data leaf
+			content := make([]byte, slotoffset+utils.SlotOffset(lob.Length)-(slotoffset+14))
+			copy(content, data[slotoffset+14:slotoffset+utils.SlotOffset(lob.Length)])
+			lob.Data = content
+		} else if lob.Type == 5 { // lob root
+			lob.ParseRoot(data[slotoffset+14 : slotoffset+utils.SlotOffset(lob.Length)])
+		} else if lob.Type == 2 { //internal
+			lob.ParseInternal(data[slotoffset+14 : slotoffset+utils.SlotOffset(lob.Length)])
+		}
 		lobs = append(lobs, *lob)
 	}
 	page.LOBS = lobs
