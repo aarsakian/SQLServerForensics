@@ -30,7 +30,8 @@ type Column struct {
 func (c Column) isStatic() bool {
 
 	if c.Type == "varchar" || c.Type == "nvarchar" ||
-		c.Type == "varbinary" || c.Type == "xml" {
+		c.Type == "varbinary" || c.Type == "xml" || c.Type == "text" ||
+		c.Type == "ntext" || c.Type == "image" {
 		return false
 	} else {
 		return true
@@ -45,8 +46,8 @@ func (c *Column) addContent(datarow page.DataRow, skippedVarCols int, lobPages p
 }
 
 func (c Column) Print(content []byte) {
-	if c.Type == "varchar" {
-		fmt.Printf("%s = %s ", c.Name, string(content))
+	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
+		fmt.Printf("%s = %s LEN %d", c.Name, string(content), len(content))
 	} else if c.Type == "int" || c.Type == "tinyint" || c.Type == "bigint" {
 		fmt.Printf("%s = %d ", c.Name, utils.ToInt32(content))
 	}
