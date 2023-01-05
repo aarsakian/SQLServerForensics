@@ -106,7 +106,7 @@ func (lobs LOBS) GetData(lobPages PageMap, textLobPages PageMap) []byte {
 
 	var dataParts [][]byte
 	for _, lob := range lobs {
-		if lob.Type == 3 {
+		if lob.Type == 3 && len(lobs) == 1 { //dataRow has only one lob and it is leaf
 			dataParts = append(dataParts, lob.Data)
 		} else if lob.Type == 5 {
 			dataParts = lob.walk(lobPages, textLobPages, dataParts)
