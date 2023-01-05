@@ -39,9 +39,11 @@ func (c Column) isStatic() bool {
 
 }
 
-func (c *Column) addContent(datarow page.DataRow, skippedVarCols int, lobPages page.PageMap) []byte {
+func (c *Column) addContent(datarow page.DataRow, skippedVarCols int,
+	lobPages page.PageMap, textLOBPages page.PageMap) []byte {
 
-	return datarow.ProcessData(c.Order, c.Size, c.isStatic(), c.VarLenOrder-uint16(skippedVarCols), lobPages)
+	return datarow.ProcessData(c.Order, c.Size, c.isStatic(),
+		c.VarLenOrder-uint16(skippedVarCols), lobPages, textLOBPages)
 
 }
 
@@ -92,7 +94,8 @@ func (table Table) printData() {
 	fmt.Printf("\n")
 }
 
-func (table *Table) setContent(dataPages page.PageMap, lobPages page.PageMap) {
+func (table *Table) setContent(dataPages page.PageMap,
+	lobPages page.PageMap, textLobPages page.PageMap) {
 
 	for _, page := range dataPages {
 
@@ -115,7 +118,7 @@ func (table *Table) setContent(dataPages page.PageMap, lobPages page.PageMap) {
 					continue
 				}
 
-				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages)
+				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages, textLobPages)
 
 			}
 			table.rows = append(table.rows, m)

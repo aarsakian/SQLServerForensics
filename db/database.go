@@ -133,7 +133,9 @@ func (db Database) GetTablesInformation() []Table {
 			}
 			dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
 			lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
-			table.setContent(dataPages, lobPages) // correlerate with page object ids
+			textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
+
+			table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
 		}
 
