@@ -10,7 +10,7 @@ import (
 )
 
 var PageTypes = map[uint8]string{
-	1: "DATA", 2: "Index", 3: "LOB", 4: "Text", 7: "Sort", 8: "GAM", 9: "SGAM",
+	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 7: "Sort", 8: "GAM", 9: "SGAM",
 	10: "IAM", 11: "PFS", 13: "Boot", 15: "File Header",
 	16: "Differential Changed Map", 17: "Buck Change Map",
 }
@@ -34,8 +34,6 @@ type Pages []Page
 type PagesMap map[uint32]Pages
 
 type PageMap map[uint32]Page
-
-type LOBS []LOB
 
 type Page struct {
 	Header      Header
@@ -176,7 +174,8 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 
 }
 
-func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, valorder uint16, lobPages PageMap) (data []byte) {
+func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16,
+	static bool, valorder uint16, lobPages PageMap, textLobPages PageMap) (data []byte) {
 
 	if static {
 		if int(colsize) > len(dataRow.FixedLenCols) {
@@ -192,7 +191,7 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16, static bool, v
 
 			lobPage := lobPages[pageId]
 
-			return lobPage.LOBS[0].GetData(lobPages) // might change
+			return lobPage.LOBS.GetData(lobPages, textLobPages) // might change
 
 		} else {
 			return (*dataRow.VarLenCols)[valorder].content
@@ -441,6 +440,8 @@ func (page *Page) Process(data []byte) {
 	case "DATA":
 		page.parseDATA(data)
 	case "LOB":
+		page.parseLOB(data)
+	case "TEXT":
 		page.parseLOB(data)
 	case "Index":
 		page.parseIndex(data)
