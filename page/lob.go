@@ -1,6 +1,11 @@
 package page
 
-import "MSSQLParser/utils"
+import (
+	"MSSQLParser/utils"
+	"bytes"
+)
+
+type LOBS []LOB
 
 //RowId (DATA page) -> Type 5 Text Page -> Type 2 Text Page =>Type 3 Text Page (leaves)
 
@@ -52,10 +57,10 @@ type LOBInternalBody struct {
 func (lob *LOB) ParseRoot(data []byte) {
 	var root *LOBRoot = new(LOBRoot)
 	var internalPointers []LOBRootBody
-	utils.Unmarshal(data[:8], root)
+	utils.Unmarshal(data[:10], root)
 	for curLink := uint16(0); curLink < root.CurLinks; curLink++ {
 		var internalBodyPointer *LOBRootBody = new(LOBRootBody)
-		utils.Unmarshal(data[8+16*curLink:8+16*(curLink+1)], internalBodyPointer)
+		utils.Unmarshal(data[10+12*curLink:10+12*(curLink+1)], internalBodyPointer)
 		internalPointers = append(internalPointers, *internalBodyPointer)
 	}
 	root.InternalPointers = internalPointers
@@ -65,26 +70,48 @@ func (lob *LOB) ParseRoot(data []byte) {
 func (lob *LOB) ParseInternal(data []byte) {
 	var internal *LOBInternal = new(LOBInternal)
 	var dataPointers []LOBInternalBody
+	utils.Unmarshal(data[:6], internal)
 	for curLink := uint16(0); curLink < internal.CurLinks; curLink++ {
 		var dataPointer *LOBInternalBody = new(LOBInternalBody)
-		utils.Unmarshal(data[8+16*curLink:8+16*(curLink+1)], dataPointer)
+		utils.Unmarshal(data[6+16*curLink:6+16*(curLink+1)], dataPointer)
 		dataPointers = append(dataPointers, *dataPointer)
 	}
 	internal.DataPointers = dataPointers
 	lob.Internal = internal
 }
 
-func (lob LOB) walk(lobPages PageMap) []byte {
+func (lob LOB) walk(lobPages PageMap, textLobPages PageMap, dataParts [][]byte) [][]byte {
 
-	return []byte{}
+	if lob.Type == 2 {
+		for _, dataLob := range lob.Internal.DataPointers {
+			lobPage := lobPages[dataLob.PageId]
+			for _, lob := range lobPage.LOBS {
+				dataParts = append(dataParts, lob.Data)
+			}
+		}
+
+	} else {
+		for _, internalLob := range lob.Root.InternalPointers {
+			lobPage := textLobPages[internalLob.PageId]
+			for _, lob := range lobPage.LOBS {
+				dataParts = lob.walk(lobPages, textLobPages, dataParts)
+			}
+		}
+	}
+	return dataParts
 
 }
 
-func (lob LOB) GetData(lobPages PageMap) []byte {
-	if lob.Type == 3 {
-		return lob.Data
-	} else if lob.Type == 5 {
-		return lob.walk(lobPages)
+func (lobs LOBS) GetData(lobPages PageMap, textLobPages PageMap) []byte {
+
+	var dataParts [][]byte
+	for _, lob := range lobs {
+		if lob.Type == 3 {
+			dataParts = append(dataParts, lob.Data)
+		} else if lob.Type == 5 {
+			dataParts = lob.walk(lobPages, textLobPages, dataParts)
+		}
 	}
-	return []byte{}
+
+	return bytes.Join(dataParts, []byte{})
 }
