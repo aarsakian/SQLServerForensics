@@ -12,6 +12,9 @@ import (
 	"unicode/utf8"
 )
 
+type Record []string
+type Records [][]string
+
 type LSN struct {
 	P1 uint32
 	P2 uint32
