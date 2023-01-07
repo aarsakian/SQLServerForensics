@@ -39,6 +39,16 @@ func (c Column) isStatic() bool {
 
 }
 
+func (c Column) toString(data []byte) string {
+	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
+		return fmt.Sprintf("%s", data)
+	} else if c.Type == "int" || c.Type == "tinyint" || c.Type == "bigint" {
+		return fmt.Sprintf("%d ", utils.ToInt32(data))
+	} else {
+		return ""
+	}
+}
+
 func (c *Column) addContent(datarow page.DataRow, skippedVarCols int,
 	lobPages page.PageMap, textLOBPages page.PageMap) []byte {
 
@@ -47,11 +57,19 @@ func (c *Column) addContent(datarow page.DataRow, skippedVarCols int,
 
 }
 
-func (c Column) Print(content []byte) {
+func (table Table) getHeader() utils.Record {
+	var record utils.Record
+	for _, c := range table.Schema {
+		record = append(record, c.Name)
+	}
+	return record
+}
+
+func (c Column) Print(data []byte) {
 	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
-		fmt.Printf("%s = %s LEN %d", c.Name, string(content), len(content))
+		fmt.Printf("%s = %s LEN %d ", c.Name, string(data), len(data))
 	} else if c.Type == "int" || c.Type == "tinyint" || c.Type == "bigint" {
-		fmt.Printf("%s = %d ", c.Name, utils.ToInt32(content))
+		fmt.Printf("%s = %d ", c.Name, utils.ToInt32(data))
 	}
 }
 
@@ -87,6 +105,21 @@ func (table Table) printAllocation(pageIds map[uint32]string) {
 	for pageId, pageType := range pageIds {
 		fmt.Printf(" %d %s \n", pageId, pageType)
 	}
+
+}
+
+func (table Table) GetRecords() utils.Records {
+	var records utils.Records
+	records = append(records, table.getHeader())
+	for _, row := range table.rows {
+		var record utils.Record
+		for _, c := range table.Schema {
+			record = append(record, c.toString(row[c.Name]))
+
+		}
+		records = append(records, record)
+	}
+	return records
 
 }
 
