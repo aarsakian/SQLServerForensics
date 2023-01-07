@@ -73,8 +73,10 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
 	showAllocation bool) {
+	tableLocated := false
 	for _, table := range db.Tables {
 		if table.Name != tablename {
+
 			continue
 		}
 
@@ -95,7 +97,11 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 			}
 			table.printAllocation(pageIds)
 		}
+		tableLocated = true
 
+	}
+	if !tableLocated {
+		fmt.Printf("Table %s was not found! \n", tablename)
 	}
 
 }
