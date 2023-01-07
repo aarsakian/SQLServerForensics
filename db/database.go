@@ -38,15 +38,15 @@ func (db Database) createMap(tablename string) map[any]any {
 	return results
 }
 
-func (db Database) createMapListGeneric(tablename string) map[any][]any {
-	results := map[any][]any{}
+func (db Database) createMapListGeneric(tablename string) map[any][]uint32 {
+	results := map[any][]uint32{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
 				objectId, val := datarow.SystemTable.GetData()
 
-				results[objectId] = append(results[objectId], val)
+				results[objectId] = append(results[objectId], val.(uint32))
 
 			}
 		}
@@ -71,7 +71,8 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 	return results
 }
 
-func (db Database) ShowTables(tablename string, showSchema bool, showContent bool) {
+func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
+	showAllocation bool) {
 	for _, table := range db.Tables {
 		if table.Name != tablename {
 			continue
@@ -82,6 +83,17 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		}
 		if showContent {
 			table.printData()
+		}
+
+		if showAllocation {
+			pageIds := make(map[uint32]string, 0)
+			for _, pageObjecId := range table.PageObjectIds {
+				pages := db.PagesMap[pageObjecId]
+				for _, page := range pages {
+					pageIds[page.Header.PageId] = page.GetType()
+				}
+			}
+			table.printAllocation(pageIds)
 		}
 
 	}
@@ -128,13 +140,13 @@ func (db Database) GetTablesInformation() []Table {
 		var table_alloc_pages page.Pages
 		if ok {
 			for _, pageObjectId := range pageObjectIds {
-				table_alloc_pages = append(table_alloc_pages, db.PagesMap[pageObjectId.(uint32)]...) // find the pages the table was allocated
+				table_alloc_pages = append(table_alloc_pages, db.PagesMap[pageObjectId]...) // find the pages the table was allocated
 
 			}
 			dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
 			lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
 			textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
-
+			table.PageObjectIds = pageObjectIds
 			table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
 		}

@@ -265,7 +265,8 @@ func (page *Page) parseGAM(data []byte) {
 
 		for i := 0; i < 8; i++ {
 
-			gamExtents = append(gamExtents, GAMExtent{i + idx*8, entry>>i&1 == 0})
+			gamExtents = append(gamExtents, GAMExtent{extent: i + idx*8,
+				allocated: entry>>i&1 == 0})
 
 		}
 

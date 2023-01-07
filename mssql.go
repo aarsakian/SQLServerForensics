@@ -49,6 +49,7 @@ func main() {
 	showDataCols := flag.Bool("datacols", false, "show data cols for each data row")
 	showSlots := flag.Bool("slots", false, "show page slots")
 	showPFS := flag.Bool("pfs", false, "show pfm page")
+	showTableAllocation := flag.Bool("showTableAllocation", false, "show pages that the table has been allocated")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 
 	flag.Parse()
@@ -73,15 +74,16 @@ func main() {
 	pages := page.PagesMap{}
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
-		ShowSGamExtents:  *showSGamExtents,
-		ShowIAMExtents:   *showIAMExtents,
-		ShowDataCols:     *showDataCols,
-		ShowPFS:          *showPFS,
-		ShowHeader:       *showHeader,
-		ShowSlots:        *showSlots,
-		TableName:        *tableName,
-		ShowTableSchema:  *showTableSchema,
-		ShowTableContent: *showTableContent}
+		ShowSGamExtents:     *showSGamExtents,
+		ShowIAMExtents:      *showIAMExtents,
+		ShowDataCols:        *showDataCols,
+		ShowPFS:             *showPFS,
+		ShowHeader:          *showHeader,
+		ShowSlots:           *showSlots,
+		TableName:           *tableName,
+		ShowTableSchema:     *showTableSchema,
+		ShowTableContent:    *showTableContent,
+		ShowTableAllocation: *showTableAllocation}
 
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))

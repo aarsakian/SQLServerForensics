@@ -7,16 +7,17 @@ import (
 )
 
 type Reporter struct {
-	ShowGamExtents   bool
-	ShowSGamExtents  bool
-	ShowIAMExtents   bool
-	ShowDataCols     bool
-	ShowPFS          bool
-	ShowHeader       bool
-	ShowSlots        bool
-	TableName        string
-	ShowTableSchema  bool
-	ShowTableContent bool
+	ShowGamExtents      bool
+	ShowSGamExtents     bool
+	ShowIAMExtents      bool
+	ShowDataCols        bool
+	ShowPFS             bool
+	ShowHeader          bool
+	ShowSlots           bool
+	TableName           string
+	ShowTableSchema     bool
+	ShowTableContent    bool
+	ShowTableAllocation bool
 }
 
 func (rp Reporter) ShowStats(database db.Database) {
@@ -43,7 +44,7 @@ func (rp Reporter) ShowStats(database db.Database) {
 	}
 	if rp.TableName != "" {
 		tablename := rp.TableName
-		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent)
+		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation)
 	}
 
 }
