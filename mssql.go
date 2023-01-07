@@ -22,6 +22,7 @@ package main
 
 import (
 	db "MSSQLParser/db"
+	"MSSQLParser/exporter"
 	"MSSQLParser/page"
 	"MSSQLParser/reporter"
 	"flag"
@@ -51,6 +52,7 @@ func main() {
 	showPFS := flag.Bool("pfs", false, "show pfm page")
 	showTableAllocation := flag.Bool("showTableAllocation", false, "show pages that the table has been allocated")
 	userTable := flag.String("usertable", "", "get system table info about user table")
+	exportFormat := flag.String("exportformat", "", "select format to export (csv)")
 
 	flag.Parse()
 
@@ -131,5 +133,8 @@ func main() {
 	database.Tables = tables
 
 	reporter.ShowStats(database)
+
+	exp := exporter.Exporter{Format: *exportFormat}
+	exp.Export(database, *tableName)
 
 }
