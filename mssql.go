@@ -41,15 +41,16 @@ func main() {
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
-	tableName := flag.String("table", "", "show table")
-	showTableContent := flag.Bool("showContent", false, "show table contents")
-	showTableSchema := flag.Bool("showSchema", true, "show table schema")
+	showPageStats := flag.Bool("showpagestats", false, "show page statistics")
+	tableName := flag.String("table", "", "show table (use all for all tables)")
+	showTableContent := flag.Bool("showcontent", false, "show table contents")
+	showTableSchema := flag.Bool("showschema", true, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iam", false, "show IAM extents for each page")
 	showDataCols := flag.Bool("datacols", false, "show data cols for each data row")
 	showSlots := flag.Bool("slots", false, "show page slots")
-	showPFS := flag.Bool("pfs", false, "show pfm page")
+	showPFS := flag.Bool("pfs", false, "show pfm page allocation")
 	showTableAllocation := flag.Bool("showTableAllocation", false, "show pages that the table has been allocated")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	exportFormat := flag.String("exportformat", "", "select format to export (csv)")
@@ -85,8 +86,11 @@ func main() {
 		TableName:           *tableName,
 		ShowTableSchema:     *showTableSchema,
 		ShowTableContent:    *showTableContent,
-		ShowTableAllocation: *showTableAllocation}
+		ShowTableAllocation: *showTableAllocation,
+		ShowPageStats:       *showPageStats}
 
+	fmt.Println("Processing pages...")
+	totalProcessedPages := 0
 	for i := 0; i < int(fsize.Size()); i += PAGELEN {
 		_, err := file.ReadAt(bs, int64(i))
 
@@ -96,21 +100,23 @@ func main() {
 			return
 		}
 
-		if *selectedPage != -1 && (i/PAGELEN < *selectedPage || i/PAGELEN > *selectedPage) {
+		if *selectedPage != -1 && (i/PAGELEN < *selectedPage || i/PAGELEN > *selectedPage) && !*showPageStats {
 			continue
 		}
 
-		if (i / PAGELEN) < *fromPage {
+		if !*showPageStats && (i/PAGELEN) < *fromPage {
 			continue
 		}
 
-		if *toPage != -1 && (i/PAGELEN) > *toPage {
+		if !*showPageStats && *toPage != -1 && (i/PAGELEN) > *toPage {
 			continue
 		}
 		page := database.ProcessPage(bs)
 		pages[page.Header.ObjectId] = append(pages[page.Header.ObjectId], page)
 
-		//	fmt.Printf("Processed page %s %d cnt %d\n", page.GetType(), page.Header.PageId, i)
+		//		fmt.Printf("Processed page %s %d cnt %d\n", page.GetType(), page.Header.PageId, i)
+
+		totalProcessedPages++
 
 	}
 
@@ -128,11 +134,17 @@ func main() {
 		pages = pages.FilterBySystemTables("sysschobjs")
 	}
 
+	fmt.Printf("Processed %d pages.\n", totalProcessedPages)
+	fmt.Println("Reconstructing tables...")
 	database.PagesMap = pages
 	tables := database.GetTablesInformation()
 	database.Tables = tables
 
-	reporter.ShowStats(database)
+	fmt.Printf("Reconstructed %d tables.\n", len(tables))
+	fmt.Println("Reporting & exporting stage.")
+
+	reporter.ShowPageInfo(database, uint32(*selectedPage))
+	reporter.ShowTableInfo(database)
 
 	exp := exporter.Exporter{Format: *exportFormat}
 	exp.Export(database, *tableName)
