@@ -1,11 +1,19 @@
 package page
 
 import (
+	"MSSQLParser/utils"
 	"fmt"
 	"reflect"
 	"strings"
 	"unsafe"
 )
+
+type ForwardingPointers []ForwardingPointer
+
+type ForwardingPointer struct { //smallest size of data row structure appear when data that was placed does not fit anymore
+	Header uint8
+	RowId  utils.RowId
+}
 
 type DataCol struct {
 	id           int
@@ -17,20 +25,13 @@ type DataCol struct {
 
 type DataRows []DataRow
 
-type RowIds []RowId
+type RowIds []utils.RowId
 
 type DataCols []DataCol
 
 var DataRecord = map[uint8]string{0: "Primary", 1: "Forwarded", 2: "Forwarded Stub",
 	3: "Index", 4: "Blob", 5: "Ghost Index",
 	6: "Ghost Data"}
-
-type RowId struct {
-	Length     uint32
-	PageId     uint32
-	FileId     uint16
-	SlotNumber uint16
-}
 
 type InlineBLob24 struct {
 	Type       uint8
@@ -39,12 +40,14 @@ type InlineBLob24 struct {
 	Unused     byte
 	UpdateSeq  uint32
 	Timestamp  uint32
-	RowId      RowId //12-
+	Length     uint32
+	RowId      utils.RowId //12-
 }
 
 type InlineBLob16 struct { //points to text lob
 	Timestamp uint32
-	RowId     RowId //4-
+	Length    uint32
+	RowId     utils.RowId //4-
 }
 
 type DataRow struct {
