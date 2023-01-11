@@ -43,7 +43,7 @@ func (c Column) toString(data []byte) string {
 	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
 		return fmt.Sprintf("%s", data)
 	} else if c.Type == "int" || c.Type == "tinyint" || c.Type == "bigint" {
-		return fmt.Sprintf("%d ", utils.ToInt32(data))
+		return fmt.Sprintf("%d", utils.ToInt32(data))
 	} else {
 		return ""
 	}
@@ -137,8 +137,14 @@ func (table Table) printData() {
 
 func (table *Table) setContent(dataPages page.PageMap,
 	lobPages page.PageMap, textLobPages page.PageMap) {
+	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
+	var rows []ColMap
 
 	for _, page := range dataPages {
+		if page.HasForwardingPointers() {
+			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
+
+		}
 
 		for _, datarow := range page.DataRows {
 			m := make(ColMap)
@@ -162,9 +168,11 @@ func (table *Table) setContent(dataPages page.PageMap,
 				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages, textLobPages)
 
 			}
-			table.rows = append(table.rows, m)
+			rows = append(rows, m)
 
 		}
 	}
+
+	table.rows = rows
 
 }
