@@ -44,6 +44,17 @@ func (sgamExtents SGAMExtents) FilterByAllocationStatus(status bool) AllocationM
 
 }
 
+func (sgamExtents SGAMExtents) GetAllocationStatus(pageId uint32) string {
+	status := "NOT ALLOCATED"
+	for _, sgam := range sgamExtents {
+		if pageId < uint32(sgam.extent*8) || pageId > uint32(sgam.extent*8+8) {
+			continue
+		}
+		status = "ALLOCATED"
+	}
+	return status
+}
+
 func (sgamExtents SGAMExtents) GetStats() (int, int) {
 	allocatedgamextents := sgamExtents.FilterByAllocationStatus(true)
 	unallocatedgamextents := sgamExtents.FilterByAllocationStatus(false)

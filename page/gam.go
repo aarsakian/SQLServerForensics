@@ -52,3 +52,14 @@ func (gamExtents GAMExtents) GetStats() (int, int) {
 		reflect.ValueOf(unallocatedgamextents).Len() * 8
 
 }
+
+func (gamExtents GAMExtents) GetAllocationStatus(pageId uint32) string {
+	status := "NOT ALLOCATED"
+	for _, gam := range gamExtents {
+		if pageId < uint32(gam.extent*8) || pageId > uint32(gam.extent*8+8) {
+			continue
+		}
+		status = "ALLOCATED"
+	}
+	return status
+}

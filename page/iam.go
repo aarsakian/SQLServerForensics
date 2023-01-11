@@ -1,5 +1,7 @@
 package page
 
+//iam tracks pages that belong to an object
+// the first IAM page for the object stores the actual page addresses for the first eight object pages, which are stored in mixed extents
 import (
 	"MSSQLParser/utils"
 	"fmt"
@@ -36,6 +38,7 @@ func (iamExtents IAMExtents) ShowAllocations() {
 
 	fmt.Printf("IAM allocation map \n")
 	for _, iamextent := range iamExtents {
+
 		if iamextent.allocated != prevAllocated {
 			endPageId = iamextent.extent
 			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
@@ -49,4 +52,15 @@ func (iamExtents IAMExtents) ShowAllocations() {
 
 	fmt.Printf("(%d:%d) = %s \n", startPageId*8, lastPageId*8,
 		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+}
+
+func (iamExtents IAMExtents) GetAllocationStatus(pageId uint32) string {
+	status := "NOT ALLOCATED"
+	for _, iam := range iamExtents {
+		if pageId < uint32(iam.extent*8) || pageId > uint32(iam.extent*8+8) {
+			continue
+		}
+		status = "ALLOCATED"
+	}
+	return status
 }

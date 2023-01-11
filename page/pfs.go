@@ -5,6 +5,15 @@ import (
 	"fmt"
 )
 
+//mixed extent sharing data more than one table
+//every byte stores information about a specific page
+
+var PFSStatus = map[uint8]string{
+	0: "NOT ALLOCATED 0PCT_FULL", 8: "NOT ALLOCATED 100PCT_FULL", 68: "ALLOCATED 100FULL",
+	96: "ALLOCATED Mixed Extent 0PTC_FULL", 116: "ALLOCATED Mixed Extent IAM 100PCT_FULL",
+	112: "ALLOCATED Mixed Extent IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
+	66: "ALLOCATED 80PCT_FULL", 67: "ALLOCATED 95PCT_FULL", 156: "UNUSED HAS_GHOST D 100PCT_FULL"}
+
 type PFSPage []PFS
 
 type PFS struct {
@@ -35,4 +44,15 @@ func (pfsPage PFSPage) FilterByAllocationStatus(status bool) AllocationMaps {
 		return true
 	}))
 
+}
+
+func (pfsPage PFSPage) GetAllocationStatus(pageId uint32) string {
+	var status string
+	for _, pfs := range pfsPage {
+		if pfs.pageID != pageId {
+			continue
+		}
+		status = pfs.status
+	}
+	return status
 }
