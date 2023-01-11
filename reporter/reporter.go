@@ -18,9 +18,10 @@ type Reporter struct {
 	ShowTableSchema     bool
 	ShowTableContent    bool
 	ShowTableAllocation bool
+	ShowPageStats       bool
 }
 
-func (rp Reporter) ShowStats(database db.Database) {
+func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 	for _, pages := range database.PagesMap {
 		for _, page := range pages {
 			allocMap := page.GetAllocationMaps()
@@ -29,24 +30,42 @@ func (rp Reporter) ShowStats(database db.Database) {
 				rp.ShowIAMExtents && page.GetType() == "IAM" ||
 				rp.ShowGamExtents && page.GetType() == "GAM" ||
 				rp.ShowSGamExtents && page.GetType() == "SGAM" {
+				fmt.Printf("%d ", page.Header.PageId)
 				allocMap.ShowAllocations()
 			}
 			if rp.ShowHeader {
 				page.PrintHeader(rp.ShowSlots)
 			}
-
 			if rp.ShowDataCols {
 				page.ShowRowData()
+			}
+
+			if rp.ShowPageStats {
+				if page.GetType() == "PFS" {
+					pfsstatus := allocMap.GetAllocationStatus(selectedPageId)
+					fmt.Printf("PFS %s ", pfsstatus)
+				} else if page.GetType() == "GAM" {
+					gamstatus := allocMap.GetAllocationStatus(selectedPageId)
+					fmt.Printf("GAM %s ", gamstatus)
+				} else if page.GetType() == "SGAM" {
+					sgamstatus := allocMap.GetAllocationStatus(selectedPageId)
+					fmt.Printf("SGAM %s ", sgamstatus)
+				}
 			}
 
 		}
 
 	}
-	if rp.TableName != "" {
-		tablename := rp.TableName
-		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation)
-	}
 
+}
+
+func (rp Reporter) ShowTableInfo(database db.Database) {
+	tablename := rp.TableName
+	if tablename != "" {
+
+		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation)
+
+	}
 }
 
 func (rp Reporter) PrintDataRowInfo(page page.Page) {
