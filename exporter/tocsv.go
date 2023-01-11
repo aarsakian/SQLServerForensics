@@ -15,6 +15,7 @@ func writeCSV(records utils.Records, filename string) {
 	if err != nil {
 		log.Fatalln("failed to open file", err)
 	}
+	fmt.Printf("exporting table to file %s\n", filename)
 	w := csv.NewWriter(file)
 
 	w.WriteAll(records)
