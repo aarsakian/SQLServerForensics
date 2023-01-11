@@ -23,12 +23,6 @@ var SystemTablesFlags = map[string]uint8{
 	"syscolpars": 0x29, "sysrowsets": 0x05, "sysiscols": 0x37, "sysallocationunits": 0x07,
 	"sysschobjs": 0x22}
 
-var PFSStatus = map[uint8]string{
-	0: "NOT ALLOCATED 0PCT_FULL", 8: "NOT ALLOCATED 100PCT_FULL", 68: "ALLOCATED 100FULL",
-	96: "ALLOCATED Mixed Extent 0PTC_FULL", 116: "ALLOCATED Mixed Extent IAM 100PCT_FULL",
-	112: "ALLOCATED Mixed Extent IAM EMPTY", 64: "ALLOCATED EMPTY", 65: "ALLOCATED 50PCT_FULL",
-	66: "ALLOCATED 80PCT_FULL", 67: "ALLOCATED 95PCT_FULL", 156: "UNUSED HAS_GHOST D 100PCT_FULL"}
-
 type Pages []Page
 
 type PagesMap map[uint32]Pages
@@ -36,16 +30,17 @@ type PagesMap map[uint32]Pages
 type PageMap map[uint32]Page
 
 type Page struct {
-	Header      Header
-	Slots       []utils.SlotOffset
-	DataRows    DataRows
-	LOBS        LOBS
-	PFSPage     *PFSPage
-	GAMExtents  *GAMExtents
-	SGAMExtents *SGAMExtents
-	IAMExtents  *IAMExtents
-	PrevPage    *Page
-	NextPage    *Page
+	Header             Header
+	Slots              []utils.SlotOffset
+	DataRows           DataRows
+	ForwardingPointers ForwardingPointers
+	LOBS               LOBS
+	PFSPage            *PFSPage
+	GAMExtents         *GAMExtents
+	SGAMExtents        *SGAMExtents
+	IAMExtents         *IAMExtents
+	PrevPage           *Page
+	NextPage           *Page
 }
 
 type Header struct {
@@ -75,6 +70,7 @@ type Header struct {
 type AllocationMaps interface {
 	FilterByAllocationStatus(bool) AllocationMaps
 	ShowAllocations()
+	GetAllocationStatus(uint32) string
 }
 
 func (page Page) FilterByTable(tablename string) DataRows {
@@ -140,17 +136,17 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 		copy(cpy, data[startVarColOffset:endVarColOffset])
 		startVarColOffset = endVarColOffset
 
-		var rowId *RowId = new(RowId)
+		var rowId *utils.RowId = new(utils.RowId)
 		if len(cpy) == 24 { // only way to guess that we have a row overflow data
 			inlineBlob24 = new(InlineBLob24)
 			utils.Unmarshal(cpy, inlineBlob24)
-			utils.Unmarshal(cpy[12:], rowId)
+			utils.Unmarshal(cpy[16:], rowId)
 			inlineBlob24.RowId = *rowId
 
 		} else if len(cpy) == 16 {
 			inlineBlob16 = new(InlineBLob16)
 			utils.Unmarshal(cpy, inlineBlob16)
-			utils.Unmarshal(cpy[4:], rowId)
+			utils.Unmarshal(cpy[8:], rowId)
 			inlineBlob16.RowId = *rowId
 		}
 
@@ -311,48 +307,58 @@ func (page *Page) parseLOB(data []byte) {
 
 func (page *Page) parseDATA(data []byte) {
 	var dataRows DataRows
+	var forwardingPointers ForwardingPointers
 
 	for slotnum, slotoffset := range page.Slots {
 		var dataRowLen utils.SlotOffset
+		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
+		var dataRow *DataRow = new(DataRow)
+
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() {
 			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
 		} else { //last slot
 			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
 
-		var dataRow *DataRow = new(DataRow)
-		utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
-		//fmt.Println(slotoffset, slotnum, page.Header.PageId)
-		if page.Header.ObjectId == 0x29 { //syscolpars
+		if data[slotoffset] == 4 { // forward pointer header
+			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
+			forwardingPointers = append(forwardingPointers, *forwardingPointer)
+		} else {
+			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
+			//fmt.Println(slotoffset, slotnum, page.Header.PageId)
+			if page.Header.ObjectId == 0x29 { //syscolpars
 
-			var syscolpars *SysColpars = new(SysColpars)
+				var syscolpars *SysColpars = new(SysColpars)
 
-			dataRow.Process(syscolpars)
+				dataRow.Process(syscolpars)
 
-		} else if page.Header.ObjectId == 0x22 {
+			} else if page.Header.ObjectId == 0x22 {
 
-			var sysschobjs *Sysschobjs = new(Sysschobjs)
+				var sysschobjs *Sysschobjs = new(Sysschobjs)
 
-			dataRow.Process(sysschobjs) // from slot to end
+				dataRow.Process(sysschobjs) // from slot to end
 
-		} else if page.Header.ObjectId == 0x07 {
-			var sysallocationunits *SysAllocUnits = new(SysAllocUnits)
-			dataRow.Process(sysallocationunits)
+			} else if page.Header.ObjectId == 0x07 {
+				var sysallocationunits *SysAllocUnits = new(SysAllocUnits)
+				dataRow.Process(sysallocationunits)
 
-		} else if page.Header.ObjectId == 0x05 {
-			var sysrowsets *SysRowSets = new(SysRowSets)
-			dataRow.Process(sysrowsets)
-		} else if page.Header.ObjectId == 0x37 {
-			var sysiscols *sysIsCols = new(sysIsCols)
-			dataRow.Process(sysiscols)
+			} else if page.Header.ObjectId == 0x05 {
+				var sysrowsets *SysRowSets = new(SysRowSets)
+				dataRow.Process(sysrowsets)
+			} else if page.Header.ObjectId == 0x37 {
+				var sysiscols *sysIsCols = new(sysIsCols)
+				dataRow.Process(sysiscols)
+			}
+
+			if dataRow.NumberOfVarLengthCols != 0 {
+				dataRow.ProcessVaryingCols(data[slotoffset : slotoffset+dataRowLen])
+			}
+
+			dataRows = append(dataRows, *dataRow)
 		}
 
-		if dataRow.NumberOfVarLengthCols != 0 {
-			dataRow.ProcessVaryingCols(data[slotoffset : slotoffset+dataRowLen])
-		}
-
-		dataRows = append(dataRows, *dataRow)
 	}
+	page.ForwardingPointers = forwardingPointers
 	page.DataRows = dataRows
 }
 
@@ -460,4 +466,17 @@ func (page *Page) Process(data []byte) {
 	}
 	//	fmt.Printf("%d", PAGELEN-int(page.header.FreeCnt)-int(pos)-2)
 
+}
+
+func (page Page) HasForwardingPointers() bool {
+	return len(page.ForwardingPointers) != 0
+}
+
+func (page Page) FollowForwardingPointers() []uint32 {
+	var pagesIds []uint32
+	for _, forwardingPointer := range page.ForwardingPointers {
+		pageId := forwardingPointer.RowId.PageId
+		pagesIds = append(pagesIds, pageId)
+	}
+	return pagesIds
 }
