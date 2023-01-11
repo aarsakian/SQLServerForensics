@@ -15,6 +15,12 @@ import (
 type Record []string
 type Records [][]string
 
+type RowId struct {
+	PageId     uint32
+	FileId     uint16
+	SlotNumber uint16
+}
+
 type LSN struct {
 	P1 uint32
 	P2 uint32
@@ -206,6 +212,12 @@ func Unmarshal(data []byte, v interface{}) error {
 				Unmarshal(data[idx:idx+12], &lsn)
 				field.Set(reflect.ValueOf(lsn))
 				idx += 12
+			} else if name == "RowId" {
+				var rowId RowId
+				Unmarshal(data[idx:], &rowId)
+				field.Set(reflect.ValueOf(rowId))
+				idx += 8
+
 			}
 
 		case reflect.Array:
