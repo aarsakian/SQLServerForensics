@@ -75,7 +75,8 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 	showAllocation bool) {
 	tableLocated := false
 	for _, table := range db.Tables {
-		if table.Name != tablename {
+
+		if table.Name != tablename && tablename != "all" {
 
 			continue
 		}
@@ -120,7 +121,7 @@ func (db Database) GetTablesInformation() []Table {
 		table := Table{Name: tname.(string), ObjectId: tobjectId.(int32)}
 
 		if ok {
-			fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
+			//		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
 			columns := table.addColumns(results)
 			vid := 0 // keeps order var len cols
 			//range copies values
