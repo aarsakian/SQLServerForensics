@@ -50,14 +50,14 @@ type InlineBLob16 struct { //points to text lob
 	RowId     utils.RowId //4-
 }
 
-type DataRow struct {
+type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 	// min len 9 bytes
-	StatusA               uint8  //1
-	StatusB               uint8  //1
-	NofColsOffset         uint16 //2
-	FixedLenCols          []byte //1-
-	NumberOfCols          uint16 //2
-	NullBitmap            []byte //1-
+	StatusA               uint8  //1-2
+	StatusB               uint8  //2-3
+	NofColsOffset         uint16 //3-5
+	FixedLenCols          []byte //0-
+	NumberOfCols          uint16 //5-6
+	NullBitmap            []byte //6-7
 	NumberOfVarLengthCols uint16 //0-
 	VarLengthColOffsets   []int16
 	VarLenCols            *DataCols
