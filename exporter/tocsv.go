@@ -10,15 +10,15 @@ import (
 )
 
 func writeCSV(records utils.Records, filename string, folder string) {
-
-	file, err := os.Create(fmt.Sprintf("%s.csv", path.Join(folder,filename)))
+	fmt.Printf("Exporting Table %s. \n", filename)
+	file, err := os.Create(fmt.Sprintf("%s.csv", path.Join(folder, filename)))
 	defer file.Close()
 	if err != nil {
 		log.Fatalln("failed to open file", err)
 	}
 
 	w := csv.NewWriter(file)
-	
+
 	w.WriteAll(records)
 
 	// Write any buffered data to the underlying writer (standard output).

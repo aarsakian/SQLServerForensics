@@ -15,7 +15,7 @@ type Exporter struct {
 	Format string
 }
 
-func (exp Exporter) Export(database db.Database, tablename string) {
+func (exp Exporter) Export(database db.Database) {
 	var records utils.Records
 
 	err := os.Mkdir(database.Name, 0750)
