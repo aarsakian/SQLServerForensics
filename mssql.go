@@ -28,6 +28,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -53,7 +54,8 @@ func main() {
 	showPFS := flag.Bool("pfs", false, "show pfm page allocation")
 	showTableAllocation := flag.Bool("showTableAllocation", false, "show pages that the table has been allocated")
 	userTable := flag.String("usertable", "", "get system table info about user table")
-	exportFormat := flag.String("exportformat", "", "select format to export (csv)")
+	export := flag.Bool("export", false, "export table")
+	exportFormat := flag.String("format", "", "select format to export (csv)")
 
 	flag.Parse()
 
@@ -111,10 +113,9 @@ func main() {
 		if !*showPageStats && *toPage != -1 && (i/PAGELEN) > *toPage {
 			continue
 		}
+		//	fmt.Printf("Processing page  %d offset %d\n", i/8192, i)
 		page := database.ProcessPage(bs)
 		pages[page.Header.ObjectId] = append(pages[page.Header.ObjectId], page)
-
-		//		fmt.Printf("Processed page %s %d cnt %d\n", page.GetType(), page.Header.PageId, i)
 
 		totalProcessedPages++
 
@@ -137,7 +138,9 @@ func main() {
 	fmt.Printf("Processed %d pages.\n", totalProcessedPages)
 	fmt.Println("Reconstructing tables...")
 	database.PagesMap = pages
-	tables := database.GetTablesInformation()
+	database.Name = strings.Split(*inputfile, ".")[0]
+
+	tables := database.GetTablesInformation(*tableName)
 	database.Tables = tables
 
 	fmt.Printf("Reconstructed %d tables.\n", len(tables))
@@ -146,7 +149,9 @@ func main() {
 	reporter.ShowPageInfo(database, uint32(*selectedPage))
 	reporter.ShowTableInfo(database)
 
-	exp := exporter.Exporter{Format: *exportFormat}
-	exp.Export(database, *tableName)
+	if *export {
+		exp := exporter.Exporter{Format: *exportFormat}
+		exp.Export(database, *tableName)
+	}
 
 }
