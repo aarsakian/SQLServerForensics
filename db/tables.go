@@ -139,7 +139,7 @@ func (table *Table) setContent(dataPages page.PageMap,
 	lobPages page.PageMap, textLobPages page.PageMap) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 	var rows []ColMap
-
+	fmt.Printf("reconstructing table %s\n", table.Name)
 	for _, page := range dataPages {
 		if page.HasForwardingPointers() {
 			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
@@ -161,7 +161,10 @@ func (table *Table) setContent(dataPages page.PageMap,
 					fmt.Println("BOR")
 				}
 				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
-					skippedVarCols++
+					if !col.isStatic() {
+						skippedVarCols++
+					}
+
 					continue
 				}
 
