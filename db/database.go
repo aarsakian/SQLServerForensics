@@ -6,6 +6,7 @@ import (
 )
 
 type Database struct {
+	Name     string
 	PagesMap page.PagesMap
 	Tables   []Table
 }
@@ -107,7 +108,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 }
 
-func (db Database) GetTablesInformation() []Table {
+func (db Database) GetTablesInformation(tablename string) []Table {
 	tablesMap := db.createMap("sysschobjs")   // table information holds a map of object ids and table names
 	colsMap := db.createMapList("syscolpars") //table objectid = name , type, size, colorder
 
@@ -116,6 +117,9 @@ func (db Database) GetTablesInformation() []Table {
 
 	var tables []Table
 	for tobjectId, tname := range tablesMap {
+		if tablename != "all" && tablename != tname {
+			continue
+		}
 		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
 
 		table := Table{Name: tname.(string), ObjectId: tobjectId.(int32)}
