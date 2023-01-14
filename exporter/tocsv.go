@@ -6,18 +6,19 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 )
 
-func writeCSV(records utils.Records, filename string) {
+func writeCSV(records utils.Records, filename string, folder string) {
 
-	file, err := os.Create(fmt.Sprintf("%s.csv", filename))
+	file, err := os.Create(fmt.Sprintf("%s.csv", path.Join(folder,filename)))
 	defer file.Close()
 	if err != nil {
 		log.Fatalln("failed to open file", err)
 	}
-	fmt.Printf("exporting table to file %s\n", filename)
-	w := csv.NewWriter(file)
 
+	w := csv.NewWriter(file)
+	
 	w.WriteAll(records)
 
 	// Write any buffered data to the underlying writer (standard output).
