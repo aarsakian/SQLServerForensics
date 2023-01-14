@@ -3,6 +3,8 @@ package exporter
 import (
 	db "MSSQLParser/db"
 	"MSSQLParser/utils"
+	"log"
+	"os"
 )
 
 type Writer interface {
@@ -16,13 +18,17 @@ type Exporter struct {
 func (exp Exporter) Export(database db.Database, tablename string) {
 	var records utils.Records
 
+	err := os.Mkdir(database.Name, 0750)
+	if err != nil && !os.IsExist(err) {
+		log.Fatal(err)
+	}
+
 	for _, table := range database.Tables {
-		if table.Name != tablename {
-			continue
-		}
+
 		records = table.GetRecords()
+
 		if exp.Format == "csv" {
-			writeCSV(records, table.Name)
+			writeCSV(records, table.Name, database.Name)
 		}
 
 	}
