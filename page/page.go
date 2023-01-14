@@ -73,6 +73,28 @@ type AllocationMaps interface {
 	GetAllocationStatus(uint32) string
 }
 
+func (header Header) isValid() bool {
+	knownTypes := []uint8{1, 2, 3, 4, 7, 8, 9, 10, 11, 13, 15, 16, 17}
+	for _, knownType := range knownTypes {
+		if knownType == header.Type {
+			return true
+		}
+	}
+	return false
+}
+
+func (header Header) sanityCheck() bool {
+	if header.Version != 1 {
+		fmt.Printf(" issue with header version \n")
+		return false
+	}
+	if header.FreeData > 8192-96-32 {
+		return false
+	}
+
+	return true
+}
+
 func (page Page) FilterByTable(tablename string) DataRows {
 	return utils.Filter(page.DataRows, func(datarow DataRow) bool {
 		return datarow.SystemTable.GetName() == tablename
@@ -310,11 +332,15 @@ func (page *Page) parseDATA(data []byte) {
 	var forwardingPointers ForwardingPointers
 
 	for slotnum, slotoffset := range page.Slots {
+		if slotoffset < 96 { //offset starts from 96
+			fmt.Printf("slotoffset %d less than header size \n", slotoffset)
+			continue
+		}
 		var dataRowLen utils.SlotOffset
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
 
-		if slotnum+1 < reflect.ValueOf(page.Slots).Len() {
+		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
 			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
 		} else { //last slot
 			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
@@ -429,42 +455,33 @@ func (page *Page) Process(data []byte) {
 	PAGELEN := 8192
 	var header Header
 	utils.Unmarshal(data[0:HEADERLEN], &header)
-	page.Header = header
-	if page.Header.Type == 0 {
-		return
-	}
-	slotsOffset := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):])
-	sort.Sort(utils.SortedSlotsOffset(slotsOffset))
-	page.Slots = slotsOffset
 
-	switch page.GetType() {
-	case "PFS":
-		page.parsePFS(data)
-	case "GAM":
-		page.parseGAM(data)
-	case "SGAM":
-		page.parseSGAM(data)
-	case "DATA":
-		page.parseDATA(data)
-	case "LOB":
-		page.parseLOB(data)
-	case "TEXT":
-		page.parseLOB(data)
-	case "Index":
-		page.parseIndex(data)
-	case "IAM":
-		page.parseIAM(data)
-	}
+	if header.isValid() && header.sanityCheck() {
+		page.Header = header
+		slotsOffset := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):])
+		sort.Sort(utils.SortedSlotsOffset(slotsOffset))
+		page.Slots = slotsOffset
 
-	pos := slotsOffset[0]
-	for idx, slotOffset := range slotsOffset {
-		if idx == 0 {
-			continue
+		switch page.GetType() {
+		case "PFS":
+			page.parsePFS(data)
+		case "GAM":
+			page.parseGAM(data)
+		case "SGAM":
+			page.parseSGAM(data)
+		case "DATA":
+			page.parseDATA(data)
+		case "LOB":
+			page.parseLOB(data)
+		case "TEXT":
+			page.parseLOB(data)
+		case "Index":
+			page.parseIndex(data)
+		case "IAM":
+			page.parseIAM(data)
 		}
 
-		pos += slotOffset
 	}
-	//	fmt.Printf("%d", PAGELEN-int(page.header.FreeCnt)-int(pos)-2)
 
 }
 
