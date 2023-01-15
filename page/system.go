@@ -178,15 +178,19 @@ func (syscolpars SysColpars) GetType() string {
 	} else if syscolpars.Xtype == 0xAD {
 		return "binary"
 	} else if syscolpars.Xtype == 0x6A {
-		return "bit"
+		return "decimal"
 	} else if syscolpars.Xtype == 0xAF {
 		return "char"
 	} else if syscolpars.Xtype == 0x3D {
 		return "datetime"
+	} else if syscolpars.Xtype == 0x3A {
+		return "smalldatetime"
 	} else if syscolpars.Xtype == 0x28 {
 		return "date"
 	} else if syscolpars.Xtype == 0x38 {
 		return "int"
+	} else if syscolpars.Xtype == 0x3E {
+		return "float"
 	} else if syscolpars.Xtype == 0xEF {
 		return "nchar"
 	} else if syscolpars.Xtype == 0x06 {
@@ -197,9 +201,32 @@ func (syscolpars SysColpars) GetType() string {
 		return "timestamp"
 	} else if syscolpars.Xtype == 0x30 {
 		return "tinyint"
+	} else if syscolpars.Xtype == 0x34 {
+		return "smallint"
 	} else if syscolpars.Xtype == 0xA7 {
 		return "varchar"
+	} else if syscolpars.Xtype == 0x2A {
+		return "datetime2"
+	} else if syscolpars.Xtype == 0x6A {
+		return "decimal"
+	} else if syscolpars.Xtype == 0xEF {
+		return "nchar"
+	} else if syscolpars.Xtype == 0x24 {
+		return "uniqueidentifier"
+	} else if syscolpars.Xtype == 0x30 {
+		return "tinyint"
+	} else if syscolpars.Xtype == 0xE7 {
+		return "nvarchar"
+	} else if syscolpars.Xtype == 0xA5 {
+		return "varbinary"
+	} else if syscolpars.Xtype == 0x62 {
+		return "sql_variant"
+	} else if syscolpars.Xtype == 0x68 {
+		return "bit"
+	} else if syscolpars.Xtype == 0x2B {
+		return "datetimeoffset"
 	} else {
+		fmt.Printf("%x ", syscolpars.Xtype)
 		return "Type not Found"
 	}
 
