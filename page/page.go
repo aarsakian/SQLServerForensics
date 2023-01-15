@@ -88,7 +88,7 @@ func (header Header) sanityCheck() bool {
 		fmt.Printf(" issue with header version \n")
 		return false
 	}
-	if header.FreeData > 8192-96-32 {
+	if header.FreeData > 8192-64 { // not sure
 		return false
 	}
 
