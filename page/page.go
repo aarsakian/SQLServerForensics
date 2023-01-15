@@ -193,13 +193,14 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 }
 
 func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16,
-	static bool, valorder uint16, lobPages PageMap, textLobPages PageMap) (data []byte) {
+	static bool, valorder uint16, lobPages PageMap, textLobPages PageMap,
+	fixColsOffset int) (data []byte) {
 
 	if static {
 		if int(colsize) > len(dataRow.FixedLenCols) {
 			return dataRow.FixedLenCols[:]
 		} else {
-			return dataRow.FixedLenCols[:colsize]
+			return dataRow.FixedLenCols[fixColsOffset : fixColsOffset+int(colsize)]
 		}
 
 	} else {
