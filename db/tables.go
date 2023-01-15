@@ -160,7 +160,8 @@ func (table *Table) setContent(dataPages page.PageMap,
 				if len*8 < int(col.Order) {
 					fmt.Println("BOR")
 				}
-				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
+
+				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order)-1, nofCols) { //col is NULL skip when ASCII 49  (1)
 					if !col.isStatic() {
 						skippedVarCols++
 					}
