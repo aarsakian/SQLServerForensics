@@ -55,7 +55,7 @@ func main() {
 	showTableAllocation := flag.Bool("showTableAllocation", false, "show pages that the table has been allocated")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	export := flag.Bool("export", false, "export table")
-	exportFormat := flag.String("format", "", "select format to export (csv)")
+	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 
 	flag.Parse()
 
