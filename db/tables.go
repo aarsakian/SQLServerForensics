@@ -4,7 +4,6 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
-	"reflect"
 )
 
 type ColMap map[string][]byte
@@ -29,9 +28,11 @@ type Column struct {
 
 func (c Column) isStatic() bool {
 
-	if c.Type == "varchar" || c.Type == "nvarchar" ||
+	if c.Type == "varchar" || c.Type == "nvarchar" || c.Type == "bit" ||
 		c.Type == "varbinary" || c.Type == "xml" || c.Type == "text" ||
-		c.Type == "ntext" || c.Type == "image" {
+		c.Type == "ntext" || c.Type == "image" || c.Type == "nchar" ||
+		c.Type == "float" || c.Type == "uniqueidentifier" || c.Type == "smallint" ||
+		c.Type == "tinyint" {
 		return false
 	} else {
 		return true
@@ -50,10 +51,10 @@ func (c Column) toString(data []byte) string {
 }
 
 func (c *Column) addContent(datarow page.DataRow, skippedVarCols int,
-	lobPages page.PageMap, textLOBPages page.PageMap) []byte {
+	lobPages page.PageMap, textLOBPages page.PageMap, fixColsOffset int) []byte {
 
 	return datarow.ProcessData(c.Order, c.Size, c.isStatic(),
-		c.VarLenOrder-uint16(skippedVarCols), lobPages, textLOBPages)
+		c.VarLenOrder-uint16(skippedVarCols), lobPages, textLOBPages, fixColsOffset)
 
 }
 
@@ -154,12 +155,8 @@ func (table *Table) setContent(dataPages page.PageMap,
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 				continue
 			}
-
+			fixColsOffset := 0
 			for _, col := range table.Schema {
-				len := reflect.ValueOf(datarow.NullBitmap).Len()
-				if len*8 < int(col.Order) {
-					fmt.Println("BOR")
-				}
 
 				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order)-1, nofCols) { //col is NULL skip when ASCII 49  (1)
 					if !col.isStatic() {
@@ -168,9 +165,14 @@ func (table *Table) setContent(dataPages page.PageMap,
 
 					continue
 				}
+				fmt.Println(col.Name)
+				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages, textLobPages, fixColsOffset)
 
-				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages, textLobPages)
+				if col.isStatic() {
 
+					fixColsOffset += int(col.Size)
+
+				}
 			}
 			rows = append(rows, m)
 
