@@ -23,14 +23,14 @@ type SysAllocUnits struct {
 type SysColpars struct {
 	Id          uint32 //4 -8
 	Number      uint16 //8-10
-	ColOrder    uint16 //10 -12
+	Colid       uint16 //10 -12
 	Unknown     [2]byte
 	Xtype       uint8  // 14 sys.sysscalartypes.xtype.
 	Utype       uint32 //15-19 sys.sysscalartypes.id
-	Colsize     uint16 //19-21
+	Length      uint16 //19-21
 	Prec        uint8
 	Scale       uint8
-	CollationID uint32
+	Collationid uint32
 	Status      uint32
 	Maxinrow    uint16
 	Xmlns       uint32
@@ -164,7 +164,7 @@ func (syscolpars SysColpars) GetName() string {
 func (syscolpars SysColpars) GetData() (any, any) {
 	return int32(syscolpars.Id),
 		Result[string, string, uint16, uint16]{syscolpars.GetName(),
-			syscolpars.GetType(), syscolpars.Colsize, syscolpars.ColOrder}
+			syscolpars.GetType(), syscolpars.Length, syscolpars.Colid}
 
 }
 
@@ -234,7 +234,7 @@ func (syscolpars SysColpars) GetType() string {
 
 func (syscolpars SysColpars) ShowData() {
 	fmt.Printf("syscolpars id %d  len %d  number %d Colorder %d %s \n",
-		syscolpars.Id, syscolpars.Colsize, syscolpars.Number, syscolpars.ColOrder,
+		syscolpars.Id, syscolpars.Length, syscolpars.Number, syscolpars.Colid,
 		syscolpars.GetName())
 }
 
