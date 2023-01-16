@@ -52,9 +52,12 @@ func (c Column) toString(data []byte) string {
 
 func (c *Column) addContent(datarow page.DataRow, skippedVarCols int,
 	lobPages page.PageMap, textLOBPages page.PageMap, fixColsOffset int) []byte {
-
-	return datarow.ProcessData(c.Order, c.Size, c.isStatic(),
-		c.VarLenOrder-uint16(skippedVarCols), lobPages, textLOBPages, fixColsOffset)
+	if datarow.SystemTable != nil {
+		return utils.FindValueInStruct(c.Name, datarow.SystemTable)
+	} else {
+		return datarow.ProcessData(c.Order, c.Size, c.isStatic(),
+			c.VarLenOrder-uint16(skippedVarCols), lobPages, textLOBPages, fixColsOffset)
+	}
 
 }
 
@@ -165,7 +168,7 @@ func (table *Table) setContent(dataPages page.PageMap,
 
 					continue
 				}
-				fmt.Println(col.Name)
+
 				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages, textLobPages, fixColsOffset)
 
 				if col.isStatic() {

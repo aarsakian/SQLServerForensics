@@ -8,6 +8,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
 )
@@ -153,6 +154,37 @@ func Values[M ~map[K]V, K comparable, V any](m M) []V {
 		r = append(r, v)
 	}
 	return r
+}
+
+func FindValueInStruct(colName string, v interface{}) []byte {
+	structValPtr := reflect.ValueOf(v)
+	//structType := reflect.TypeOf(v)
+	colName = strings.ToUpper(string(colName[0])) + colName[1:]
+	res := structValPtr.Elem().FieldByName(colName)
+	buf := new(bytes.Buffer)
+	switch res.Kind() {
+	case reflect.Uint8:
+
+		binary.Write(buf, binary.LittleEndian, uint8(res.Uint()))
+
+	case reflect.Uint16:
+		binary.Write(buf, binary.LittleEndian, uint16(res.Uint()))
+
+	case reflect.Uint32:
+		binary.Write(buf, binary.LittleEndian, uint32(res.Uint()))
+	case reflect.Uint64:
+		binary.Write(buf, binary.LittleEndian, res.Uint())
+
+	case reflect.Int8:
+		binary.Write(buf, binary.LittleEndian, int8(res.Int()))
+	case reflect.Int16:
+		binary.Write(buf, binary.LittleEndian, int16(res.Int()))
+	case reflect.Int32:
+		binary.Write(buf, binary.LittleEndian, int32(res.Int()))
+	case reflect.Int64:
+		binary.Write(buf, binary.LittleEndian, res.Int())
+	}
+	return buf.Bytes()
 }
 
 func Unmarshal(data []byte, v interface{}) error {
