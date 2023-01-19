@@ -28,11 +28,10 @@ type Column struct {
 
 func (c Column) isStatic() bool {
 
-	if c.Type == "varchar" || c.Type == "nvarchar" || c.Type == "bit" ||
+	if c.Type == "varchar" || c.Type == "nvarchar" ||
 		c.Type == "varbinary" || c.Type == "xml" || c.Type == "text" ||
-		c.Type == "ntext" || c.Type == "image" || c.Type == "nchar" ||
-		c.Type == "float" || c.Type == "uniqueidentifier" || c.Type == "smallint" ||
-		c.Type == "tinyint" {
+		c.Type == "ntext" || c.Type == "image" || c.Type == "hierarchyid" ||
+		c.Type == "float" || c.Type == "sql_variant" || c.Type == "sysname" {
 		return false
 	} else {
 		return true
@@ -144,31 +143,38 @@ func (table *Table) setContent(dataPages page.PageMap,
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 	var rows []ColMap
 	fmt.Printf("reconstructing table %s\n", table.Name)
-	for _, page := range dataPages {
+	for pageId, page := range dataPages {
 		if page.HasForwardingPointers() {
 			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
 
 		}
 
-		for _, datarow := range page.DataRows {
+		for did, datarow := range page.DataRows {
 			m := make(ColMap)
 			skippedVarCols := 0 // counts skipped var cols
 			nofCols := len(table.Schema)
 
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
+				fmt.Printf("Mismatch in number of cols in row %d, cols %d page %d and schema cols %d\n",
+					did, int(datarow.NumberOfCols), pageId, nofCols)
+				continue
+			}
+			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols)+skippedVarCols {
+				fmt.Printf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d\n",
+					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols)+skippedVarCols)
 				continue
 			}
 			fixColsOffset := 0
 			for _, col := range table.Schema {
 
-				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order)-1, nofCols) { //col is NULL skip when ASCII 49  (1)
+				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
 					if !col.isStatic() {
 						skippedVarCols++
 					}
-
+					//	fmt.Println(col.Name, col.isStatic(), col.Order, col.Type, "SKIPPED")
 					continue
 				}
-
+				fmt.Println(pageId, did, col.Name, col.isStatic(), col.Order, col.Type)
 				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages, textLobPages, fixColsOffset)
 
 				if col.isStatic() {
