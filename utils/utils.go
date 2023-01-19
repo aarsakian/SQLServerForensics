@@ -58,6 +58,12 @@ func ToInt32(data []byte) int {
 	return int(temp)
 }
 
+func ToUint16(data []byte) uint {
+	var temp uint16
+	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
+	return uint(temp)
+}
+
 type SlotOffset uint16
 
 type SortedSlotsOffset []SlotOffset
@@ -68,22 +74,20 @@ func (s SortedSlotsOffset) Len() int {
 }
 
 func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
+	var intBitmap uint
+	if len(bitmap) == 2 {
+		intBitmap = ToUint16(bitmap)
+	} else if len(bitmap) == 1 {
+		intBitmap = uint(bitmap[0])
+	}
+	bitrepresentation := strconv.FormatUint(uint64(intBitmap), 2)
+	for len(bitrepresentation) < nofCols {
+		//add needed bits
+		bitrepresentation = "0" + bitrepresentation
 
-	selectedByte := bitmap[len(bitmap)-1-flagPos/8]
-
-	bitrepresentation := strconv.FormatUint(uint64(selectedByte), 2)
-
-	if len(bitrepresentation) > nofCols {
-		// remove not needed bits
-		bitrepresentation = bitrepresentation[len(bitrepresentation)-nofCols:]
-	} else {
-		for len(bitrepresentation) <= nofCols {
-			//add needed bits
-			bitrepresentation = "0" + bitrepresentation
-		}
 	}
 
-	bitflag := bitrepresentation[flagPos]
+	bitflag := bitrepresentation[nofCols-flagPos]
 
 	return bitflag == 49 // ascii 49 = 1
 
