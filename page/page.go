@@ -200,14 +200,16 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16,
 		}
 
 	} else {
-
+		if dataRow.NumberOfVarLengthCols == 0 || dataRow.NumberOfVarLengthCols <= valorder {
+			// should had bitmap set to 1 however it is not expiremental
+			return nil
+		}
 		pageId := dataRow.GetBloBPageId(valorder)
 		if pageId != 0 {
 
 			lobPage := lobPages[pageId]
 
 			return lobPage.LOBS.GetData(lobPages, textLobPages) // might change
-
 		} else {
 			return (*dataRow.VarLenCols)[valorder].content
 		}
