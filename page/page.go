@@ -15,10 +15,6 @@ var PageTypes = map[uint8]string{
 	16: "Differential Changed Map", 17: "Buck Change Map",
 }
 
-var PageTypeFlagBits = map[uint8]string{
-	1: "Ghost record", 4: "Fixed size rows",
-}
-
 var SystemTablesFlags = map[string]uint8{
 	"syscolpars": 0x29, "sysrowsets": 0x05, "sysiscols": 0x37, "sysallocationunits": 0x07,
 	"sysschobjs": 0x22}
@@ -145,7 +141,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
 			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
 		}
 
-		if endVarColOffset <= startVarColOffset {
+		if endVarColOffset < startVarColOffset {
 			continue
 		} else if int(startVarColOffset) > len(data) {
 			break
@@ -376,9 +372,15 @@ func (page *Page) parseDATA(data []byte) {
 				var sysiscols *sysIsCols = new(sysIsCols)
 				dataRow.Process(sysiscols)
 			}
+			if !dataRow.HasNullBitmap() {
+				fmt.Println("NULL:?", page.Header.PageId, "FLSE")
+			}
 
-			if dataRow.NumberOfVarLengthCols != 0 {
+			if dataRow.HasVarLenCols() {
 				dataRow.ProcessVaryingCols(data[slotoffset : slotoffset+dataRowLen])
+			} else { //zero erreounously assigned values
+				dataRow.NumberOfVarLengthCols = 0
+				dataRow.VarLengthColOffsets = []int16{}
 			}
 
 			dataRows = append(dataRows, *dataRow)
