@@ -29,9 +29,10 @@ type RowIds []utils.RowId
 
 type DataCols []DataCol
 
-var DataRecord = map[uint8]string{0: "Primary", 1: "Forwarded", 2: "Forwarded Stub",
-	3: "Index", 4: "Blob", 5: "Ghost Index",
-	6: "Ghost Data"}
+var DataRecord = map[uint8]string{
+	0: "Primary Record", 1: "Forwarded Record", 2: "Forwarding Record", 3: "Index Record",
+	4: "BLOB Fragment", 5: "Ghost Index Record", 6: "Ghost Data Record",
+}
 
 type InlineBLob24 struct {
 	Type       uint8
@@ -65,10 +66,18 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 }
 
 func (dataRow DataRow) GetFlags() string {
-	recordType := DataRecord[dataRow.StatusA&6]
-	nullBitmap := (map[bool]string{true: "NULL Bitmap"})[dataRow.StatusA&8 == 8]
-	varLenCols := (map[bool]string{true: "Var length Cols"})[dataRow.StatusA&10 == 10]
+	recordType := DataRecord[dataRow.StatusA&14]
+	nullBitmap := (map[bool]string{true: "NULL Bitmap"})[dataRow.HasNullBitmap()]
+	varLenCols := (map[bool]string{true: "Var length Cols"})[dataRow.HasVarLenCols()]
 	return strings.Join([]string{recordType, nullBitmap, varLenCols}, " ")
+}
+
+func (dataRow DataRow) HasNullBitmap() bool {
+	return dataRow.StatusA&16 == 16
+}
+
+func (dataRow DataRow) HasVarLenCols() bool {
+	return dataRow.StatusA&32 == 32
 }
 
 func (dataCol DataCol) hasBlob24() bool {
