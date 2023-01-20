@@ -49,13 +49,13 @@ func (c Column) toString(data []byte) string {
 	}
 }
 
-func (c *Column) addContent(datarow page.DataRow, skippedVarCols int,
+func (c *Column) addContent(datarow page.DataRow,
 	lobPages page.PageMap, textLOBPages page.PageMap, fixColsOffset int) []byte {
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable)
 	} else {
 		return datarow.ProcessData(c.Order, c.Size, c.isStatic(),
-			c.VarLenOrder-uint16(skippedVarCols), lobPages, textLOBPages, fixColsOffset)
+			c.VarLenOrder, lobPages, textLOBPages, fixColsOffset)
 	}
 
 }
@@ -151,7 +151,7 @@ func (table *Table) setContent(dataPages page.PageMap,
 
 		for did, datarow := range page.DataRows {
 			m := make(ColMap)
-			skippedVarCols := 0 // counts skipped var cols
+
 			nofCols := len(table.Schema)
 
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
@@ -159,9 +159,9 @@ func (table *Table) setContent(dataPages page.PageMap,
 					did, int(datarow.NumberOfCols), pageId, nofCols)
 				continue
 			}
-			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols)+skippedVarCols {
+			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
 				fmt.Printf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d\n",
-					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols)+skippedVarCols)
+					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols))
 				continue
 			}
 			fixColsOffset := 0
@@ -169,13 +169,13 @@ func (table *Table) setContent(dataPages page.PageMap,
 
 				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
 					if !col.isStatic() {
-						skippedVarCols++
+
 					}
-					//	fmt.Println(col.Name, col.isStatic(), col.Order, col.Type, "SKIPPED")
+					fmt.Println(col.Name, col.isStatic(), col.Order, col.Type, "SKIPPED")
 					continue
 				}
 				fmt.Println(pageId, did, col.Name, col.isStatic(), col.Order, col.Type)
-				m[col.Name] = col.addContent(datarow, skippedVarCols, lobPages, textLobPages, fixColsOffset)
+				m[col.Name] = col.addContent(datarow, lobPages, textLobPages, fixColsOffset)
 
 				if col.isStatic() {
 
