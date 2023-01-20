@@ -75,6 +75,7 @@ func (s SortedSlotsOffset) Len() int {
 
 func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
 	var intBitmap uint
+	var bitflag uint8
 	if len(bitmap) == 2 {
 		intBitmap = ToUint16(bitmap)
 	} else if len(bitmap) == 1 {
@@ -86,8 +87,13 @@ func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
 		bitrepresentation = "0" + bitrepresentation
 
 	}
-
-	bitflag := bitrepresentation[nofCols-flagPos]
+	if len(bitrepresentation) > nofCols {
+		startOffset := len(bitrepresentation) - nofCols
+		endOffset := nofCols - flagPos
+		bitflag = bitrepresentation[startOffset+endOffset-1 : startOffset+endOffset][0]
+	} else {
+		bitflag = bitrepresentation[nofCols-flagPos]
+	}
 
 	return bitflag == 49 // ascii 49 = 1
 
@@ -213,7 +219,6 @@ func Unmarshal(data []byte, v interface{}) error {
 			idx += 1
 		case reflect.Uint16:
 			var temp uint16
-
 			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
 			field.SetUint(uint64(temp))
 			idx += 2
