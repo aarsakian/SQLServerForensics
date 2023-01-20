@@ -71,8 +71,14 @@ func (table Table) getHeader() utils.Record {
 func (c Column) Print(data []byte) {
 	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
 		fmt.Printf("%s = %s LEN %d ", c.Name, string(data), len(data))
-	} else if c.Type == "int" || c.Type == "tinyint" || c.Type == "bigint" {
+	} else if c.Type == "varbinary" {
+		fmt.Printf("%s = %x LEN %d ", c.Name, data, len(data))
+	} else if c.Type == "int" {
 		fmt.Printf("%s = %d ", c.Name, utils.ToInt32(data))
+	} else if c.Type == "tinyint" {
+		fmt.Printf("%s = %d ", c.Name, utils.ToInt8(data))
+	} else if c.Type == "bigint" {
+		fmt.Printf("%s = %d ", c.Name, utils.ToInt64(data))
 	}
 }
 
@@ -174,7 +180,8 @@ func (table *Table) setContent(dataPages page.PageMap,
 					fmt.Println(col.Name, col.isStatic(), col.Order, col.Type, "SKIPPED")
 					continue
 				}
-				fmt.Println(pageId, did, col.Name, col.isStatic(), col.Order, col.Type)
+
+				//	fmt.Println(pageId, did, col.Name, col.isStatic(), col.Order, col.Type)
 				m[col.Name] = col.addContent(datarow, lobPages, textLobPages, fixColsOffset)
 
 				if col.isStatic() {
