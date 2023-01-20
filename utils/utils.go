@@ -58,6 +58,12 @@ func ToInt32(data []byte) int {
 	return int(temp)
 }
 
+func ToInt8(data []byte) int {
+	var temp int8
+	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
+	return int(temp)
+}
+
 func ToUint16(data []byte) uint {
 	var temp uint16
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
