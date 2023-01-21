@@ -26,6 +26,29 @@ type Column struct {
 	VarLenOrder uint16
 }
 
+type SqlVariant struct {
+	BaseType   uint8
+	Version    uint8
+	Properties *SqlVariantProperties
+	Value      []byte
+}
+
+type SqlVariantProperties struct {
+	Precision     uint8
+	Scale         uint8
+	MaximumLength uint16
+	CollationId   uint32
+}
+
+func (sqlVariant SqlVariant) getData() string {
+	if sqlVariant.BaseType == 0x23 {
+		return fmt.Sprintf("%d", utils.ToInt32(sqlVariant.Value))
+	} else if sqlVariant.BaseType == 0x23 { //string
+		return fmt.Sprintf("%s", sqlVariant.Value)
+	}
+	return ""
+}
+
 func (c Column) isStatic() bool {
 
 	if c.Type == "varchar" || c.Type == "nvarchar" ||
@@ -39,11 +62,38 @@ func (c Column) isStatic() bool {
 
 }
 
+func (c Column) parseSqlVariant(data []byte) SqlVariant {
+	var sqlVariant *SqlVariant = new(SqlVariant)
+	utils.Unmarshal(data, sqlVariant)
+	var sqlVariantProperties SqlVariantProperties
+	if sqlVariant.BaseType == 0x38 { //int
+		sqlVariantProperties = SqlVariantProperties{Precision: data[2], Scale: data[3]}
+		sqlVariant.Value = data[3:]
+	} else if sqlVariant.BaseType == 0x23 { //string
+
+		sqlVariantProperties = SqlVariantProperties{MaximumLength: utils.ToUint16(data[2:4]),
+			CollationId: utils.ToUint32(data[4:8])}
+		sqlVariant.Value = data[8:]
+	}
+	sqlVariant.Properties = &sqlVariantProperties
+	return *sqlVariant
+}
+
 func (c Column) toString(data []byte) string {
+
 	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
 		return fmt.Sprintf("%s", data)
-	} else if c.Type == "int" || c.Type == "tinyint" || c.Type == "bigint" {
+	} else if c.Type == "int" {
 		return fmt.Sprintf("%d", utils.ToInt32(data))
+	} else if c.Type == "tinyint" {
+		return fmt.Sprintf("%d", utils.ToInt8(data))
+	} else if c.Type == "bigint" {
+		return fmt.Sprintf("%d", utils.ToInt64(data))
+	} else if c.Type == "varbinary" {
+		return fmt.Sprintf("%x", data)
+	} else if c.Type == "sql_variant" {
+		sqlVariant := c.parseSqlVariant(data)
+		return sqlVariant.getData()
 	} else {
 		return ""
 	}
@@ -69,16 +119,11 @@ func (table Table) getHeader() utils.Record {
 }
 
 func (c Column) Print(data []byte) {
-	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
-		fmt.Printf("%s = %s LEN %d ", c.Name, string(data), len(data))
-	} else if c.Type == "varbinary" {
-		fmt.Printf("%s = %x LEN %d ", c.Name, data, len(data))
-	} else if c.Type == "int" {
-		fmt.Printf("%s = %d ", c.Name, utils.ToInt32(data))
-	} else if c.Type == "tinyint" {
-		fmt.Printf("%s = %d ", c.Name, utils.ToInt8(data))
-	} else if c.Type == "bigint" {
-		fmt.Printf("%s = %d ", c.Name, utils.ToInt64(data))
+	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" ||
+		c.Type == "varbinary" {
+		fmt.Printf("%s = %s LEN %d ", c.Name, c.toString(data), len(data))
+	} else {
+		fmt.Printf("%s = %s ", c.Name, c.toString(data))
 	}
 }
 
@@ -189,6 +234,7 @@ func (table *Table) setContent(dataPages page.PageMap,
 					fixColsOffset += int(col.Size)
 
 				}
+
 			}
 			rows = append(rows, m)
 
