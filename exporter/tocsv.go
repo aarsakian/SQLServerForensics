@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"encoding/csv"
 	"fmt"
@@ -10,11 +11,12 @@ import (
 )
 
 func writeCSV(records utils.Records, filename string, folder string) {
-	fmt.Printf("Exporting Table %s. \n", filename)
+	msg := fmt.Sprintf("Exporting Table %s. \n", filename)
+	mslogger.Mslogger.Info(msg)
 	file, err := os.Create(fmt.Sprintf("%s.csv", path.Join(folder, filename)))
 	defer file.Close()
 	if err != nil {
-		log.Fatalln("failed to open file", err)
+		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
 	}
 
 	w := csv.NewWriter(file)
