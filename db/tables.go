@@ -1,6 +1,7 @@
 package db
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
@@ -206,13 +207,15 @@ func (table *Table) setContent(dataPages page.PageMap,
 			nofCols := len(table.Schema)
 
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-				fmt.Printf("Mismatch in number of cols in row %d, cols %d page %d and schema cols %d\n",
+				msg := fmt.Sprintf("Mismatch in number of cols in row %d, cols %d page %d and schema cols %d\n",
 					did, int(datarow.NumberOfCols), pageId, nofCols)
+				mslogger.Mslogger.Warning(msg)
 				continue
 			}
 			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
-				fmt.Printf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d\n",
+				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d\n",
 					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols))
+				mslogger.Mslogger.Warning(msg)
 				continue
 			}
 			fixColsOffset := 0
@@ -222,7 +225,8 @@ func (table *Table) setContent(dataPages page.PageMap,
 					if !col.isStatic() {
 
 					}
-					fmt.Println(col.Name, col.isStatic(), col.Order, col.Type, "SKIPPED")
+					msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
+					mslogger.Mslogger.Error(msg)
 					continue
 				}
 
