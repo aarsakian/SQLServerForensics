@@ -61,8 +61,7 @@ func main() {
 
 	flag.Parse()
 
-	msLogger := mslogger.InitializeLogger()
-	msLogger.SetStatus(*logActive)
+	mslogger.InitializeLogger(*logActive)
 
 	file, err := os.Open(*inputfile) //
 	if err != nil {
@@ -73,7 +72,7 @@ func main() {
 
 	fsize, err := file.Stat() //file descriptor
 	if err != nil {
-		msLogger.Error(err)
+		mslogger.Mslogger.Error(err)
 		return
 	}
 	// read the file
