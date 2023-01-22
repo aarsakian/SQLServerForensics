@@ -23,6 +23,7 @@ package main
 import (
 	db "MSSQLParser/db"
 	"MSSQLParser/exporter"
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/reporter"
 	"flag"
@@ -56,8 +57,12 @@ func main() {
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	export := flag.Bool("export", false, "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
+	logActive := flag.Bool("log", false, "log activity")
 
 	flag.Parse()
+
+	msLogger := mslogger.InitializeLogger()
+	msLogger.SetStatus(*logActive)
 
 	file, err := os.Open(*inputfile) //
 	if err != nil {
@@ -68,6 +73,7 @@ func main() {
 
 	fsize, err := file.Stat() //file descriptor
 	if err != nil {
+		msLogger.Error(err)
 		return
 	}
 	// read the file
