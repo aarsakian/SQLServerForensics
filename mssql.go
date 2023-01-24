@@ -46,7 +46,7 @@ func main() {
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics")
 	tableName := flag.String("table", "", "show table (use all for all tables)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
-	showTableSchema := flag.Bool("showschema", true, "show table schema")
+	showTableSchema := flag.Bool("showschema", false, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
 	showIAMExtents := flag.Bool("iam", false, "show IAM extents for each page")
@@ -98,28 +98,29 @@ func main() {
 
 	fmt.Println("Processing pages...")
 	totalProcessedPages := 0
-	for i := 0; i < int(fsize.Size()); i += PAGELEN {
-		_, err := file.ReadAt(bs, int64(i))
+	for offset := 0; offset < int(fsize.Size()); offset += PAGELEN {
+		_, err := file.ReadAt(bs, int64(offset))
 
 		if err != nil {
 			fmt.Printf("error reading file --->%s prev offset %d  mod %d",
-				err, i/PAGELEN, i%PAGELEN)
+				err, offset/PAGELEN, offset%PAGELEN)
 			return
 		}
 
-		if *selectedPage != -1 && (i/PAGELEN < *selectedPage || i/PAGELEN > *selectedPage) && !*showPageStats {
+		if *selectedPage != -1 && (offset/PAGELEN < *selectedPage || offset/PAGELEN > *selectedPage) && !*showPageStats {
 			continue
 		}
 
-		if !*showPageStats && (i/PAGELEN) < *fromPage {
+		if !*showPageStats && (offset/PAGELEN) < *fromPage {
 			continue
 		}
 
-		if !*showPageStats && *toPage != -1 && (i/PAGELEN) > *toPage {
+		if !*showPageStats && *toPage != -1 && (offset/PAGELEN) > *toPage {
 			continue
 		}
-		//	fmt.Printf("Processing page  %d offset %d\n", i/8192, i)
-		page := database.ProcessPage(bs)
+		msg := fmt.Sprintf("Processing page  %d offset %d", offset/PAGELEN, offset)
+		mslogger.Mslogger.Info(msg)
+		page := database.ProcessPage(bs, offset)
 		pages[page.Header.ObjectId] = append(pages[page.Header.ObjectId], page)
 
 		totalProcessedPages++
