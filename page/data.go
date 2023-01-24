@@ -30,8 +30,8 @@ type RowIds []utils.RowId
 type DataCols []DataCol
 
 var DataRecord = map[uint8]string{
-	0: "Primary Record", 1: "Forwarded Record", 2: "Forwarding Record", 3: "Index Record",
-	4: "BLOB Fragment", 5: "Ghost Index Record", 6: "Ghost Data Record",
+	0: "Primary Record", 2: "Forwarded Record", 4: "Forwarding Record", 6: "Index Record",
+	8: "BLOB Fragment", 10: "Ghost Index Record", 12: "Ghost Data Record",
 }
 
 type InlineBLob24 struct {
@@ -63,6 +63,20 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 	VarLengthColOffsets   []int16
 	VarLenCols            *DataCols
 	SystemTable           SystemTable
+}
+
+func GetRowType(statusA byte) string {
+
+	for flagbyte, flagname := range DataRecord {
+		if flagbyte == 0 {
+			continue //cannot compare with zero bitmask
+		}
+		if statusA&flagbyte == flagbyte {
+			return flagname
+
+		}
+	}
+	return DataRecord[0] // Primary Record
 }
 
 func (dataRow DataRow) GetFlags() string {
