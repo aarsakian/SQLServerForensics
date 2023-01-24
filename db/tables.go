@@ -44,8 +44,10 @@ type SqlVariantProperties struct {
 func (sqlVariant SqlVariant) getData() string {
 	if sqlVariant.BaseType == 0x23 {
 		return fmt.Sprintf("%d", utils.ToInt32(sqlVariant.Value))
-	} else if sqlVariant.BaseType == 0x23 { //string
-		return fmt.Sprintf("%s", sqlVariant.Value)
+	} else if sqlVariant.BaseType == 0x7f {
+		return fmt.Sprintf("%d", utils.ToInt64(sqlVariant.Value))
+	} else if sqlVariant.BaseType == 0xad { //string
+		return fmt.Sprintf("%x", sqlVariant.Value)
 	}
 	return ""
 }
@@ -222,9 +224,7 @@ func (table *Table) setContent(dataPages page.PageMap,
 			for _, col := range table.Schema {
 
 				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
-					if !col.isStatic() {
 
-					}
 					msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
 					mslogger.Mslogger.Error(msg)
 					continue
