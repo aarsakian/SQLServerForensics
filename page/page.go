@@ -1,6 +1,7 @@
 package page
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"bytes"
 	"encoding/binary"
@@ -130,12 +131,14 @@ type SystemTable interface {
 	GetData() (any, any)
 }
 
-func (dataRow *DataRow) ProcessVaryingCols(data []byte) { // data per slot
+func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data per slot
 	var datacols DataCols
 	var inlineBlob24 *InlineBLob24
 	var inlineBlob16 *InlineBLob16
 	startVarColOffset := dataRow.GetVarCalOffset()
 	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
+		msg := fmt.Sprintf("%d var col at %d", idx, offset+int(startVarColOffset))
+		mslogger.Mslogger.Info(msg)
 
 		if endVarColOffset < 0 {
 			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
@@ -326,11 +329,14 @@ func (page *Page) parseLOB(data []byte) {
 
 }
 
-func (page *Page) parseDATA(data []byte) {
+func (page *Page) parseDATA(data []byte, offset int) {
 	var dataRows DataRows
 	var forwardingPointers ForwardingPointers
 
 	for slotnum, slotoffset := range page.Slots {
+		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
+		mslogger.Mslogger.Info(msg)
+
 		if slotoffset < 96 { //offset starts from 96
 			fmt.Printf("slotoffset %d less than header size \n", slotoffset)
 			continue
@@ -345,10 +351,10 @@ func (page *Page) parseDATA(data []byte) {
 			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
 
-		if data[slotoffset] == 4 { // forward pointer header
+		if GetRowType(data[slotoffset]) == "Forwarding Record" { // forward pointer header
 			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
 			forwardingPointers = append(forwardingPointers, *forwardingPointer)
-		} else {
+		} else if GetRowType(data[slotoffset]) == "Primary Record" || GetRowType(data[slotoffset]) == "BLOB Fragment" {
 			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
 			//fmt.Println(slotoffset, slotnum, page.Header.PageId)
 			if page.Header.ObjectId == 0x29 { //syscolpars
@@ -379,7 +385,7 @@ func (page *Page) parseDATA(data []byte) {
 			}
 
 			if dataRow.HasVarLenCols() {
-				dataRow.ProcessVaryingCols(data[slotoffset : slotoffset+dataRowLen])
+				dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset)
 			} else { //zero erreounously assigned values
 				dataRow.NumberOfVarLengthCols = 0
 				dataRow.VarLengthColOffsets = []int16{}
@@ -455,7 +461,7 @@ func (page *Page) parseIndex(data []byte) {
 
 }
 
-func (page *Page) Process(data []byte) {
+func (page *Page) Process(data []byte, offset int) {
 	HEADERLEN := 96
 	PAGELEN := 8192
 	var header Header
@@ -475,7 +481,7 @@ func (page *Page) Process(data []byte) {
 		case "SGAM":
 			page.parseSGAM(data)
 		case "DATA":
-			page.parseDATA(data)
+			page.parseDATA(data, offset)
 		case "LOB":
 			page.parseLOB(data)
 		case "TEXT":
