@@ -11,9 +11,9 @@ type Database struct {
 	Tables   []Table
 }
 
-func (db Database) ProcessPage(bs []byte) page.Page {
+func (db Database) ProcessPage(bs []byte, offset int) page.Page {
 	var page *page.Page = new(page.Page)
-	page.Process(bs)
+	page.Process(bs, offset)
 
 	return *page
 }
