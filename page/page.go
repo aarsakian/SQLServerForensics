@@ -10,9 +10,11 @@ import (
 	"sort"
 )
 
+var PAGELEN = 8192
+
 var PageTypes = map[uint8]string{
-	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 7: "Sort", 8: "GAM", 9: "SGAM",
-	10: "IAM", 11: "PFS", 13: "Boot", 15: "File Header",
+	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 6: "Work File", 7: "Sort", 8: "GAM", 9: "SGAM",
+	10: "IAM", 11: "PFS", 13: "Boot", 14: "Server Configuration", 15: "File Header",
 	16: "Differential Changed Map", 17: "Buck Change Map",
 }
 
@@ -22,9 +24,13 @@ var SystemTablesFlags = map[string]uint8{
 
 type Pages []Page
 
-type PagesMap map[uint32]Pages
+type PagesMap map[int32]Pages
 
-type PageMap map[uint32]Page
+type PagesMapIds map[uint32]Pages
+
+type PageMapIds map[uint32]Page
+
+type PageMap map[int32]Page
 
 type Page struct {
 	Header             Header
@@ -53,7 +59,7 @@ type Header struct {
 	NextPage       uint32    //16-20
 	NextPageFileId uint16    //20-22
 	SlotCnt        uint16    //22-24   number of slots (records) that hold data
-	ObjectId       uint32    //24-28 AllocUnitId.idObj
+	ObjectId       int32     //24-28 AllocUnitId.idObj
 	FreeCnt        uint16    //28-30 free space in bytes
 	FreeData       uint16    //30-32 offset from the start of the page to the first byte after the last record
 	PageId         uint32    //32-36
@@ -71,21 +77,29 @@ type AllocationMaps interface {
 }
 
 func (header Header) isValid() bool {
-	knownTypes := []uint8{1, 2, 3, 4, 7, 8, 9, 10, 11, 13, 15, 16, 17}
-	for _, knownType := range knownTypes {
-		if knownType == header.Type {
+
+	for typeId := range PageTypes {
+		if typeId == header.Type {
 			return true
 		}
 	}
+	mslogger.Mslogger.Warning(fmt.Sprintf("Unknown page type %d", header.Type))
 	return false
 }
 
 func (header Header) sanityCheck() bool {
 	if header.Version != 1 {
-		fmt.Printf(" issue with header version \n")
+
+		mslogger.Mslogger.Warning(fmt.Sprintf("Issue with header version %d \n", header.Version))
 		return false
 	}
 	if header.FreeData > 8192-64 { // not sure
+		mslogger.Mslogger.Warning(fmt.Sprintf("Header free area exceeded max allowed size %d", header.FreeData))
+		return false
+	}
+
+	if header.SlotCnt > 4096 {
+		mslogger.Mslogger.Warning(fmt.Sprintf("number of slots exceeded maximum allowed number %d.", header.SlotCnt))
 		return false
 	}
 
@@ -100,7 +114,7 @@ func (page Page) FilterByTable(tablename string) DataRows {
 
 }
 
-func (pages Pages) FilterByTypeToMap(pageType string) PageMap {
+func (pages Pages) FilterByTypeToMap(pageType string) PageMapIds {
 	return utils.FilterToMap(pages, func(page Page) (bool, uint32) {
 		return page.GetType() == pageType, page.Header.PageId
 	})
@@ -119,7 +133,7 @@ func (pagesMap PagesMap) FilterBySystemTables(systemTable string) PagesMap {
 				page.Header.ObjectId == 0x05 || //sysrowsets, and
 				page.Header.ObjectId == 0x07 //sysallocationunits
 		} else {
-			return page.Header.ObjectId == uint32(SystemTablesFlags[systemTable])
+			return page.Header.ObjectId == int32(SystemTablesFlags[systemTable])
 		}
 	})
 }
@@ -192,7 +206,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 }
 
 func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16,
-	static bool, valorder uint16, lobPages PageMap, textLobPages PageMap,
+	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds,
 	fixColsOffset int) (data []byte) {
 
 	if static {
@@ -354,7 +368,8 @@ func (page *Page) parseDATA(data []byte, offset int) {
 		if GetRowType(data[slotoffset]) == "Forwarding Record" { // forward pointer header
 			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
 			forwardingPointers = append(forwardingPointers, *forwardingPointer)
-		} else if GetRowType(data[slotoffset]) == "Primary Record" || GetRowType(data[slotoffset]) == "BLOB Fragment" {
+		} else if GetRowType(data[slotoffset]) == "Primary Record" {
+
 			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
 			//fmt.Println(slotoffset, slotnum, page.Header.PageId)
 			if page.Header.ObjectId == 0x29 { //syscolpars
@@ -379,17 +394,15 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			} else if page.Header.ObjectId == 0x37 {
 				var sysiscols *sysIsCols = new(sysIsCols)
 				dataRow.Process(sysiscols)
+			} else if page.Header.ObjectId == -0x69 { // view object not reached
+				var sysobjects *SysObjects = new(SysObjects)
+				dataRow.Process(sysobjects)
 			}
 			if !dataRow.HasNullBitmap() {
 				fmt.Println("NULL:?", page.Header.PageId, "FLSE")
 			}
 
-			if dataRow.HasVarLenCols() {
-				dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset)
-			} else { //zero erreounously assigned values
-				dataRow.NumberOfVarLengthCols = 0
-				dataRow.VarLengthColOffsets = []int16{}
-			}
+			dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset)
 
 			dataRows = append(dataRows, *dataRow)
 		}
@@ -463,12 +476,14 @@ func (page *Page) parseIndex(data []byte) {
 
 func (page *Page) Process(data []byte, offset int) {
 	HEADERLEN := 96
-	PAGELEN := 8192
+
 	var header Header
 	utils.Unmarshal(data[0:HEADERLEN], &header)
 
 	if header.isValid() && header.sanityCheck() {
 		page.Header = header
+		mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d", header.PageId, page.GetType(), page.Header.ObjectId))
+
 		slotsOffset := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):])
 		sort.Sort(utils.SortedSlotsOffset(slotsOffset))
 		page.Slots = slotsOffset
