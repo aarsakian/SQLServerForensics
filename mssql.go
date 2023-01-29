@@ -44,7 +44,7 @@ func main() {
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics")
-	tableName := flag.String("table", "", "show table (use all for all tables)")
+	tableName := flag.String("table", "", "show table (use all for all tables or user for user table)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
@@ -58,6 +58,7 @@ func main() {
 	export := flag.Bool("export", false, "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 	logActive := flag.Bool("log", false, "log activity")
+	tabletype := flag.String("tabletype", "", "filter tables by type (xtype)")
 
 	flag.Parse()
 
@@ -94,7 +95,8 @@ func main() {
 		ShowTableSchema:     *showTableSchema,
 		ShowTableContent:    *showTableContent,
 		ShowTableAllocation: *showTableAllocation,
-		ShowPageStats:       *showPageStats}
+		ShowPageStats:       *showPageStats,
+		TableType:           *tabletype}
 
 	fmt.Println("Processing pages...")
 	totalProcessedPages := 0
@@ -118,7 +120,7 @@ func main() {
 		if !*showPageStats && *toPage != -1 && (offset/PAGELEN) > *toPage {
 			continue
 		}
-		msg := fmt.Sprintf("Processing page  %d offset %d", offset/PAGELEN, offset)
+		msg := fmt.Sprintf("Processing offset %d", offset)
 		mslogger.Mslogger.Info(msg)
 		page := database.ProcessPage(bs, offset)
 		pages[page.Header.ObjectId] = append(pages[page.Header.ObjectId], page)
@@ -146,7 +148,7 @@ func main() {
 	database.PagesMap = pages
 	database.Name = strings.Split(*inputfile, ".")[0]
 
-	tables := database.GetTablesInformation(*tableName)
+	tables := database.GetTablesInformation()
 	database.Tables = tables
 
 	fmt.Printf("Reconstructed %d tables.\n", len(tables))

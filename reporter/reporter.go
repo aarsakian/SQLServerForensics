@@ -19,6 +19,7 @@ type Reporter struct {
 	ShowTableContent    bool
 	ShowTableAllocation bool
 	ShowPageStats       bool
+	TableType           string
 }
 
 func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
@@ -30,7 +31,7 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 				rp.ShowIAMExtents && page.GetType() == "IAM" ||
 				rp.ShowGamExtents && page.GetType() == "GAM" ||
 				rp.ShowSGamExtents && page.GetType() == "SGAM" {
-				fmt.Printf("%d ", page.Header.PageId)
+
 				allocMap.ShowAllocations()
 			}
 			if rp.ShowHeader {
@@ -63,7 +64,7 @@ func (rp Reporter) ShowTableInfo(database db.Database) {
 	tablename := rp.TableName
 	if tablename != "" {
 
-		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation)
+		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation, rp.TableType)
 
 	}
 }
