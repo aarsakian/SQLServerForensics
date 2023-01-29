@@ -99,7 +99,8 @@ func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
 		bitrepresentation = "0" + bitrepresentation
 
 	}
-	if len(bitrepresentation) > nofCols {
+
+	if len(bitrepresentation) > nofCols { // remove not needed bits
 		startOffset := len(bitrepresentation) - nofCols
 		endOffset := nofCols - flagPos
 		bitflag = bitrepresentation[startOffset+endOffset-1 : startOffset+endOffset][0]
@@ -178,6 +179,10 @@ func Values[M ~map[K]V, K comparable, V any](m M) []V {
 	return r
 }
 
+func HasVarLengthCols(flag uint8) bool {
+	return flag&32 == 32
+}
+
 func FindValueInStruct(colName string, v interface{}) []byte {
 	structValPtr := reflect.ValueOf(v)
 	//structType := reflect.TypeOf(v)
@@ -231,7 +236,15 @@ func Unmarshal(data []byte, v interface{}) error {
 			idx += 1
 		case reflect.Uint16:
 			var temp uint16
-			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+
+			name := structType.Elem().Field(i).Name
+			if name == "NumberOfVarLengthCols" &&
+				!HasVarLengthCols(uint8(structValPtr.Elem().FieldByName("StatusA").Uint())) {
+				temp = 0
+			} else {
+				binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+			}
+
 			field.SetUint(uint64(temp))
 			idx += 2
 
@@ -309,8 +322,8 @@ func Unmarshal(data []byte, v interface{}) error {
 				var temp int16
 				var arr []int16
 				nofVarLenCols := structValPtr.Elem().FieldByName("NumberOfVarLengthCols").Uint()
-
 				for colId := 0; colId < int(nofVarLenCols); colId++ {
+
 					binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
 					arr = append(arr, temp)
 					idx += 2
