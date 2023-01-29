@@ -1,6 +1,7 @@
 package db
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"fmt"
 )
@@ -22,15 +23,14 @@ func (db *Database) FilterBySystemTables(systemTables string) {
 	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTables)
 }
 
-func (db Database) createMap(tablename string) map[any]any {
-	results := map[any]any{}
+func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint] {
+	results := map[any]page.Result[string, string, uint64, uint]{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
-				objectId, val := datarow.SystemTable.GetData()
-
-				results[objectId] = val
+				objectId, res := datarow.SystemTable.GetData()
+				results[objectId] = res.(page.Result[string, string, uint64, uint])
 
 			}
 		}
@@ -39,15 +39,15 @@ func (db Database) createMap(tablename string) map[any]any {
 	return results
 }
 
-func (db Database) createMapListGeneric(tablename string) map[any][]uint32 {
-	results := map[any][]uint32{}
+func (db Database) createMapListGeneric(tablename string) map[any][]int32 {
+	results := map[any][]int32{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
 				objectId, val := datarow.SystemTable.GetData()
 
-				results[objectId] = append(results[objectId], val.(uint32))
+				results[objectId] = append(results[objectId], val.(int32))
 
 			}
 		}
@@ -73,12 +73,16 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 }
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
-	showAllocation bool) {
+	showAllocation bool, tabletype string) {
 	tableLocated := false
 	for _, table := range db.Tables {
 
 		if table.Name != tablename && tablename != "all" {
 
+			continue
+		}
+
+		if tabletype != "" && tabletype != "user" && table.Type != "User Table" {
 			continue
 		}
 
@@ -108,7 +112,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 }
 
-func (db Database) GetTablesInformation(tablename string) []Table {
+func (db Database) GetTablesInformation() []Table {
 	tablesMap := db.createMap("sysschobjs")   // table information holds a map of object ids and table names
 	colsMap := db.createMapList("syscolpars") //table objectid = name , type, size, colorder
 
@@ -116,13 +120,15 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  OwnerId, page ObjectId
 
 	var tables []Table
-	for tobjectId, tname := range tablesMap {
-		if tablename != "all" && tablename != tname {
-			continue
-		}
+	for tobjectId, res := range tablesMap {
+		tname := res.First
+
 		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
 
-		table := Table{Name: tname.(string), ObjectId: tobjectId.(int32)}
+		table := Table{Name: tname, ObjectId: tobjectId.(int32), Type: res.Second}
+
+		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
+		mslogger.Mslogger.Info(msg)
 
 		if ok {
 			//		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
@@ -142,9 +148,9 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 
 		}
 
-		rowsetId, ok := tableAllocsMap[tobjectId] // from sysrowsets idmajor => rowsetid
+		res, ok := tableAllocsMap[tobjectId] // from sysrowsets idmajor => rowsetid
 		if ok {
-			table.Rowsetid = rowsetId.(uint64) // rowsetid
+			table.Rowsetid = uint64(res.Third) // rowsetid
 		}
 
 		pageObjectIds, ok := tableSysAllocsMap[table.Rowsetid] // from sysallocunits rowsetid => page ObjectId
