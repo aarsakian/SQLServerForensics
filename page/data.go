@@ -91,7 +91,7 @@ func (dataRow DataRow) HasNullBitmap() bool {
 }
 
 func (dataRow DataRow) HasVarLenCols() bool {
-	return dataRow.StatusA&32 == 32
+	return utils.HasVarLengthCols(dataRow.StatusA)
 }
 
 func (dataCol DataCol) hasBlob24() bool {
