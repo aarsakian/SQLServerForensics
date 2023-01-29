@@ -12,9 +12,10 @@ type ColMap map[string][]byte
 type Table struct {
 	Name          string
 	ObjectId      int32
+	Type          string
 	rows          []ColMap
 	Rowsetid      uint64
-	PageObjectIds []uint32
+	PageObjectIds []int32
 	Schema        []Column
 	VarLenCols    []int
 }
@@ -103,7 +104,7 @@ func (c Column) toString(data []byte) string {
 }
 
 func (c *Column) addContent(datarow page.DataRow,
-	lobPages page.PageMap, textLOBPages page.PageMap, fixColsOffset int) []byte {
+	lobPages page.PageMapIds, textLOBPages page.PageMapIds, fixColsOffset int) []byte {
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable)
 	} else {
@@ -192,11 +193,11 @@ func (table Table) printData() {
 	fmt.Printf("\n")
 }
 
-func (table *Table) setContent(dataPages page.PageMap,
-	lobPages page.PageMap, textLobPages page.PageMap) {
+func (table *Table) setContent(dataPages page.PageMapIds,
+	lobPages page.PageMapIds, textLobPages page.PageMapIds) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 	var rows []ColMap
-	fmt.Printf("reconstructing table %s\n", table.Name)
+
 	for pageId, page := range dataPages {
 		if page.HasForwardingPointers() {
 			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
@@ -209,13 +210,13 @@ func (table *Table) setContent(dataPages page.PageMap,
 			nofCols := len(table.Schema)
 
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-				msg := fmt.Sprintf("Mismatch in number of cols in row %d, cols %d page %d and schema cols %d\n",
+				msg := fmt.Sprintf("Mismatch in number of cols in row %d, cols %d page %d and schema cols %d",
 					did, int(datarow.NumberOfCols), pageId, nofCols)
 				mslogger.Mslogger.Warning(msg)
 				continue
 			}
 			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
-				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d\n",
+				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d",
 					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols))
 				mslogger.Mslogger.Warning(msg)
 				continue
@@ -225,8 +226,8 @@ func (table *Table) setContent(dataPages page.PageMap,
 
 				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
 
-					msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
-					mslogger.Mslogger.Error(msg)
+					//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
+					//mslogger.Mslogger.Error(msg)
 					continue
 				}
 
