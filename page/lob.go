@@ -80,7 +80,7 @@ func (lob *LOB) ParseInternal(data []byte) {
 	lob.Internal = internal
 }
 
-func (lob LOB) walk(lobPages PageMap, textLobPages PageMap, dataParts [][]byte) [][]byte {
+func (lob LOB) walk(lobPages PageMapIds, textLobPages PageMapIds, dataParts [][]byte) [][]byte {
 
 	if lob.Type == 2 {
 		for _, dataLob := range lob.Internal.DataPointers {
@@ -102,7 +102,7 @@ func (lob LOB) walk(lobPages PageMap, textLobPages PageMap, dataParts [][]byte) 
 
 }
 
-func (lobs LOBS) GetData(lobPages PageMap, textLobPages PageMap) []byte {
+func (lobs LOBS) GetData(lobPages PageMapIds, textLobPages PageMapIds) []byte {
 
 	var dataParts [][]byte
 	for _, lob := range lobs {
