@@ -1,9 +1,43 @@
 package page
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
+	"strings"
 )
+
+var TableType = map[string]string{"AF": "Aggregate function (CLR)", "U": "User Table", "S": "System Table",
+	"V": "View", "P": "Stored Procedure", "TT": "Table Type", "UQ": "Unique Constraint", "C": "Check constraint",
+	"F": "Foreign Key", "FS": "Assembly (CLR) Scalar function", "FN": "Scalar Function", "FT": "Assembly (CLR) Table-Valued function"}
+
+type SysObjects struct { //view
+	Name             []byte
+	Id               uint32
+	Xtype            [2]byte
+	Uid              uint8
+	Info             uint8
+	Status           uint32
+	Base_schema_ver  uint32
+	Replinfo         uint32
+	Parent_obj       uint32
+	Crdate           [8]byte
+	Ftcatid          uint8
+	Schema_ver       uint32
+	Stats_schema_ver uint32
+	Type             [2]byte
+	Userstat         uint8
+	Sysstat          uint8
+	IndexDel         uint8
+	Refdate          [8]byte
+	Version          uint32
+	Deltring         uint32
+	Instring         uint32
+	Updtring         uint32
+	Seltring         uint32
+	Category         uint32
+	Cache            uint8
+}
 
 type SysAllocUnits struct {
 	Auid       [8]byte //0-8
@@ -94,6 +128,22 @@ type Result[F, S, T, FH any] struct {
 	Fourth FH
 }
 
+func (sysobject SysObjects) GetData() (any, any) {
+	return nil, nil
+}
+
+func (sysobject SysObjects) GetName() string {
+	return ""
+}
+
+func (sysobject *SysObjects) SetName([]byte) {
+
+}
+
+func (sysobjects *SysObjects) ShowData() {
+	fmt.Printf("sysobjects")
+}
+
 func (sysrowsets *SysRowSets) SetName([]byte) {
 
 }
@@ -107,7 +157,7 @@ func (sysrowsets SysRowSets) ShowData() {
 }
 
 func (sysrowsets SysRowSets) GetData() (any, any) {
-	return int32(sysrowsets.Idmajor), sysrowsets.Rowsetid // table object ID
+	return int32(sysrowsets.Idmajor), Result[string, string, uint64, uint]{"", "", sysrowsets.Rowsetid, 0} // table object ID
 }
 
 func (sysiscols *sysIsCols) SetName([]byte) {
@@ -135,7 +185,7 @@ func (sysallocunits SysAllocUnits) GetName() string {
 }
 
 func (sysallocunits SysAllocUnits) GetData() (any, any) {
-	return sysallocunits.OwnerId, uint32(sysallocunits.getPageId())
+	return sysallocunits.OwnerId, int32(sysallocunits.getPageId())
 }
 
 func (sysallocunits SysAllocUnits) getIndexId() int {
@@ -226,7 +276,8 @@ func (syscolpars SysColpars) GetType() string {
 	} else if syscolpars.Xtype == 0x2B {
 		return "datetimeoffset"
 	} else {
-		fmt.Printf("%x ", syscolpars.Xtype)
+		msg := fmt.Sprintf("Type Not found 0x%x ", syscolpars.Xtype)
+		mslogger.Mslogger.Warning(msg)
 		return "Type not Found"
 	}
 
@@ -247,10 +298,14 @@ func (sysschobjs Sysschobjs) GetName() string {
 }
 
 func (sysschobjs Sysschobjs) GetData() (any, any) {
-	return sysschobjs.Id, utils.DecodeUTF16(sysschobjs.Name)
+	return sysschobjs.Id, Result[string, string, uint64, uint]{utils.DecodeUTF16(sysschobjs.Name), sysschobjs.GetTableType(), 0, 0}
 
 }
 
 func (sysschobjs Sysschobjs) ShowData() {
 	fmt.Printf("sysschobjs %d %s\n", sysschobjs.Id, sysschobjs.GetName())
+}
+
+func (sysschobjs Sysschobjs) GetTableType() string {
+	return TableType[strings.TrimSpace(string(sysschobjs.Type[:]))]
 }
