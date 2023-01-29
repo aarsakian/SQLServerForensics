@@ -19,16 +19,23 @@ func (exp Exporter) Export(database db.Database) {
 	var records utils.Records
 
 	err := os.Mkdir(database.Name, 0750)
+
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
 
 	for _, table := range database.Tables {
+		if table.Type != "" {
+			err := os.Mkdir(database.Name+"/"+table.Type, 0750)
+			if err != nil && !os.IsExist(err) {
+				log.Fatal(err)
+			}
+		}
 
 		records = table.GetRecords()
 
 		if exp.Format == "csv" {
-			writeCSV(records, table.Name, database.Name)
+			writeCSV(records, table.Name, database.Name+"/"+table.Type)
 		}
 
 	}
