@@ -159,7 +159,7 @@ func main() {
 
 	if *export {
 		exp := exporter.Exporter{Format: *exportFormat}
-		exp.Export(database)
+		exp.Export(database, *tableName, *tabletype)
 	}
 
 }
