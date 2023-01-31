@@ -15,7 +15,7 @@ type Exporter struct {
 	Format string
 }
 
-func (exp Exporter) Export(database db.Database) {
+func (exp Exporter) Export(database db.Database, tablename string, tabletype string) {
 	var records utils.Records
 
 	err := os.Mkdir(database.Name, 0750)
@@ -25,6 +25,16 @@ func (exp Exporter) Export(database db.Database) {
 	}
 
 	for _, table := range database.Tables {
+
+		if tablename != "all" && table.Name != tablename {
+
+			continue
+		}
+
+		if tabletype == "user" && table.Type != "User Table" {
+			continue
+		}
+
 		if table.Type != "" {
 			err := os.Mkdir(database.Name+"/"+table.Type, 0750)
 			if err != nil && !os.IsExist(err) {
