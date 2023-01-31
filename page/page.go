@@ -361,6 +361,10 @@ func (page *Page) parseDATA(data []byte, offset int) {
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
 			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
+		} else if page.Header.FreeData < uint16(slotoffset) {
+			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slotoffset)
+			mslogger.Mslogger.Warning(msg)
+			continue
 		} else { //last slot
 			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
@@ -397,9 +401,6 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			} else if page.Header.ObjectId == -0x69 { // view object not reached
 				var sysobjects *SysObjects = new(SysObjects)
 				dataRow.Process(sysobjects)
-			}
-			if !dataRow.HasNullBitmap() {
-				fmt.Println("NULL:?", page.Header.PageId, "FLSE")
 			}
 
 			dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset)
@@ -482,7 +483,8 @@ func (page *Page) Process(data []byte, offset int) {
 
 	if header.isValid() && header.sanityCheck() {
 		page.Header = header
-		mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d", header.PageId, page.GetType(), page.Header.ObjectId))
+		mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
+			header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
 
 		slotsOffset := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):])
 		sort.Sort(utils.SortedSlotsOffset(slotsOffset))
