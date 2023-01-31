@@ -1,10 +1,12 @@
 package utils
 
 import (
+	mslogger "MSSQLParser/logger"
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -302,11 +304,25 @@ func Unmarshal(data []byte, v interface{}) error {
 		case reflect.Slice:
 			name := structType.Elem().Field(i).Name
 			if name == "FixedLenCols" {
+				var dst []byte
 
 				nofColsOffset := structValPtr.Elem().FieldByName("NofColsOffset").Uint()
-				dst := make([]byte, nofColsOffset-uint64(idx))
+				if nofColsOffset == 0 {
+					mslogger.Mslogger.Error("datarow does not have fixed len cols.")
+					break
+				}
+				if nofColsOffset < 4 {
+					mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offsets cannot end before 4 %d", nofColsOffset))
+					break
+				}
 
+				if nofColsOffset > 8060 {
+					mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offset cannot exceed max page available area %d", nofColsOffset))
+					break
+				}
+				dst = make([]byte, nofColsOffset-uint64(idx))
 				copy(dst, data[idx:nofColsOffset])
+
 				field.Set(reflect.ValueOf(dst))
 				idx += field.Len()
 
