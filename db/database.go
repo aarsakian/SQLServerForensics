@@ -81,8 +81,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 			continue
 		}
-
-		if tabletype != "" && tabletype != "user" && table.Type != "User Table" {
+		if tabletype == "user" && table.Type != "User Table" {
 			continue
 		}
 
