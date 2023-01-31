@@ -108,16 +108,17 @@ type SysRowSets struct {
 
 //stores table/ contstraints information
 type Sysschobjs struct {
-	Id       int32   //0-4
-	Nsid     uint32  //4-8
-	Nsclass  uint8   //8-9
-	Status   uint32  //9-13
-	Type     [2]byte //13-15 bytes
-	Pid      uint32  //15-19
-	Intprop  uint32  //19-21
-	Created  [8]byte //21-29
-	Modified [8]byte //29-37
-	Status2  uint32  //37-41
+	Id       int32   //0-3
+	Nsid     uint32  //3-7
+	Nsclass  uint8   //7-8
+	Status   uint32  //8-12
+	Type     [2]byte //12-14 bytes
+	Pid      uint32  //14-18
+	Pclas    uint8   //18-19
+	Intprop  uint32  //19-23
+	Created  [8]byte //23-31
+	Modified [8]byte //31-39
+	Status2  uint32  //39-43
 	Name     []byte
 }
 
