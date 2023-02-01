@@ -31,7 +31,7 @@ type DataCols []DataCol
 
 var DataRecord = map[uint8]string{
 	0: "Primary Record", 2: "Forwarded Record", 4: "Forwarding Record", 6: "Index Record",
-	8: "BLOB Fragment", 10: "Ghost Index Record", 12: "Ghost Data Record",
+	8: "BLOB Fragment", 10: "Ghost Index Record", 12: "Ghost Data Record", 14: "Ghost Version Record",
 }
 
 type InlineBLob24 struct {
