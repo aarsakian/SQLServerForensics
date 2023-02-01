@@ -122,11 +122,12 @@ type Sysschobjs struct {
 	Name     []byte
 }
 
-type Result[F, S, T, FH any] struct {
+type Result[F, S, T, FH, FT any] struct {
 	First  F
 	Second S
 	Third  T
 	Fourth FH
+	Fifth  FT
 }
 
 func (sysobject SysObjects) GetData() (any, any) {
@@ -158,7 +159,7 @@ func (sysrowsets SysRowSets) ShowData() {
 }
 
 func (sysrowsets SysRowSets) GetData() (any, any) {
-	return int32(sysrowsets.Idmajor), Result[string, string, uint64, uint]{"", "", sysrowsets.Rowsetid, 0} // table object ID
+	return int32(sysrowsets.Idmajor), sysrowsets.Rowsetid // table object ID, partition ID
 }
 
 func (sysiscols *sysIsCols) SetName([]byte) {
@@ -186,7 +187,7 @@ func (sysallocunits SysAllocUnits) GetName() string {
 }
 
 func (sysallocunits SysAllocUnits) GetData() (any, any) {
-	return sysallocunits.OwnerId, int32(sysallocunits.getPageId())
+	return sysallocunits.OwnerId, utils.ToUint64(sysallocunits.Auid[:]) //partition id, allocunitid
 }
 
 func (sysallocunits SysAllocUnits) getIndexId() int {
@@ -214,8 +215,8 @@ func (syscolpars SysColpars) GetName() string {
 
 func (syscolpars SysColpars) GetData() (any, any) {
 	return int32(syscolpars.Id),
-		Result[string, string, uint16, uint16]{syscolpars.GetName(),
-			syscolpars.GetType(), syscolpars.Length, syscolpars.Colid}
+		Result[string, string, uint16, uint16, uint32]{syscolpars.GetName(),
+			syscolpars.GetType(), syscolpars.Length, syscolpars.Colid, syscolpars.Collationid}
 
 }
 
@@ -248,7 +249,7 @@ func (syscolpars SysColpars) GetType() string {
 		return "numeric"
 	} else if syscolpars.Xtype == 0x23 {
 		return "text"
-	} else if syscolpars.Xtype == 0x24 {
+	} else if syscolpars.Xtype == 0xBD {
 		return "timestamp"
 	} else if syscolpars.Xtype == 0x30 {
 		return "tinyint"
@@ -264,8 +265,6 @@ func (syscolpars SysColpars) GetType() string {
 		return "nchar"
 	} else if syscolpars.Xtype == 0x24 {
 		return "uniqueidentifier"
-	} else if syscolpars.Xtype == 0x30 {
-		return "tinyint"
 	} else if syscolpars.Xtype == 0xE7 {
 		return "nvarchar"
 	} else if syscolpars.Xtype == 0xA5 {
@@ -299,7 +298,8 @@ func (sysschobjs Sysschobjs) GetName() string {
 }
 
 func (sysschobjs Sysschobjs) GetData() (any, any) {
-	return sysschobjs.Id, Result[string, string, uint64, uint]{utils.DecodeUTF16(sysschobjs.Name), sysschobjs.GetTableType(), 0, 0}
+	return sysschobjs.Id, Result[string, string, uint64, uint, uint]{utils.DecodeUTF16(sysschobjs.Name),
+		sysschobjs.GetTableType(), 0, 0, 0}
 
 }
 
