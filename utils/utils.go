@@ -27,7 +27,7 @@ type RowId struct {
 type LSN struct {
 	P1 uint32
 	P2 uint32
-	P3 uint32
+	P3 uint16
 }
 
 type Auid struct {
@@ -76,6 +76,12 @@ func ToUint32(data []byte) uint32 {
 	var temp uint32
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
 	return uint32(temp)
+}
+
+func ToUint64(data []byte) uint64 {
+	var temp uint64
+	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
+	return uint64(temp)
 }
 
 type SlotOffset uint16
@@ -138,6 +144,14 @@ func (s SortedSlotsOffset) Less(i, j int) bool {
 
 func (s SortedSlotsOffset) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
+}
+
+func Reverse(bslice []byte) []byte {
+	reversedslice := make([]byte, len(bslice))
+	for i := 0; i < len(bslice); i++ {
+		reversedslice[i] = bslice[len(bslice)-i-1]
+	}
+	return reversedslice
 }
 
 func FilterMap[L any, T ~[]L, K comparable](s map[K]T, f func(L) bool) map[K]T {
@@ -274,9 +288,9 @@ func Unmarshal(data []byte, v interface{}) error {
 			name := structType.Elem().Field(i).Name
 			if name == "LSN" {
 				var lsn LSN
-				Unmarshal(data[idx:idx+12], &lsn)
+				Unmarshal(data[idx:idx+10], &lsn)
 				field.Set(reflect.ValueOf(lsn))
-				idx += 12
+				idx += 10
 			} else if name == "RowId" {
 				var rowId RowId
 				Unmarshal(data[idx:], &rowId)
