@@ -123,7 +123,7 @@ func main() {
 		msg := fmt.Sprintf("Processing offset %d", offset)
 		mslogger.Mslogger.Info(msg)
 		page := database.ProcessPage(bs, offset)
-		pages[page.Header.ObjectId] = append(pages[page.Header.ObjectId], page)
+		pages[page.Header.GetMetadataAllocUnitId()] = append(pages[page.Header.GetMetadataAllocUnitId()], page)
 
 		totalProcessedPages++
 
