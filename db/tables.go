@@ -10,14 +10,14 @@ import (
 type ColMap map[string][]byte
 
 type Table struct {
-	Name          string
-	ObjectId      int32
-	Type          string
-	rows          []ColMap
-	Rowsetid      uint64
-	PageObjectIds []int32
-	Schema        []Column
-	VarLenCols    []int
+	Name              string
+	ObjectId          int32
+	Type              string
+	rows              []ColMap
+	PartitionIds      []uint64
+	AllocationUnitIds []uint64
+	Schema            []Column
+	VarLenCols        []int
 }
 
 type Column struct {
@@ -26,6 +26,7 @@ type Column struct {
 	Size        uint16
 	Order       uint16
 	VarLenOrder uint16
+	CollationId uint32
 }
 
 type SqlVariant struct {
@@ -84,9 +85,12 @@ func (c Column) parseSqlVariant(data []byte) SqlVariant {
 }
 
 func (c Column) toString(data []byte) string {
-
-	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" {
-		return fmt.Sprintf("%s", data)
+	if len(data) == 0 {
+		mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
+		return ""
+	}
+	if c.Type == "varchar" || c.Type == "nvarchar" || c.Type == "text" || c.Type == "ntext" {
+		return utils.DecodeUTF16(data)
 	} else if c.Type == "int" {
 		return fmt.Sprintf("%d", utils.ToInt32(data))
 	} else if c.Type == "tinyint" {
@@ -98,7 +102,11 @@ func (c Column) toString(data []byte) string {
 	} else if c.Type == "sql_variant" {
 		sqlVariant := c.parseSqlVariant(data)
 		return sqlVariant.getData()
+	} else if c.Type == "uniqueidentifier" {
+		return fmt.Sprintf("%x-%x-%x-%x-%x", utils.Reverse(data[0:4]), utils.Reverse(data[4:6]),
+			utils.Reverse(data[6:8]), data[8:10], data[10:16])
 	} else {
+		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return ""
 	}
 }
@@ -131,16 +139,16 @@ func (c Column) Print(data []byte) {
 	}
 }
 
-func (table *Table) addColumn(name string, coltype string, size uint16, order uint16) []Column {
-	col := Column{Name: name, Type: coltype, Size: size, Order: order}
+func (table *Table) addColumn(name string, coltype string, size uint16, order uint16, collationId uint32) []Column {
+	col := Column{Name: name, Type: coltype, Size: size, Order: order, CollationId: collationId}
 	table.Schema = append(table.Schema, col)
 	return table.Schema
 }
 
-func (table *Table) addColumns(results []page.Result[string, string, uint16, uint16]) []Column {
+func (table *Table) addColumns(results []page.Result[string, string, uint16, uint16, uint32]) []Column {
 	var columns []Column
 	for _, res := range results {
-		columns = table.addColumn(res.First, res.Second, res.Third, res.Fourth)
+		columns = table.addColumn(res.First, res.Second, res.Third, res.Fourth, res.Fifth)
 	}
 	return columns
 }
@@ -158,10 +166,18 @@ func (table Table) printSchema() {
 }
 
 func (table Table) printAllocation(pageIds map[uint32]string) {
-	fmt.Printf("objectID %d  PartitionId %d \n pages Id \n",
-		table.ObjectId, table.Rowsetid)
+	fmt.Printf("objectID %d \n",
+		table.ObjectId)
+	for _, partitionId := range table.PartitionIds {
+		fmt.Printf("partition Id %d ", partitionId)
+	}
+
+	fmt.Print("\n")
+	for _, allocationUnitId := range table.AllocationUnitIds {
+		fmt.Printf("allocation unit id %d", allocationUnitId)
+	}
 	for pageId, pageType := range pageIds {
-		fmt.Printf(" %d %s \n", pageId, pageType)
+		fmt.Printf(" %d %s ", pageId, pageType)
 	}
 
 }
@@ -210,14 +226,14 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 			nofCols := len(table.Schema)
 
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-				msg := fmt.Sprintf("Mismatch in number of cols in row %d, cols %d page %d and schema cols %d",
-					did, int(datarow.NumberOfCols), pageId, nofCols)
+				msg := fmt.Sprintf("Mismatch in number of cols %d in row %d,  page %d and schema cols %d table %s",
+					int(datarow.NumberOfCols), did, pageId, nofCols, table.Name)
 				mslogger.Mslogger.Warning(msg)
 				continue
 			}
 			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
-				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d",
-					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols))
+				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
+					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
 				mslogger.Mslogger.Warning(msg)
 				continue
 			}
