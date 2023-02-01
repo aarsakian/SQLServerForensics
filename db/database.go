@@ -23,14 +23,14 @@ func (db *Database) FilterBySystemTables(systemTables string) {
 	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTables)
 }
 
-func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint] {
-	results := map[any]page.Result[string, string, uint64, uint]{}
+func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint, uint] {
+	results := map[any]page.Result[string, string, uint64, uint, uint]{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
 				objectId, res := datarow.SystemTable.GetData()
-				results[objectId] = res.(page.Result[string, string, uint64, uint])
+				results[objectId] = res.(page.Result[string, string, uint64, uint, uint])
 
 			}
 		}
@@ -39,15 +39,15 @@ func (db Database) createMap(tablename string) map[any]page.Result[string, strin
 	return results
 }
 
-func (db Database) createMapListGeneric(tablename string) map[any][]int32 {
-	results := map[any][]int32{}
+func (db Database) createMapGeneric(tablename string) map[any]uint64 {
+	results := map[any]uint64{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
 				objectId, val := datarow.SystemTable.GetData()
 
-				results[objectId] = append(results[objectId], val.(int32))
+				results[objectId] = val.(uint64)
 
 			}
 		}
@@ -56,15 +56,33 @@ func (db Database) createMapListGeneric(tablename string) map[any][]int32 {
 	return results
 }
 
-func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, uint16, uint16] {
-	results := map[int32][]page.Result[string, string, uint16, uint16]{}
+func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
+	results := map[any][]uint64{}
+	systemPages := db.PagesMap.FilterBySystemTables(tablename)
+	for _, tablePages := range systemPages {
+		for _, tablePage := range tablePages {
+			for _, datarow := range tablePage.DataRows {
+				objectId, val := datarow.SystemTable.GetData()
+
+				results[objectId] = append(results[objectId], val.(uint64))
+
+			}
+		}
+
+	}
+	return results
+}
+
+func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, uint16, uint16, uint32] {
+	results := map[int32][]page.Result[string, string, uint16, uint16, uint32]{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
 				objectId, res := datarow.SystemTable.GetData()
 
-				results[(objectId).(int32)] = append(results[(objectId).(int32)], res.(page.Result[string, string, uint16, uint16]))
+				results[(objectId).(int32)] = append(results[(objectId).(int32)],
+					res.(page.Result[string, string, uint16, uint16, uint32]))
 			}
 
 		}
@@ -94,12 +112,12 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 		if showAllocation {
 			pageIds := make(map[uint32]string, 0)
-			for _, pageObjecId := range table.PageObjectIds {
+			/*for _, pageObjecId := range table.PageObjectIds {
 				pages := db.PagesMap[pageObjecId]
 				for _, page := range pages {
 					pageIds[page.Header.PageId] = page.GetType()
 				}
-			}
+			}*/
 			table.printAllocation(pageIds)
 		}
 		tableLocated = true
@@ -112,11 +130,18 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 }
 
 func (db Database) GetTablesInformation() []Table {
+	/*
+	 get objectid for each table  sysschobjs
+	 for each table using its objectid retrieve its columns from syscolpars
+	 using the objectid locate the partitions  from sysrowsets
+	 using the partitionid locate the allocationunitid  from sysallocationunits
+
+	*/
 	tablesMap := db.createMap("sysschobjs")   // table information holds a map of object ids and table names
 	colsMap := db.createMapList("syscolpars") //table objectid = name , type, size, colorder
 
-	tableAllocsMap := db.createMap("sysrowsets")                       //(ttable objectid) = sysrowsets.Rowsetid
-	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  OwnerId, page ObjectId
+	tableAllocsMap := db.createMapListGeneric("sysrowsets")            //(ttable objectid) = sysrowsets.Rowsetid (partitions)
+	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  OwnerId, page allocunitid
 
 	var tables []Table
 	for tobjectId, res := range tablesMap {
@@ -147,22 +172,25 @@ func (db Database) GetTablesInformation() []Table {
 
 		}
 
-		res, ok := tableAllocsMap[tobjectId] // from sysrowsets idmajor => rowsetid
+		partitionIds, ok := tableAllocsMap[tobjectId] // from sysrowsets idmajor => rowsetid
 		if ok {
-			table.Rowsetid = uint64(res.Third) // rowsetid
+			table.PartitionIds = partitionIds // rowsetid
 		}
-
-		pageObjectIds, ok := tableSysAllocsMap[table.Rowsetid] // from sysallocunits rowsetid => page ObjectId
 		var table_alloc_pages page.Pages
-		if ok {
-			for _, pageObjectId := range pageObjectIds {
-				table_alloc_pages = append(table_alloc_pages, db.PagesMap[pageObjectId]...) // find the pages the table was allocated
+		for _, partitionId := range partitionIds {
+			allocationUnitIds, ok := tableSysAllocsMap[partitionId] // from sysallocunits PartitionId => page m allocation unit id
+			if ok {
+				for _, allocationUnitId := range allocationUnitIds {
+
+					table_alloc_pages = append(table_alloc_pages, db.PagesMap[allocationUnitId]...) // find the pages the table was allocated
+				}
 
 			}
+
 			dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
 			lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
 			textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
-			table.PageObjectIds = pageObjectIds
+			table.AllocationUnitIds = allocationUnitIds
 			table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
 		}
