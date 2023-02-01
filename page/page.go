@@ -24,13 +24,13 @@ var SystemTablesFlags = map[string]uint8{
 
 type Pages []Page
 
-type PagesMap map[int32]Pages
+type PagesMap map[uint64]Pages
 
 type PagesMapIds map[uint32]Pages
 
 type PageMapIds map[uint32]Page
 
-type PageMap map[int32]Page
+type PageMap map[uint64]Page
 
 type Page struct {
 	Header             Header
@@ -64,8 +64,11 @@ type Header struct {
 	FreeData       uint16    //30-32 offset from the start of the page to the first byte after the last record
 	PageId         uint32    //32-36
 	FragId         uint32    //36-40
-	LSN            utils.LSN //40-52
-	Unknown5       [8]byte   //52-60
+	LSN            utils.LSN //40-50
+	XactReserved   uint16    //50-52
+	XdeslDPart2    uint32    //52-54
+	XdeslIDPart1   uint16    //54-58
+	GhostRecCnt    uint16    //58-60
 	TornBits       int32     //60-64
 	Reserved       [32]byte  //64-96
 }
@@ -85,6 +88,10 @@ func (header Header) isValid() bool {
 	}
 	mslogger.Mslogger.Warning(fmt.Sprintf("Unknown page type %d", header.Type))
 	return false
+}
+
+func (header Header) GetMetadataAllocUnitId() uint64 {
+	return uint64(header.IndexId)<<48 | uint64(header.ObjectId)<<16
 }
 
 func (header Header) sanityCheck() bool {
@@ -211,7 +218,12 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16,
 
 	if static {
 		if int(colsize) > len(dataRow.FixedLenCols) {
-			return dataRow.FixedLenCols[:]
+			mslogger.Mslogger.Error(fmt.Sprintf("Column size %d exceeded fixed len cols size %d", colsize, len(dataRow.FixedLenCols)))
+			return nil // bad practice ???
+		} else if fixColsOffset+int(colsize) > len(dataRow.FixedLenCols) {
+			mslogger.Mslogger.Error(fmt.Sprintf("column size %d exceeded availabl area of fixed len cols by %d", colsize,
+				fixColsOffset+int(colsize)-len(dataRow.FixedLenCols)))
+			return nil
 		} else {
 			return dataRow.FixedLenCols[fixColsOffset : fixColsOffset+int(colsize)]
 		}
