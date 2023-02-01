@@ -11,8 +11,7 @@ import (
 )
 
 func writeCSV(records utils.Records, filename string, folder string) {
-	msg := fmt.Sprintf("Exporting Table %s. \n", filename)
-	mslogger.Mslogger.Info(msg)
+
 	file, err := os.Create(fmt.Sprintf("%s.csv", path.Join(folder, filename)))
 	defer file.Close()
 	if err != nil {

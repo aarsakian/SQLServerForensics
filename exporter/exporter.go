@@ -2,7 +2,9 @@ package exporter
 
 import (
 	db "MSSQLParser/db"
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
+	"fmt"
 	"log"
 	"os"
 )
@@ -45,6 +47,8 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 		records = table.GetRecords()
 
 		if exp.Format == "csv" {
+			msg := fmt.Sprintf("Exporting Table %s. with %d records", table.Name, len(records))
+			mslogger.Mslogger.Info(msg)
 			writeCSV(records, table.Name, database.Name+"/"+table.Type)
 		}
 
