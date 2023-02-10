@@ -93,19 +93,28 @@ func (s SortedSlotsOffset) Len() int {
 
 }
 
-func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
-	var intBitmap uint16
-	var bitflag uint8
-	if len(bitmap) == 2 {
-		intBitmap = ToUint16(bitmap)
-	} else if len(bitmap) == 1 {
-		intBitmap = uint16(bitmap[0])
+func addMissingBits(bitval string, targetLen int, pos int) string {
+	// add missing zeros
+	var maxnofZeros int
+	if targetLen < 8*(pos+1) {
+		maxnofZeros = targetLen % 8
+	} else {
+		maxnofZeros = 8
 	}
-	bitrepresentation := strconv.FormatUint(uint64(intBitmap), 2)
-	for len(bitrepresentation) < nofCols {
-		//add needed bits
-		bitrepresentation = "0" + bitrepresentation
+	for len(bitval) < maxnofZeros {
+		bitval = "0" + bitval
+	}
+	return bitval
+}
 
+func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
+	//index starts from left to right 0-7, 8-16
+	//bitmap right to left
+	var bitflag byte
+	var bitrepresentation string
+	for valpos, val := range bitmap {
+		bitval := addMissingBits(strconv.FormatUint(uint64(val), 2), nofCols, valpos)
+		bitrepresentation = strings.Join([]string{bitval, bitrepresentation}, "")
 	}
 
 	if len(bitrepresentation) > nofCols { // remove not needed bits
@@ -195,6 +204,14 @@ func Values[M ~map[K]V, K comparable, V any](m M) []V {
 	return r
 }
 
+func Keys[M ~map[K]V, K comparable, V any](m M) []K {
+	keys := make([]K, 0, len(m)) // allocate memory
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func HasVarLengthCols(flag uint8) bool {
 	return flag&32 == 32
 }
@@ -278,6 +295,11 @@ func Unmarshal(data []byte, v interface{}) error {
 			idx += 8
 
 			field.SetUint(temp)
+		case reflect.Int16:
+			var temp int16
+			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+			field.SetInt(int64(temp))
+			idx += 2
 
 		case reflect.Int32:
 			var temp int32
