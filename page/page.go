@@ -86,7 +86,7 @@ func (header Header) isValid() bool {
 			return true
 		}
 	}
-	mslogger.Mslogger.Warning(fmt.Sprintf("Unknown page type %d", header.Type))
+	mslogger.Mslogger.Warning(fmt.Sprintf("Page Id %d Unknown page type %d", header.PageId, header.Type))
 	return false
 }
 
@@ -100,7 +100,7 @@ func (header Header) sanityCheck() bool {
 		mslogger.Mslogger.Warning(fmt.Sprintf("Issue with header version %d \n", header.Version))
 		return false
 	}
-	if header.FreeData > 8192-64 { // not sure
+	if header.FreeData > 8192-32 { // not sure
 		mslogger.Mslogger.Warning(fmt.Sprintf("Header free area exceeded max allowed size %d", header.FreeData))
 		return false
 	}
@@ -212,7 +212,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 
 }
 
-func (dataRow *DataRow) ProcessData(colId uint16, colsize uint16,
+func (dataRow *DataRow) ProcessData(colId uint16, colsize int16,
 	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds,
 	fixColsOffset int) (data []byte) {
 
