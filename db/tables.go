@@ -5,6 +5,7 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
+	"sort"
 )
 
 type ColMap map[string][]byte
@@ -18,12 +19,13 @@ type Table struct {
 	AllocationUnitIds []uint64
 	Schema            []Column
 	VarLenCols        []int
+	PageIds           []uint32
 }
 
 type Column struct {
 	Name        string
 	Type        string
-	Size        uint16
+	Size        int16
 	Order       uint16
 	VarLenOrder uint16
 	CollationId uint32
@@ -90,7 +92,12 @@ func (c Column) toString(data []byte) string {
 		return ""
 	}
 	if c.Type == "varchar" || c.Type == "nvarchar" || c.Type == "text" || c.Type == "ntext" {
-		return utils.DecodeUTF16(data)
+		if c.CollationId == 872468488 { //SQL_Latin1_General_CP1_CI_AS
+			return string(data)
+		} else {
+			return utils.DecodeUTF16(data)
+		}
+
 	} else if c.Type == "int" {
 		return fmt.Sprintf("%d", utils.ToInt32(data))
 	} else if c.Type == "tinyint" {
@@ -139,18 +146,34 @@ func (c Column) Print(data []byte) {
 	}
 }
 
-func (table *Table) addColumn(name string, coltype string, size uint16, order uint16, collationId uint32) []Column {
+func (table *Table) addColumn(name string, coltype string, size int16, order uint16, collationId uint32) {
 	col := Column{Name: name, Type: coltype, Size: size, Order: order, CollationId: collationId}
 	table.Schema = append(table.Schema, col)
-	return table.Schema
+
 }
 
-func (table *Table) addColumns(results []page.Result[string, string, uint16, uint16, uint32]) []Column {
-	var columns []Column
+func (table *Table) addColumns(results []page.Result[string, string, int16, uint16, uint32]) {
+
 	for _, res := range results {
-		columns = table.addColumn(res.First, res.Second, res.Third, res.Fourth, res.Fifth)
+		table.addColumn(res.First, res.Second, res.Third, res.Fourth, res.Fifth)
 	}
-	return columns
+
+}
+
+func (table *Table) updateVarLenCols() {
+	columns := make([]Column, len(table.Schema))
+	vid := 0
+	// range copies values
+	for idx := range table.Schema {
+		if columns[idx].isStatic() {
+			columns[idx].VarLenOrder = 0
+		} else {
+
+			columns[idx].VarLenOrder = uint16(vid)
+			vid++
+		}
+
+	}
 }
 
 func (table Table) printSchema() {
@@ -172,13 +195,19 @@ func (table Table) printAllocation(pageIds map[uint32]string) {
 		fmt.Printf("partition Id %d ", partitionId)
 	}
 
-	fmt.Print("\n")
+	fmt.Print("\n ")
 	for _, allocationUnitId := range table.AllocationUnitIds {
 		fmt.Printf("allocation unit id %d", allocationUnitId)
 	}
-	for pageId, pageType := range pageIds {
-		fmt.Printf(" %d %s ", pageId, pageType)
+	fmt.Print("\nPage Ids")
+
+	sort.Slice(table.PageIds[:], func(i, j int) bool {
+		return table.PageIds[i] < table.PageIds[j]
+	})
+	for _, pageId := range table.PageIds {
+		fmt.Printf(" %d  ", pageId)
 	}
+	fmt.Print("\n")
 
 }
 
@@ -238,16 +267,19 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 				continue
 			}
 			fixColsOffset := 0
-			for _, col := range table.Schema {
-
-				if utils.HasFlagSet(datarow.NullBitmap, int(col.Order), nofCols) { //col is NULL skip when ASCII 49  (1)
+			for colnum, col := range table.Schema {
+				//schema is sorted by colorder use colnum instead of col.Order
+				if colnum+1 != int(col.Order) {
+					mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
+				}
+				if utils.HasFlagSet(datarow.NullBitmap, colnum+1, nofCols) { //col is NULL skip when ASCII 49  (1)
 
 					//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
 					//mslogger.Mslogger.Error(msg)
 					continue
 				}
 
-				//	fmt.Println(pageId, did, col.Name, col.isStatic(), col.Order, col.Type)
+				//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
 				m[col.Name] = col.addContent(datarow, lobPages, textLobPages, fixColsOffset)
 
 				if col.isStatic() {
@@ -263,5 +295,20 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 	}
 
 	table.rows = rows
+
+}
+
+func (t Table) Less(i, j int) bool {
+	c := t.Schema
+	return c[i].Order < c[j].Order
+}
+
+func (t Table) Swap(i, j int) {
+	c := t.Schema
+	c[i], c[j] = c[j], c[i]
+}
+
+func (t Table) Len() int {
+	return len(t.Schema)
 
 }
