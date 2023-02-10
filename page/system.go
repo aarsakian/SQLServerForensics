@@ -61,7 +61,7 @@ type SysColpars struct {
 	Unknown     [2]byte
 	Xtype       uint8  // 14 sys.sysscalartypes.xtype.
 	Utype       uint32 //15-19 sys.sysscalartypes.id
-	Length      uint16 //19-21
+	Length      int16  //19-21
 	Prec        uint8
 	Scale       uint8
 	Collationid uint32
@@ -215,7 +215,7 @@ func (syscolpars SysColpars) GetName() string {
 
 func (syscolpars SysColpars) GetData() (any, any) {
 	return int32(syscolpars.Id),
-		Result[string, string, uint16, uint16, uint32]{syscolpars.GetName(),
+		Result[string, string, int16, uint16, uint32]{syscolpars.GetName(),
 			syscolpars.GetType(), syscolpars.Length, syscolpars.Colid, syscolpars.Collationid}
 
 }
@@ -275,6 +275,8 @@ func (syscolpars SysColpars) GetType() string {
 		return "bit"
 	} else if syscolpars.Xtype == 0x2B {
 		return "datetimeoffset"
+	} else if syscolpars.Xtype == 0x22 {
+		return "image"
 	} else {
 		msg := fmt.Sprintf("Type Not found 0x%x ", syscolpars.Xtype)
 		mslogger.Mslogger.Warning(msg)
