@@ -8,6 +8,8 @@ import (
 	"unsafe"
 )
 
+//statusA structure 1-3 bits = page type, 5 = hasnullbitmap, 6=hasvarlencols
+
 type ForwardingPointers []ForwardingPointer
 
 type ForwardingPointer struct { //smallest size of data row structure appear when data that was placed does not fit anymore
