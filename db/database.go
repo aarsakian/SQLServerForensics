@@ -3,7 +3,9 @@ package db
 import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
+	"MSSQLParser/utils"
 	"fmt"
+	"sort"
 )
 
 type Database struct {
@@ -73,8 +75,8 @@ func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 	return results
 }
 
-func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, uint16, uint16, uint32] {
-	results := map[int32][]page.Result[string, string, uint16, uint16, uint32]{}
+func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, int16, uint16, uint32] {
+	results := map[int32][]page.Result[string, string, int16, uint16, uint32]{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
@@ -82,7 +84,7 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 				objectId, res := datarow.SystemTable.GetData()
 
 				results[(objectId).(int32)] = append(results[(objectId).(int32)],
-					res.(page.Result[string, string, uint16, uint16, uint32]))
+					res.(page.Result[string, string, int16, uint16, uint32]))
 			}
 
 		}
@@ -156,19 +158,11 @@ func (db Database) GetTablesInformation() []Table {
 
 		if ok {
 			//		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
-			columns := table.addColumns(results)
-			vid := 0 // keeps order var len cols
-			//range copies values
-			for idx := range columns {
-				if columns[idx].isStatic() {
-					columns[idx].VarLenOrder = 0
-				} else {
 
-					columns[idx].VarLenOrder = uint16(vid)
-					vid++
-				}
-
-			}
+			table.addColumns(results)
+			table.updateVarLenCols()
+			// sort by col order
+			sort.Sort(table)
 
 		}
 
@@ -177,6 +171,7 @@ func (db Database) GetTablesInformation() []Table {
 			table.PartitionIds = partitionIds // rowsetid
 		}
 		var table_alloc_pages page.Pages
+
 		for _, partitionId := range partitionIds {
 			allocationUnitIds, ok := tableSysAllocsMap[partitionId] // from sysallocunits PartitionId => page m allocation unit id
 			if ok {
@@ -186,14 +181,18 @@ func (db Database) GetTablesInformation() []Table {
 				}
 
 			}
-
-			dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
-			lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
-			textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
 			table.AllocationUnitIds = allocationUnitIds
-			table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
 		}
+		dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
+		lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
+		textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
+
+		table.PageIds = append(table.PageIds, utils.Keys(dataPages)...)
+		table.PageIds = append(table.PageIds, utils.Keys(lobPages)...)
+		table.PageIds = append(table.PageIds, utils.Keys(textLobPages)...)
+
+		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
 		tables = append(tables, table)
 	}
