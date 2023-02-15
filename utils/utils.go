@@ -15,6 +15,9 @@ import (
 	"unicode/utf8"
 )
 
+var LeapYear = map[uint]uint{1: 31, 2: 60, 3: 91, 4: 121, 5: 152, 6: 182, 7: 213, 8: 244, 9: 274, 10: 305, 11: 335, 12: 366}
+var Year = map[uint]uint{1: 31, 2: 59, 3: 90, 4: 120, 5: 151, 6: 181, 7: 212, 8: 243, 9: 273, 10: 304, 11: 334, 12: 365}
+
 type Record []string
 type Records [][]string
 
@@ -34,6 +37,51 @@ type Auid struct {
 	UniqueId uint16
 	ObjectId uint32
 	Zeros    uint32
+}
+
+// Datetime2: 8 bytes rtl reading first 5 time unit intervals since midnight,last 3 (left) how many days have passed since 0001/01/01
+//0x07 prefix time unit 100ns, 0x06 1 micro second intervals
+func DateTime2Tostr(data []byte) string {
+	return ""
+}
+
+func isLeapYear(year uint) bool {
+	if year%4 == 0 && year%100 != 0 || year%400 == 0 {
+		return true
+	}
+	return false
+
+}
+
+/*
+Datetime is stored as two 4-byte values: the first (for
+the date) being the number of days before or after the base date of January 1, 1900, and the second
+(for the time) being the number of clock ticks after midnight, with each tick representing 3.33 milliseconds, or 1/300 of a second.
+*/
+func DateTimeTostr(data []byte) string {
+
+	var day uint
+	var month uint
+	daysSince1900 := ToInt32(data[4:8])
+	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
+
+	nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
+	daysInTheYear := uint(daysSince1900 - (years-nofLeapYears)*365 - nofLeapYears*366)
+
+	if isLeapYear(uint(years + 1900)) {
+		month = uint(float64(daysInTheYear) / 30.41667)
+		day = daysInTheYear - LeapYear[month]
+	} else {
+		month = uint(float64(daysInTheYear) / 30.5)
+		day = daysInTheYear - Year[month]
+	}
+
+	timePart := ToUint32(data[0:4])
+	hours := uint(math.Floor(float64((timePart / (300 * 60 * 60)) % 24)))
+	minutes := uint(math.Floor(float64((timePart / (300 * 60)) % 60)))
+	seconds := uint(math.Floor(float64((timePart / 300) % 60)))
+	msecs := uint(timePart % 300)
+	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d.%03d date %04x time %04x", years+1900, month, day, hours, minutes, seconds, msecs, data[4:8], data[0:4])
 }
 
 func ToStructAuid(data []byte) Auid {
@@ -60,6 +108,12 @@ func ToInt32(data []byte) int {
 	return int(temp)
 }
 
+func ToInt16(data []byte) int {
+	var temp int16
+	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
+	return int(temp)
+}
+
 func ToInt8(data []byte) int {
 	var temp int8
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
@@ -75,6 +129,18 @@ func ToUint16(data []byte) uint16 {
 func ToUint32(data []byte) uint32 {
 	var temp uint32
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
+	return uint32(temp)
+}
+
+func ToBInt32(data []byte) int32 {
+	var temp int32
+	binary.Read(bytes.NewBuffer(data), binary.BigEndian, &temp)
+	return int32(temp)
+}
+
+func ToBUint32(data []byte) uint32 {
+	var temp uint32
+	binary.Read(bytes.NewBuffer(data), binary.BigEndian, &temp)
 	return uint32(temp)
 }
 
