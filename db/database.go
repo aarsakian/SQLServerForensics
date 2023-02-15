@@ -151,7 +151,7 @@ func (db Database) GetTablesInformation() []Table {
 
 		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
 
-		table := Table{Name: tname, ObjectId: tobjectId.(int32), Type: res.Second}
+		table := Table{Name: tname, ObjectId: tobjectId.(int32), Type: res.Second, PageIds: map[string][]uint32{}}
 
 		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 		mslogger.Mslogger.Info(msg)
@@ -188,9 +188,9 @@ func (db Database) GetTablesInformation() []Table {
 		lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
 		textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
 
-		table.PageIds = append(table.PageIds, utils.Keys(dataPages)...)
-		table.PageIds = append(table.PageIds, utils.Keys(lobPages)...)
-		table.PageIds = append(table.PageIds, utils.Keys(textLobPages)...)
+		table.PageIds["Data"] = utils.Keys(dataPages)
+		table.PageIds["LOB"] = utils.Keys(lobPages)
+		table.PageIds["Text"] = utils.Keys(textLobPages)
 
 		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
