@@ -19,7 +19,7 @@ type Table struct {
 	AllocationUnitIds []uint64
 	Schema            []Column
 	VarLenCols        []int
-	PageIds           []uint32
+	PageIds           map[string][]uint32
 }
 
 type Column struct {
@@ -98,8 +98,14 @@ func (c Column) toString(data []byte) string {
 			return utils.DecodeUTF16(data)
 		}
 
+	} else if c.Type == "datetime2" {
+		return utils.DateTime2Tostr(data)
+	} else if c.Type == "datetime" {
+		return utils.DateTimeTostr(data)
 	} else if c.Type == "int" {
 		return fmt.Sprintf("%d", utils.ToInt32(data))
+	} else if c.Type == "smallint" {
+		return fmt.Sprintf("%d", utils.ToInt16(data))
 	} else if c.Type == "tinyint" {
 		return fmt.Sprintf("%d", utils.ToInt8(data))
 	} else if c.Type == "bigint" {
@@ -114,7 +120,7 @@ func (c Column) toString(data []byte) string {
 			utils.Reverse(data[6:8]), data[8:10], data[10:16])
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
-		return ""
+		return fmt.Sprintf("unhandled type %s %x", c.Type, data[:])
 	}
 }
 
@@ -199,13 +205,17 @@ func (table Table) printAllocation(pageIds map[uint32]string) {
 	for _, allocationUnitId := range table.AllocationUnitIds {
 		fmt.Printf("allocation unit id %d", allocationUnitId)
 	}
-	fmt.Print("\nPage Ids")
+	fmt.Print("\nPage Ids\n")
 
-	sort.Slice(table.PageIds[:], func(i, j int) bool {
-		return table.PageIds[i] < table.PageIds[j]
-	})
-	for _, pageId := range table.PageIds {
-		fmt.Printf(" %d  ", pageId)
+	for pageType, pagesType := range table.PageIds {
+		sort.Slice(pagesType, func(i, j int) bool {
+			return pagesType[i] < pagesType[j]
+		})
+		fmt.Printf("%s", pageType)
+		for _, pageId := range pagesType {
+			fmt.Printf(" %d", pageId)
+		}
+		fmt.Print("\n")
 	}
 	fmt.Print("\n")
 
