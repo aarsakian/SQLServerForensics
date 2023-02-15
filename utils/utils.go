@@ -69,10 +69,10 @@ func DateTimeTostr(data []byte) string {
 	daysInTheYear := uint(daysSince1900 - (years-nofLeapYears)*365 - nofLeapYears*366)
 
 	if isLeapYear(uint(years + 1900)) {
-		month = uint(float64(daysInTheYear) / 30.41667)
+		month = uint(float64(daysInTheYear) / 30.41667 + 1) 
 		day = daysInTheYear - LeapYear[month]
 	} else {
-		month = uint(float64(daysInTheYear) / 30.5)
+		month = uint(float64(daysInTheYear) / 30.5 + 1)
 		day = daysInTheYear - Year[month]
 	}
 
