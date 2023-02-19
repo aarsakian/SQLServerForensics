@@ -451,15 +451,23 @@ func (page *Page) parsePFS(data []byte) {
 
 func (page Page) PrintHeader(showSlots bool) {
 	header := page.Header
-	if showSlots {
 
-		fmt.Printf("slots %x ", page.Slots)
-
-	}
 	fmt.Printf("Page Id %d type %s objectid %d slots %d free space %d Prev page %d  Next page %d \n",
 		header.PageId, page.GetType(),
 		header.ObjectId, header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 
+	if showSlots {
+
+		page.printSlots()
+
+	}
+}
+
+func (page Page) printSlots() {
+	fmt.Printf("Slots: ")
+	for _, slot := range page.Slots {
+		fmt.Printf("%d ", slot)
+	}
 }
 
 func (page Page) ShowRowData() {
@@ -498,9 +506,14 @@ func (page *Page) Process(data []byte, offset int) {
 		mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
 			header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
 
-		slotsOffset := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):])
-		sort.Sort(utils.SortedSlotsOffset(slotsOffset))
-		page.Slots = slotsOffset
+		slots := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):]) //starts from end of page
+		sort.Sort(utils.SortedSlotsOffset(slots))
+
+		if len(slots) != int(header.SlotCnt) {
+			mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d", header.SlotCnt, len(slots)))
+		}
+
+		page.Slots = slots
 
 		switch page.GetType() {
 		case "PFS":
