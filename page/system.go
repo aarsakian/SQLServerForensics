@@ -122,12 +122,14 @@ type Sysschobjs struct {
 	Name     []byte
 }
 
-type Result[F, S, T, FH, FT any] struct {
-	First  F
-	Second S
-	Third  T
-	Fourth FH
-	Fifth  FT
+type Result[F, S, T, FH, FT, SX, SV any] struct {
+	First   F
+	Second  S
+	Third   T
+	Fourth  FH
+	Fifth   FT
+	Sixth   SX
+	Seventh SV
 }
 
 func (sysobject SysObjects) GetData() (any, any) {
@@ -215,8 +217,8 @@ func (syscolpars SysColpars) GetName() string {
 
 func (syscolpars SysColpars) GetData() (any, any) {
 	return int32(syscolpars.Id),
-		Result[string, string, int16, uint16, uint32]{syscolpars.GetName(),
-			syscolpars.GetType(), syscolpars.Length, syscolpars.Colid, syscolpars.Collationid}
+		Result[string, string, int16, uint16, uint32, uint8, uint8]{syscolpars.GetName(),
+			syscolpars.GetType(), syscolpars.Length, syscolpars.Colid, syscolpars.Collationid, syscolpars.Prec, syscolpars.Scale}
 
 }
 
@@ -300,8 +302,8 @@ func (sysschobjs Sysschobjs) GetName() string {
 }
 
 func (sysschobjs Sysschobjs) GetData() (any, any) {
-	return sysschobjs.Id, Result[string, string, uint64, uint, uint]{utils.DecodeUTF16(sysschobjs.Name),
-		sysschobjs.GetTableType(), 0, 0, 0}
+	return sysschobjs.Id, Result[string, string, uint64, uint, uint, uint, uint]{utils.DecodeUTF16(sysschobjs.Name),
+		sysschobjs.GetTableType(), 0, 0, 0, 0, 0}
 
 }
 
