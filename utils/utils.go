@@ -15,8 +15,9 @@ import (
 	"unicode/utf8"
 )
 
-var LeapYear = map[uint]uint{1: 31, 2: 60, 3: 91, 4: 121, 5: 152, 6: 182, 7: 213, 8: 244, 9: 274, 10: 305, 11: 335, 12: 366}
-var Year = map[uint]uint{1: 31, 2: 59, 3: 90, 4: 120, 5: 151, 6: 181, 7: 212, 8: 243, 9: 273, 10: 304, 11: 334, 12: 365}
+var LeapYear = map[uint]uint{1: 0, 2: 31, 3: 60, 4: 91, 5: 121, 6: 152, 7: 182, 8: 213, 9: 244, 10: 274, 11: 305, 12: 335}
+
+var Year = map[uint]uint{1: 0, 2: 31, 3: 59, 4: 90, 5: 120, 6: 151, 7: 181, 8: 212, 9: 243, 10: 273, 11: 304, 12: 334}
 
 type Record []string
 type Records [][]string
@@ -66,13 +67,13 @@ func DateTimeTostr(data []byte) string {
 	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
 
 	nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
-	daysInTheYear := uint(daysSince1900 - (years-nofLeapYears)*365 - nofLeapYears*366)
+	daysInTheYear := uint(daysSince1900-(years-nofLeapYears)*365-nofLeapYears*366) + 1
 
 	if isLeapYear(uint(years + 1900)) {
-		month = uint(float64(daysInTheYear) / 30.41667 + 1) 
+		month = uint(float64(daysInTheYear)/30.41667 + 1)
 		day = daysInTheYear - LeapYear[month]
 	} else {
-		month = uint(float64(daysInTheYear) / 30.5 + 1)
+		month = uint(float64(daysInTheYear)/30.5 + 1)
 		day = daysInTheYear - Year[month]
 	}
 
@@ -80,8 +81,27 @@ func DateTimeTostr(data []byte) string {
 	hours := uint(math.Floor(float64((timePart / (300 * 60 * 60)) % 24)))
 	minutes := uint(math.Floor(float64((timePart / (300 * 60)) % 60)))
 	seconds := uint(math.Floor(float64((timePart / 300) % 60)))
-	msecs := uint(timePart % 300)
-	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d.%03d date %04x time %04x", years+1900, month, day, hours, minutes, seconds, msecs, data[4:8], data[0:4])
+	_, msecs := math.Modf(float64(timePart) / 300)
+	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d.%03d", day, month, years+1900, hours, minutes, seconds, uint(1000*msecs))
+}
+
+func DecimalToStr(data []byte, precision uint8, scale uint8) string {
+	//reverse bytes
+	//Decimal 10.3 allocate bytes to accomodate for precision e.g. 1.7 = 1700 = a406  (Little Endian) 4 bytes mini length
+	sign := ""
+	if uint(data[0]) == 0 { // 1 = positive
+		sign = "-"
+	}
+	val := strconv.FormatUint(uint64(ToInt32(data[1:])), 10)
+
+	dotPos := len(val) - int(scale)
+	if dotPos < 0 {
+		mslogger.Mslogger.Warning(fmt.Sprintf("scale %d less than value length %d", scale, len(val)))
+		return fmt.Sprintf("%s%s", sign, val)
+	} else {
+		return fmt.Sprintf("%s%s.%s", sign, val[:dotPos], val[dotPos:])
+	}
+
 }
 
 func ToStructAuid(data []byte) Auid {
