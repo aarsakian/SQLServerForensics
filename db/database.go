@@ -25,14 +25,14 @@ func (db *Database) FilterBySystemTables(systemTables string) {
 	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTables)
 }
 
-func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint, uint] {
-	results := map[any]page.Result[string, string, uint64, uint, uint]{}
+func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint, uint, uint, uint] {
+	results := map[any]page.Result[string, string, uint64, uint, uint, uint, uint]{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
 			for _, datarow := range tablePage.DataRows {
 				objectId, res := datarow.SystemTable.GetData()
-				results[objectId] = res.(page.Result[string, string, uint64, uint, uint])
+				results[objectId] = res.(page.Result[string, string, uint64, uint, uint, uint, uint])
 
 			}
 		}
@@ -75,8 +75,8 @@ func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 	return results
 }
 
-func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, int16, uint16, uint32] {
-	results := map[int32][]page.Result[string, string, int16, uint16, uint32]{}
+func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, int16, uint16, uint32, uint8, uint8] {
+	results := map[int32][]page.Result[string, string, int16, uint16, uint32, uint8, uint8]{}
 	systemPages := db.PagesMap.FilterBySystemTables(tablename)
 	for _, tablePages := range systemPages {
 		for _, tablePage := range tablePages {
@@ -84,7 +84,7 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 				objectId, res := datarow.SystemTable.GetData()
 
 				results[(objectId).(int32)] = append(results[(objectId).(int32)],
-					res.(page.Result[string, string, int16, uint16, uint32]))
+					res.(page.Result[string, string, int16, uint16, uint32, uint8, uint8]))
 			}
 
 		}
