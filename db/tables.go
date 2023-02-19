@@ -29,6 +29,8 @@ type Column struct {
 	Order       uint16
 	VarLenOrder uint16
 	CollationId uint32
+	Precision   uint8
+	Scale       uint8
 }
 
 type SqlVariant struct {
@@ -43,6 +45,11 @@ type SqlVariantProperties struct {
 	Scale         uint8
 	MaximumLength uint16
 	CollationId   uint32
+}
+
+func (c Column) parseDecimal(data []byte) string {
+	return utils.DecimalToStr(data, c.Precision, c.Scale)
+
 }
 
 func (sqlVariant SqlVariant) getData() string {
@@ -112,9 +119,14 @@ func (c Column) toString(data []byte) string {
 		return fmt.Sprintf("%d", utils.ToInt64(data))
 	} else if c.Type == "varbinary" {
 		return fmt.Sprintf("%x", data)
+	} else if c.Type == "decimal" {
+
+		return c.parseDecimal(data)
 	} else if c.Type == "sql_variant" {
 		sqlVariant := c.parseSqlVariant(data)
 		return sqlVariant.getData()
+	} else if c.Type == "bit" {
+		return fmt.Sprintf("%1d", utils.ToInt8(data))
 	} else if c.Type == "uniqueidentifier" {
 		return fmt.Sprintf("%x-%x-%x-%x-%x", utils.Reverse(data[0:4]), utils.Reverse(data[4:6]),
 			utils.Reverse(data[6:8]), data[8:10], data[10:16])
@@ -152,16 +164,16 @@ func (c Column) Print(data []byte) {
 	}
 }
 
-func (table *Table) addColumn(name string, coltype string, size int16, order uint16, collationId uint32) {
-	col := Column{Name: name, Type: coltype, Size: size, Order: order, CollationId: collationId}
+func (table *Table) addColumn(name string, coltype string, size int16, order uint16, collationId uint32, prec uint8, scale uint8) {
+	col := Column{Name: name, Type: coltype, Size: size, Order: order, CollationId: collationId, Precision: prec, Scale: scale}
 	table.Schema = append(table.Schema, col)
 
 }
 
-func (table *Table) addColumns(results []page.Result[string, string, int16, uint16, uint32]) {
+func (table *Table) addColumns(results []page.Result[string, string, int16, uint16, uint32, uint8, uint8]) {
 
 	for _, res := range results {
-		table.addColumn(res.First, res.Second, res.Third, res.Fourth, res.Fifth)
+		table.addColumn(res.First, res.Second, res.Third, res.Fourth, res.Fifth, res.Sixth, res.Seventh)
 	}
 
 }
