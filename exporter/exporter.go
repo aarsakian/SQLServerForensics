@@ -47,7 +47,7 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 		records = table.GetRecords()
 
 		if exp.Format == "csv" {
-			msg := fmt.Sprintf("Exporting Table %s. with %d records", table.Name, len(records))
+			msg := fmt.Sprintf("Exporting Table %s with %d records", table.Name, len(records)-1)
 			mslogger.Mslogger.Info(msg)
 			writeCSV(records, table.Name, database.Name+"/"+table.Type)
 		}
