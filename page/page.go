@@ -100,14 +100,13 @@ func (header Header) sanityCheck() bool {
 		mslogger.Mslogger.Warning(fmt.Sprintf("Issue with header version %d \n", header.Version))
 		return false
 	}
-	if header.FreeData > 8192-32 { // not sure
-		mslogger.Mslogger.Warning(fmt.Sprintf("Header free area exceeded max allowed size %d", header.FreeData))
-		return false
-	}
-
 	if header.SlotCnt > 4096 {
 		mslogger.Mslogger.Warning(fmt.Sprintf("number of slots exceeded maximum allowed number %d.", header.SlotCnt))
 		return false
+	}
+	if header.FreeData > 8192-32 { // not sure
+		mslogger.Mslogger.Warning(fmt.Sprintf("Header free area exceeded max allowed size %d", header.FreeData))
+
 	}
 
 	return true
@@ -413,6 +412,10 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			} else if page.Header.ObjectId == -0x69 { // view object not reached
 				var sysobjects *SysObjects = new(SysObjects)
 				dataRow.Process(sysobjects)
+			} else if page.Header.ObjectId == -0x191 { //index_columns
+				fmt.Println("INDXE COLS", page.Header.PageId)
+			} else if page.Header.ObjectId == -0x18d {
+				fmt.Println("INDEXES", page.Header.PageId)
 			}
 
 			dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset)
@@ -464,7 +467,7 @@ func (page Page) PrintHeader(showSlots bool) {
 }
 
 func (page Page) printSlots() {
-	fmt.Printf("Slots: ")
+	fmt.Printf("Slots offsets: ")
 	for _, slot := range page.Slots {
 		fmt.Printf("%d ", slot)
 	}
@@ -491,8 +494,36 @@ func (page *Page) parseIAM(data []byte) {
 	page.IAMExtents = &iams
 }
 
-func (page *Page) parseIndex(data []byte) {
+func (page *Page) parseIndex(data []byte, offset int) {
+	for slotnum, slotoffset := range page.Slots {
+		msg := fmt.Sprintf("%d index row at %d", slotnum, offset+int(slotoffset))
+		mslogger.Mslogger.Info(msg)
 
+		if slotoffset < 96 { //offset starts from 96
+			fmt.Printf("slotoffset %d less than header size \n", slotoffset)
+			continue
+		}
+		/*var indexRowLen utils.SlotOffset
+
+		var indexRow *IndexRow = new(IndexRow)
+
+		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
+			indexRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
+		} else if page.Header.FreeData < uint16(slotoffset) {
+			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slotoffset)
+			mslogger.Mslogger.Warning(msg)
+			continue
+		} else { //last slot
+			indexRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
+		}
+
+			if utils.HasNullBitmap(data[slotoffset]) {
+				utils.Unmarshal(data[slotoffset:slotoffset+indexRowLen], indexRow)
+			} else {
+				copy(indexRow.FixedLenCols, data[slotoffset:slotoffset+utils.SlotOffset(page.Header.PMinLen)-1])
+			}
+		*/
+	}
 }
 
 func (page *Page) Process(data []byte, offset int) {
@@ -529,7 +560,7 @@ func (page *Page) Process(data []byte, offset int) {
 		case "TEXT":
 			page.parseLOB(data)
 		case "Index":
-			page.parseIndex(data)
+			page.parseIndex(data, offset)
 		case "IAM":
 			page.parseIAM(data)
 		}
