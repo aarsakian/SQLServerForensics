@@ -302,6 +302,10 @@ func HasVarLengthCols(flag uint8) bool {
 	return flag&32 == 32
 }
 
+func HasNullBitmap(flag uint8) bool {
+	return flag&16 == 16
+}
+
 func FindValueInStruct(colName string, v interface{}) []byte {
 	structValPtr := reflect.ValueOf(v)
 	//structType := reflect.TypeOf(v)

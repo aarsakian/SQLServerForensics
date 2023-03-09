@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-//statusA structure 1-3 bits = page type, 5 = hasnullbitmap, 6=hasvarlencols
+//statusA structure 1-3 bits = page type, 5 = hasnullbitmap, 6=hasvarlencols, 7=version tag?
 
 type ForwardingPointers []ForwardingPointer
 
@@ -89,7 +89,11 @@ func (dataRow DataRow) GetFlags() string {
 }
 
 func (dataRow DataRow) HasNullBitmap() bool {
-	return dataRow.StatusA&16 == 16
+	return utils.HasNullBitmap(dataRow.StatusA)
+}
+
+func (dataRow DataRow) HasVersionTag() bool {
+	return dataRow.StatusA&32 == 32
 }
 
 func (dataRow DataRow) HasVarLenCols() bool {
