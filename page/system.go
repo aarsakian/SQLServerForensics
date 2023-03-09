@@ -11,6 +11,9 @@ var TableType = map[string]string{"AF": "Aggregate function (CLR)", "U": "User T
 	"V": "View", "P": "Stored Procedure", "TT": "Table Type", "UQ": "Unique Constraint", "C": "Check constraint",
 	"F": "Foreign Key", "FS": "Assembly (CLR) Scalar function", "FN": "Scalar Function", "FT": "Assembly (CLR) Table-Valued function"}
 
+type Indexes struct {
+}
+
 type SysObjects struct { //view
 	Name             []byte
 	Id               uint32
@@ -266,7 +269,7 @@ func (syscolpars SysColpars) GetType() string {
 	} else if syscolpars.Xtype == 0xEF {
 		return "nchar"
 	} else if syscolpars.Xtype == 0x24 {
-		return "uniqueidentifier"
+		return " "
 	} else if syscolpars.Xtype == 0xE7 {
 		return "nvarchar"
 	} else if syscolpars.Xtype == 0xA5 {
