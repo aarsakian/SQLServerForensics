@@ -156,12 +156,9 @@ func (table Table) getHeader() utils.Record {
 }
 
 func (c Column) Print(data []byte) {
-	if c.Type == "varchar" || c.Type == "text" || c.Type == "ntext" ||
-		c.Type == "varbinary" {
-		fmt.Printf("%s = %s LEN %d ", c.Name, c.toString(data), len(data))
-	} else {
-		fmt.Printf("%s = %s ", c.Name, c.toString(data))
-	}
+
+	fmt.Printf("%s ", c.toString(data))
+
 }
 
 func (table *Table) addColumn(name string, coltype string, size int16, order uint16, collationId uint32, prec uint8, scale uint8) {
@@ -199,30 +196,41 @@ func (table Table) printSchema() {
 
 		fmt.Printf("Schema:  %s \n", table.Name)
 		for _, col := range table.Schema {
-			fmt.Printf(" | %s %s ", col.Name, col.Type)
+			fmt.Printf(" | %s %s", col.Name, col.Type)
+		}
+		fmt.Printf("\nDynamic cols")
+		for _, col := range table.Schema {
+			if col.isStatic() {
+				continue
+			}
+			fmt.Printf(" %s", col.Name)
 		}
 		fmt.Printf("\n")
 	}
 
 }
 
-func (table Table) printAllocation(pageIds map[uint32]string) {
+func (table Table) printAllocation() {
 	fmt.Printf("objectID %d \n",
 		table.ObjectId)
+	fmt.Printf("Partition ids:\n")
 	for _, partitionId := range table.PartitionIds {
-		fmt.Printf("partition Id %d ", partitionId)
+		fmt.Printf("%d \n", partitionId)
 	}
 
-	fmt.Print("\n ")
+	fmt.Print("Allocation unit ids \n")
 	for _, allocationUnitId := range table.AllocationUnitIds {
-		fmt.Printf("allocation unit id %d", allocationUnitId)
+		fmt.Printf("%d \n", allocationUnitId)
 	}
-	fmt.Print("\nPage Ids\n")
+	fmt.Print("Page Ids\n")
 
 	for pageType, pagesType := range table.PageIds {
 		sort.Slice(pagesType, func(i, j int) bool {
 			return pagesType[i] < pagesType[j]
 		})
+		if len(pagesType) == 0 {
+			continue
+		}
 		fmt.Printf("%s", pageType)
 		for _, pageId := range pagesType {
 			fmt.Printf(" %d", pageId)
@@ -248,9 +256,16 @@ func (table Table) GetRecords() utils.Records {
 
 }
 
+func (table Table) printHeader() {
+	fmt.Printf("\n---------------------------\n")
+	for _, c := range table.Schema {
+		fmt.Printf("%s ", c.Name)
+	}
+	fmt.Printf("\n")
+}
 func (table Table) printData() {
 	for _, row := range table.rows {
-		fmt.Printf("\n---------------------------\n")
+
 		for _, c := range table.Schema {
 			c.Print(row[c.Name])
 
