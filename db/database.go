@@ -109,18 +109,19 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 			table.printSchema()
 		}
 		if showContent {
+			table.printHeader()
 			table.printData()
 		}
 
 		if showAllocation {
-			pageIds := make(map[uint32]string, 0)
+
 			/*for _, pageObjecId := range table.PageObjectIds {
 				pages := db.PagesMap[pageObjecId]
 				for _, page := range pages {
 					pageIds[page.Header.PageId] = page.GetType()
 				}
 			}*/
-			table.printAllocation(pageIds)
+			table.printAllocation()
 		}
 		tableLocated = true
 
@@ -187,11 +188,11 @@ func (db Database) GetTablesInformation() []Table {
 		dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
 		lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
 		textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
+		indexPages := table_alloc_pages.FilterByTypeToMap("Index")
+		iamPages := table_alloc_pages.FilterByTypeToMap("IAM")
 
-		table.PageIds["Data"] = utils.Keys(dataPages)
-		table.PageIds["LOB"] = utils.Keys(lobPages)
-		table.PageIds["Text"] = utils.Keys(textLobPages)
-
+		table.PageIds = map[string][]uint32{"DATA": utils.Keys(dataPages), "LOB": utils.Keys(lobPages),
+			"Text": utils.Keys(textLobPages), "Index": utils.Keys(indexPages), "IAM": utils.Keys(iamPages)}
 		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
 		tables = append(tables, table)
