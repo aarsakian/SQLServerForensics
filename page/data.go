@@ -1,6 +1,7 @@
 package page
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
 	"reflect"
@@ -29,7 +30,7 @@ type DataRows []DataRow
 
 type RowIds []utils.RowId
 
-type DataCols []DataCol
+type DataCols []DataCol //holds varying len cols
 
 var DataRecord = map[uint8]string{
 	0: "Primary Record", 2: "Forwarded Record", 4: "Forwarding Record", 6: "Index Record",
@@ -132,8 +133,144 @@ func (dataRow DataRow) GetVarCalOffset() int16 { // start offset for var col len
 }
 
 func (dataRow DataRow) ShowData() {
-	for _, dataCol := range *dataRow.VarLenCols {
-		fmt.Printf("col id %d offset %x len %d \n",
-			dataCol.id, dataCol.offset, reflect.ValueOf(dataCol.content).Len())
+	if dataRow.SystemTable != nil {
+		dataRow.SystemTable.ShowData()
 	}
+	fmt.Printf("static ends %d %x ", 4+reflect.ValueOf(dataRow.FixedLenCols).Len(), dataRow.FixedLenCols)
+	for _, dataCol := range *dataRow.VarLenCols {
+		fmt.Printf(" %d  %d  %x ",
+			dataCol.offset, reflect.ValueOf(dataCol.content).Len(), dataCol.content)
+	}
+	fmt.Printf("\n")
+}
+
+func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data per slot
+	var datacols DataCols
+	var inlineBlob24 *InlineBLob24
+	var inlineBlob16 *InlineBLob16
+	startVarColOffset := dataRow.GetVarCalOffset()
+	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
+		msg := fmt.Sprintf("%d var col at %d", idx, offset+int(startVarColOffset))
+		mslogger.Mslogger.Info(msg)
+
+		if endVarColOffset < 0 {
+			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
+		}
+
+		if endVarColOffset < startVarColOffset {
+			continue
+		} else if int(startVarColOffset) > len(data) {
+			break
+		} else if int(endVarColOffset) > len(data) ||
+			int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
+			endVarColOffset = int16(len(data))
+
+		}
+		cpy := make([]byte, endVarColOffset-startVarColOffset) // var col length
+		copy(cpy, data[startVarColOffset:endVarColOffset])
+		startVarColOffset = endVarColOffset
+
+		var rowId *utils.RowId = new(utils.RowId)
+		if len(cpy) == 24 { // only way to guess that we have a row overflow data
+			inlineBlob24 = new(InlineBLob24)
+			utils.Unmarshal(cpy, inlineBlob24)
+			utils.Unmarshal(cpy[16:], rowId)
+			inlineBlob24.RowId = *rowId
+
+		} else if len(cpy) == 16 {
+			inlineBlob16 = new(InlineBLob16)
+			utils.Unmarshal(cpy, inlineBlob16)
+			utils.Unmarshal(cpy[8:], rowId)
+			inlineBlob16.RowId = *rowId
+		}
+
+		if dataRow.SystemTable != nil {
+			dataRow.SystemTable.SetName(cpy)
+		} else if inlineBlob16 != nil {
+			datacols = append(datacols,
+				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
+		} else if inlineBlob24 != nil {
+			datacols = append(datacols,
+				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob24: inlineBlob24})
+
+		} else {
+			datacols = append(datacols,
+				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset)})
+		}
+
+	}
+
+	dataRow.VarLenCols = &datacols
+
+}
+
+func (dataRow *DataRow) ProcessData(colId uint16, colsize int16,
+	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds,
+	fixColsOffset int) (data []byte) {
+
+	if static {
+		if int(colsize) > len(dataRow.FixedLenCols) {
+			mslogger.Mslogger.Error(fmt.Sprintf("Column size %d exceeded fixed len cols size %d", colsize, len(dataRow.FixedLenCols)))
+			return nil // bad practice ???
+		} else if fixColsOffset+int(colsize) > len(dataRow.FixedLenCols) {
+			mslogger.Mslogger.Error(fmt.Sprintf("column size %d exceeded availabl area of fixed len cols by %d", colsize,
+				fixColsOffset+int(colsize)-len(dataRow.FixedLenCols)))
+			return nil
+		} else {
+			return dataRow.FixedLenCols[fixColsOffset : fixColsOffset+int(colsize)]
+		}
+
+	} else {
+		if dataRow.NumberOfVarLengthCols == 0 || dataRow.NumberOfVarLengthCols <= valorder {
+			// should had bitmap set to 1 however it is not expiremental
+			return nil
+		}
+		pageId := dataRow.GetBloBPageId(valorder)
+		if pageId != 0 {
+
+			lobPage := lobPages[pageId]
+
+			return lobPage.LOBS.GetData(lobPages, textLobPages) // might change
+		} else {
+			return (*dataRow.VarLenCols)[valorder].content
+		}
+
+	}
+
+}
+
+func (dataRow *DataRow) Process(systemtable SystemTable) {
+	//nofColsFixedLen := int(dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols)
+
+	utils.Unmarshal(dataRow.FixedLenCols, systemtable)
+	dataRow.SystemTable = systemtable
+	/*var dataCols DataCols
+	for colId := 0; colId < nofColsFixedLen; colId++ {
+
+		if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
+			continue
+		}
+
+		if colOffset+2 >= len(data) {
+			break
+		}
+
+		dataCols = append(dataCols, DataCol{uint16(colId), uint16(colOffset), data[colOffset : colOffset+2]}) // fixed size col =2 bytes
+		colOffset += 2
+	}*/
+
+	/*for colId := 0; colId < int(dataRow.NumberOfVarLengthCols); colId++ {
+		if colId+nofColsFixedLen == int(dataRow.NullBitmap&1<<colId) { //col is NULL skip
+			continue
+		}
+		endVarColOffset := dataRow.VarLengthColOffsets[colId]
+
+		dataCols = append(dataCols, DataCol{uint16(colId + nofColsFixedLen),
+			startVarColOffset, data[startVarColOffset:endVarColOffset]})
+		startVarColOffset = endVarColOffset
+
+	}
+
+	dataRow.DataCols = &dataCols*/
+
 }
