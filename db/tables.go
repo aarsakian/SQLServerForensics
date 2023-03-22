@@ -20,6 +20,7 @@ type Table struct {
 	Schema            []Column
 	VarLenCols        []int
 	PageIds           map[string][]uint32
+	indexType         string
 }
 
 type Column struct {
@@ -176,17 +177,28 @@ func (table *Table) addColumns(results []page.Result[string, string, int16, uint
 }
 
 func (table *Table) updateVarLenCols() {
-	columns := make([]Column, len(table.Schema))
-	vid := 0
-	// range copies values
-	for idx := range table.Schema {
-		if columns[idx].isStatic() {
-			columns[idx].VarLenOrder = 0
-		} else {
 
-			columns[idx].VarLenOrder = uint16(vid)
-			vid++
+	vid := 0
+	colorder := uint16(1)
+	// first arrange static
+
+	for idx := range table.Schema {
+		if table.Schema[idx].isStatic() {
+			table.Schema[idx].Order = colorder
+			table.Schema[idx].VarLenOrder = 0
+			colorder++
 		}
+	}
+
+	//2nd pass for var len cols
+	for idx := range table.Schema {
+		if table.Schema[idx].isStatic() {
+			continue
+		}
+		table.Schema[idx].VarLenOrder = uint16(vid)
+		table.Schema[idx].Order = colorder
+		vid++
+		colorder++
 
 	}
 }
@@ -203,7 +215,7 @@ func (table Table) printSchema() {
 			if col.isStatic() {
 				continue
 			}
-			fmt.Printf(" %s", col.Name)
+			fmt.Printf("| %s %s", col.Name, col.Type)
 		}
 		fmt.Printf("\n")
 	}
@@ -211,6 +223,7 @@ func (table Table) printSchema() {
 }
 
 func (table Table) printAllocation() {
+	fmt.Printf("table index type %s \n", table.indexType)
 	fmt.Printf("objectID %d \n",
 		table.ObjectId)
 	fmt.Printf("Partition ids:\n")
@@ -263,28 +276,32 @@ func (table Table) printHeader() {
 	}
 	fmt.Printf("\n")
 }
-func (table Table) printData() {
-	for _, row := range table.rows {
-
+func (table Table) printData(showrows int) {
+	for idx, row := range table.rows {
+		if showrows != -1 && idx > showrows {
+			break
+		}
 		for _, c := range table.Schema {
 			c.Print(row[c.Name])
 
 		}
-
+		fmt.Printf("\n")
 	}
-	fmt.Printf("\n")
+
 }
 
 func (table *Table) setContent(dataPages page.PageMapIds,
 	lobPages page.PageMapIds, textLobPages page.PageMapIds) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 	var rows []ColMap
-
+	var indexType string
 	for pageId, page := range dataPages {
 		if page.HasForwardingPointers() {
 			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
 
 		}
+
+		indexType = page.GetIndexType()
 
 		for did, datarow := range page.DataRows {
 			m := make(ColMap)
@@ -330,7 +347,7 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 
 		}
 	}
-
+	table.indexType = indexType
 	table.rows = rows
 
 }
