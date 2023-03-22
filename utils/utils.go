@@ -341,6 +341,7 @@ func Unmarshal(data []byte, v interface{}) error {
 	idx := 0
 	structValPtr := reflect.ValueOf(v)
 	structType := reflect.TypeOf(v)
+	interfaceName := structType.Elem().Name()
 	if structType.Elem().Kind() != reflect.Struct {
 		return errors.New("must be a struct")
 	}
@@ -429,28 +430,33 @@ func Unmarshal(data []byte, v interface{}) error {
 			idx += field.Len()
 		case reflect.Slice:
 			name := structType.Elem().Field(i).Name
+
 			if name == "FixedLenCols" {
-				var dst []byte
+				if interfaceName == "DataRow" {
+					var dst []byte
 
-				nofColsOffset := structValPtr.Elem().FieldByName("NofColsOffset").Uint()
-				if nofColsOffset == 0 {
-					mslogger.Mslogger.Error("datarow does not have fixed len cols.")
-					break
-				}
-				if nofColsOffset < 4 {
-					mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offsets cannot end before 4 %d", nofColsOffset))
-					break
-				}
+					nofColsOffset := structValPtr.Elem().FieldByName("NofColsOffset").Uint()
+					if nofColsOffset == 0 {
+						mslogger.Mslogger.Error("datarow does not have fixed len cols.")
+						break
+					}
+					if nofColsOffset < 4 {
+						mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offsets cannot end before 4 %d", nofColsOffset))
+						break
+					}
 
-				if nofColsOffset > 8060 {
-					mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offset cannot exceed max page available area %d", nofColsOffset))
-					break
-				}
-				dst = make([]byte, nofColsOffset-uint64(idx))
-				copy(dst, data[idx:nofColsOffset])
+					if nofColsOffset > 8060 {
+						mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offset cannot exceed max page available area %d", nofColsOffset))
+						break
+					}
+					dst = make([]byte, nofColsOffset-uint64(idx))
+					copy(dst, data[idx:nofColsOffset])
 
-				field.Set(reflect.ValueOf(dst))
-				idx += field.Len()
+					field.Set(reflect.ValueOf(dst))
+					idx += field.Len()
+				} else if interfaceName == "IndexRow" { //already copied
+					idx += field.Len()
+				}
 
 			} else if name == "NullBitmap" {
 				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
