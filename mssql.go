@@ -43,8 +43,8 @@ func main() {
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
-	showPageStats := flag.Bool("showpagestats", false, "show page statistics")
-	tableName := flag.String("table", "", "show table (use all for all tables or user for user table)")
+	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
+	tableName := flag.String("table", "", "show table (use all for all tables)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
@@ -53,12 +53,14 @@ func main() {
 	showDataCols := flag.Bool("datacols", false, "show data cols for each data row")
 	showSlots := flag.Bool("slots", false, "show page slots")
 	showPFS := flag.Bool("pfs", false, "show pfm page allocation")
+	showIndex := flag.Bool("showindex", false, "show index contents")
 	showTableAllocation := flag.Bool("showTableAllocation", false, "show pages that the table has been allocated")
+	showTableRows := flag.Int("rows", -1, "show only the first number of rows (Default is all)")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	export := flag.Bool("export", false, "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 	logActive := flag.Bool("log", false, "log activity")
-	tabletype := flag.String("tabletype", "", "filter tables by type (xtype)")
+	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
 
 	flag.Parse()
 
@@ -96,6 +98,8 @@ func main() {
 		ShowTableContent:    *showTableContent,
 		ShowTableAllocation: *showTableAllocation,
 		ShowPageStats:       *showPageStats,
+		ShowIndex:           *showIndex,
+		ShowTableRows:       *showTableRows,
 		TableType:           *tabletype}
 
 	fmt.Println("Processing pages...")
