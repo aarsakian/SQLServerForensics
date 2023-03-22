@@ -19,6 +19,8 @@ type Reporter struct {
 	ShowTableContent    bool
 	ShowTableAllocation bool
 	ShowPageStats       bool
+	ShowIndex           bool
+	ShowTableRows       int
 	TableType           string
 }
 
@@ -53,6 +55,9 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 					fmt.Printf("SGAM %s ", sgamstatus)
 				}
 			}
+			if rp.ShowIndex {
+				page.ShowIndexRows()
+			}
 
 		}
 
@@ -64,7 +69,7 @@ func (rp Reporter) ShowTableInfo(database db.Database) {
 	tablename := rp.TableName
 	if tablename != "" {
 
-		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation, rp.TableType)
+		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation, rp.TableType, rp.ShowTableRows)
 
 	}
 }
