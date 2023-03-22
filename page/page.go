@@ -44,6 +44,7 @@ type Page struct {
 	IAMExtents         *IAMExtents
 	PrevPage           *Page
 	NextPage           *Page
+	IndexRows          IndexRows
 }
 
 type Header struct {
@@ -77,6 +78,19 @@ type AllocationMaps interface {
 	FilterByAllocationStatus(bool) AllocationMaps
 	ShowAllocations()
 	GetAllocationStatus(uint32) string
+}
+
+func (header Header) getIndexType() string {
+	if header.IndexId == 1 {
+		return "Clustered"
+	} else if header.IndexId >= 2 && header.IndexId <= 250 || header.IndexId >= 256 && header.IndexId <= 1005 {
+		return "Heap"
+	} else {
+		msg := fmt.Sprintf("index %d reserved from sql number", header.IndexId)
+		mslogger.Mslogger.Warning(msg)
+		return msg
+	}
+
 }
 
 func (header Header) isValid() bool {
@@ -120,11 +134,16 @@ func (page Page) FilterByTable(tablename string) DataRows {
 
 }
 
+func (page Page) GetIndexType() string {
+	return page.Header.getIndexType()
+}
+
 func (pages Pages) FilterByTypeToMap(pageType string) PageMapIds {
 	return utils.FilterToMap(pages, func(page Page) (bool, uint32) {
 		return page.GetType() == pageType, page.Header.PageId
 	})
 }
+
 func (pagesMap PagesMap) FilterByType(pageType string) PagesMap {
 	return utils.FilterMap(pagesMap, func(page Page) bool {
 		return page.GetType() == pageType
@@ -149,137 +168,6 @@ type SystemTable interface {
 	SetName([]byte)
 	ShowData()
 	GetData() (any, any)
-}
-
-func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data per slot
-	var datacols DataCols
-	var inlineBlob24 *InlineBLob24
-	var inlineBlob16 *InlineBLob16
-	startVarColOffset := dataRow.GetVarCalOffset()
-	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
-		msg := fmt.Sprintf("%d var col at %d", idx, offset+int(startVarColOffset))
-		mslogger.Mslogger.Info(msg)
-
-		if endVarColOffset < 0 {
-			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
-		}
-
-		if endVarColOffset < startVarColOffset {
-			continue
-		} else if int(startVarColOffset) > len(data) {
-			break
-		} else if int(endVarColOffset) > len(data) ||
-			int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
-			endVarColOffset = int16(len(data))
-
-		}
-		cpy := make([]byte, endVarColOffset-startVarColOffset) // var col length
-		copy(cpy, data[startVarColOffset:endVarColOffset])
-		startVarColOffset = endVarColOffset
-
-		var rowId *utils.RowId = new(utils.RowId)
-		if len(cpy) == 24 { // only way to guess that we have a row overflow data
-			inlineBlob24 = new(InlineBLob24)
-			utils.Unmarshal(cpy, inlineBlob24)
-			utils.Unmarshal(cpy[16:], rowId)
-			inlineBlob24.RowId = *rowId
-
-		} else if len(cpy) == 16 {
-			inlineBlob16 = new(InlineBLob16)
-			utils.Unmarshal(cpy, inlineBlob16)
-			utils.Unmarshal(cpy[8:], rowId)
-			inlineBlob16.RowId = *rowId
-		}
-
-		if dataRow.SystemTable != nil {
-			dataRow.SystemTable.SetName(cpy)
-		} else if inlineBlob16 != nil {
-			datacols = append(datacols,
-				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
-		} else if inlineBlob24 != nil {
-			datacols = append(datacols,
-				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob24: inlineBlob24})
-
-		} else {
-			datacols = append(datacols,
-				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset)})
-		}
-
-	}
-
-	dataRow.VarLenCols = &datacols
-
-}
-
-func (dataRow *DataRow) ProcessData(colId uint16, colsize int16,
-	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds,
-	fixColsOffset int) (data []byte) {
-
-	if static {
-		if int(colsize) > len(dataRow.FixedLenCols) {
-			mslogger.Mslogger.Error(fmt.Sprintf("Column size %d exceeded fixed len cols size %d", colsize, len(dataRow.FixedLenCols)))
-			return nil // bad practice ???
-		} else if fixColsOffset+int(colsize) > len(dataRow.FixedLenCols) {
-			mslogger.Mslogger.Error(fmt.Sprintf("column size %d exceeded availabl area of fixed len cols by %d", colsize,
-				fixColsOffset+int(colsize)-len(dataRow.FixedLenCols)))
-			return nil
-		} else {
-			return dataRow.FixedLenCols[fixColsOffset : fixColsOffset+int(colsize)]
-		}
-
-	} else {
-		if dataRow.NumberOfVarLengthCols == 0 || dataRow.NumberOfVarLengthCols <= valorder {
-			// should had bitmap set to 1 however it is not expiremental
-			return nil
-		}
-		pageId := dataRow.GetBloBPageId(valorder)
-		if pageId != 0 {
-
-			lobPage := lobPages[pageId]
-
-			return lobPage.LOBS.GetData(lobPages, textLobPages) // might change
-		} else {
-			return (*dataRow.VarLenCols)[valorder].content
-		}
-
-	}
-
-}
-
-func (dataRow *DataRow) Process(systemtable SystemTable) {
-	//nofColsFixedLen := int(dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols)
-
-	utils.Unmarshal(dataRow.FixedLenCols, systemtable)
-	dataRow.SystemTable = systemtable
-	/*var dataCols DataCols
-	for colId := 0; colId < nofColsFixedLen; colId++ {
-
-		if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
-			continue
-		}
-
-		if colOffset+2 >= len(data) {
-			break
-		}
-
-		dataCols = append(dataCols, DataCol{uint16(colId), uint16(colOffset), data[colOffset : colOffset+2]}) // fixed size col =2 bytes
-		colOffset += 2
-	}*/
-
-	/*for colId := 0; colId < int(dataRow.NumberOfVarLengthCols); colId++ {
-		if colId+nofColsFixedLen == int(dataRow.NullBitmap&1<<colId) { //col is NULL skip
-			continue
-		}
-		endVarColOffset := dataRow.VarLengthColOffsets[colId]
-
-		dataCols = append(dataCols, DataCol{uint16(colId + nofColsFixedLen),
-			startVarColOffset, data[startVarColOffset:endVarColOffset]})
-		startVarColOffset = endVarColOffset
-
-	}
-
-	dataRow.DataCols = &dataCols*/
-
 }
 
 func retrieveSlots(data []byte) []utils.SlotOffset {
@@ -418,7 +306,7 @@ func (page *Page) parseDATA(data []byte, offset int) {
 				fmt.Println("INDEXES", page.Header.PageId)
 			}
 
-			dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset)
+			dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset+int(slotoffset))
 
 			dataRows = append(dataRows, *dataRow)
 		}
@@ -474,12 +362,17 @@ func (page Page) printSlots() {
 }
 
 func (page Page) ShowRowData() {
-	for _, datarow := range page.DataRows {
-		//datarow.ShowData()
-		if datarow.SystemTable != nil {
-			datarow.SystemTable.ShowData()
-		}
 
+	for _, datarow := range page.DataRows {
+		fmt.Printf("offset len content \n")
+		datarow.ShowData()
+	}
+}
+
+func (page Page) ShowIndexRows() {
+	for idx, indexrow := range page.IndexRows {
+		fmt.Printf("row %d ", idx)
+		indexrow.ShowData()
 	}
 }
 
@@ -495,6 +388,7 @@ func (page *Page) parseIAM(data []byte) {
 }
 
 func (page *Page) parseIndex(data []byte, offset int) {
+	var indexRows IndexRows
 	for slotnum, slotoffset := range page.Slots {
 		msg := fmt.Sprintf("%d index row at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
@@ -503,9 +397,10 @@ func (page *Page) parseIndex(data []byte, offset int) {
 			fmt.Printf("slotoffset %d less than header size \n", slotoffset)
 			continue
 		}
-		/*var indexRowLen utils.SlotOffset
 
 		var indexRow *IndexRow = new(IndexRow)
+
+		var indexRowLen utils.SlotOffset
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
 			indexRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
@@ -517,13 +412,19 @@ func (page *Page) parseIndex(data []byte, offset int) {
 			indexRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
 
-			if utils.HasNullBitmap(data[slotoffset]) {
-				utils.Unmarshal(data[slotoffset:slotoffset+indexRowLen], indexRow)
-			} else {
-				copy(indexRow.FixedLenCols, data[slotoffset:slotoffset+utils.SlotOffset(page.Header.PMinLen)-1])
-			}
-		*/
+		dst := make([]byte, page.Header.PMinLen-1)                                     // allocate memory for fixed len cols
+		copy(dst, data[slotoffset+1:slotoffset+utils.SlotOffset(page.Header.PMinLen)]) //first always statusA
+		indexRow.FixedLenCols = dst
+		if utils.HasNullBitmap(data[slotoffset]) {
+			utils.Unmarshal(data[slotoffset:slotoffset+indexRowLen], indexRow)
+
+			indexRow.ProcessVaryingCols(data[slotoffset:], offset+int(slotoffset))
+
+		}
+		indexRows = append(indexRows, *indexRow)
+
 	}
+	page.IndexRows = indexRows
 }
 
 func (page *Page) Process(data []byte, offset int) {
