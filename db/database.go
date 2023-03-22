@@ -93,7 +93,7 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 }
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
-	showAllocation bool, tabletype string) {
+	showAllocation bool, tabletype string, showrows int) {
 	tableLocated := false
 	for _, table := range db.Tables {
 
@@ -110,7 +110,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		}
 		if showContent {
 			table.printHeader()
-			table.printData()
+			table.printData(showrows)
 		}
 
 		if showAllocation {
@@ -156,13 +156,13 @@ func (db Database) GetTablesInformation() []Table {
 
 		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 		mslogger.Mslogger.Info(msg)
-
+		mslogger.Mslogger.Info(fmt.Sprintf("%t", ok))
 		if ok {
 			//		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
 
 			table.addColumns(results)
 			table.updateVarLenCols()
-			// sort by col order
+			// sort by col order static always first
 			sort.Sort(table)
 
 		}
