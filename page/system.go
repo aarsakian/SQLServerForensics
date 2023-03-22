@@ -268,8 +268,6 @@ func (syscolpars SysColpars) GetType() string {
 		return "decimal"
 	} else if syscolpars.Xtype == 0xEF {
 		return "nchar"
-	} else if syscolpars.Xtype == 0x24 {
-		return " "
 	} else if syscolpars.Xtype == 0xE7 {
 		return "nvarchar"
 	} else if syscolpars.Xtype == 0xA5 {
@@ -282,6 +280,8 @@ func (syscolpars SysColpars) GetType() string {
 		return "datetimeoffset"
 	} else if syscolpars.Xtype == 0x22 {
 		return "image"
+	} else if syscolpars.Xtype == 0x24 {
+		return "uniqueidentifier"
 	} else {
 		msg := fmt.Sprintf("Type Not found 0x%x ", syscolpars.Xtype)
 		mslogger.Mslogger.Warning(msg)
