@@ -24,13 +24,9 @@ var SystemTablesFlags = map[string]uint8{
 
 type Pages []Page
 
-type PagesMap map[uint64]Pages
+type PagesMap map[uint64]Pages //allocationunitid -> Pages
 
-type PagesMapIds map[uint32]Pages
-
-type PageMapIds map[uint32]Page
-
-type PageMap map[uint64]Page
+type PageMapIds map[uint32]Page //pageId -> Page
 
 type Page struct {
 	Header             Header
@@ -132,6 +128,14 @@ func (page Page) FilterByTable(tablename string) DataRows {
 
 	})
 
+}
+
+func (page Page) GetNextPage() uint32 {
+	return page.Header.NextPage
+}
+
+func (page Page) GetPrevPage() uint32 {
+	return page.Header.PrevPage
 }
 
 func (page Page) GetIndexType() string {
@@ -290,6 +294,8 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			} else if page.Header.ObjectId == 0x07 {
 				var sysallocationunits *SysAllocUnits = new(SysAllocUnits)
 				dataRow.Process(sysallocationunits)
+
+			} else if page.Header.ObjectId == 0x03 {
 
 			} else if page.Header.ObjectId == 0x05 {
 				var sysrowsets *SysRowSets = new(SysRowSets)
