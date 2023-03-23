@@ -206,9 +206,9 @@ func (table *Table) updateVarLenCols() {
 func (table Table) printSchema() {
 	if table.Schema != nil {
 
-		fmt.Printf("Schema:  %s \n", table.Name)
+		fmt.Printf("Schema col name type static:  %s \n", table.Name)
 		for _, col := range table.Schema {
-			fmt.Printf(" | %s %s", col.Name, col.Type)
+			fmt.Printf(" | %s %s %t", col.Name, col.Type, col.isStatic())
 		}
 		fmt.Printf("\nDynamic cols")
 		for _, col := range table.Schema {
@@ -222,7 +222,7 @@ func (table Table) printSchema() {
 
 }
 
-func (table Table) printAllocation() {
+func (table Table) printTableInfo() {
 	fmt.Printf("table index type %s \n", table.indexType)
 	fmt.Printf("objectID %d \n",
 		table.ObjectId)
@@ -235,6 +235,34 @@ func (table Table) printAllocation() {
 	for _, allocationUnitId := range table.AllocationUnitIds {
 		fmt.Printf("%d \n", allocationUnitId)
 	}
+
+}
+
+func (table Table) printAllocationWithLinks(pages page.PagesMap) {
+	table.printTableInfo()
+
+	fmt.Print("Page Ids\n")
+
+	for pageType, pagesType := range table.PageIds {
+		sort.Slice(pagesType, func(i, j int) bool {
+			return pagesType[i] < pagesType[j]
+		})
+		if len(pagesType) == 0 {
+			continue
+		}
+		fmt.Printf("%s", pageType)
+		/*for _, pageId := range pagesType {
+			fmt.Printf(" %d <- %d -> %d", pages[pageId].GetPrevPage(), pageId, pages[pageId].GetNextPage())
+		}*/
+		fmt.Print("\n")
+	}
+	fmt.Print("\n")
+
+}
+
+func (table Table) printAllocation() {
+	table.printTableInfo()
+
 	fmt.Print("Page Ids\n")
 
 	for pageType, pagesType := range table.PageIds {
@@ -276,10 +304,14 @@ func (table Table) printHeader() {
 	}
 	fmt.Printf("\n")
 }
-func (table Table) printData(showrows int) {
+func (table Table) printData(showtorow int, showrow int) {
 	for idx, row := range table.rows {
-		if showrows != -1 && idx > showrows {
+		if showtorow != -1 && idx > showtorow {
 			break
+		}
+
+		if showrow != -1 && idx != showrow {
+			continue
 		}
 		for _, c := range table.Schema {
 			c.Print(row[c.Name])
