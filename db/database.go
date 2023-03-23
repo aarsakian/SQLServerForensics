@@ -10,7 +10,7 @@ import (
 
 type Database struct {
 	Name     string
-	PagesMap page.PagesMap
+	PagesMap page.PagesMap //allocationunitid -> Pages
 	Tables   []Table
 }
 
@@ -93,7 +93,7 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 }
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
-	showAllocation bool, tabletype string, showrows int) {
+	showAllocation string, tabletype string, showrows int, showrow int) {
 	tableLocated := false
 	for _, table := range db.Tables {
 
@@ -110,18 +110,14 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		}
 		if showContent {
 			table.printHeader()
-			table.printData(showrows)
+			table.printData(showrows, showrow)
 		}
 
-		if showAllocation {
+		if showAllocation == "simple" {
 
-			/*for _, pageObjecId := range table.PageObjectIds {
-				pages := db.PagesMap[pageObjecId]
-				for _, page := range pages {
-					pageIds[page.Header.PageId] = page.GetType()
-				}
-			}*/
 			table.printAllocation()
+		} else if showAllocation == "links" {
+			table.printAllocationWithLinks(db.PagesMap)
 		}
 		tableLocated = true
 
@@ -185,7 +181,7 @@ func (db Database) GetTablesInformation() []Table {
 			table.AllocationUnitIds = allocationUnitIds
 
 		}
-		dataPages := table_alloc_pages.FilterByTypeToMap("DATA")
+		dataPages := table_alloc_pages.FilterByTypeToMap("DATA") // pageId -> Page
 		lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
 		textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
 		indexPages := table_alloc_pages.FilterByTypeToMap("Index")
