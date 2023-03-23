@@ -89,6 +89,22 @@ type sysIsCols struct {
 	Tinyprop4 uint8
 }
 
+type SysRsCols struct {
+	rsid        int64
+	rscolid     int32
+	hbcolid     int32
+	rcmodified  int64
+	ti          int32
+	cid         int32
+	ordkey      int16
+	maxinrowlen int16
+	status      int32
+	offset      int32
+	nullbit     int32
+	bitpos      int16
+	olguid      []byte
+}
+
 type SysRowSets struct {
 	Rowsetid   uint64
 	Ownertype  uint8
