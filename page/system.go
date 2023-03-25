@@ -90,19 +90,19 @@ type sysIsCols struct {
 }
 
 type SysRsCols struct {
-	rsid        int64
-	rscolid     int32
-	hbcolid     int32
-	rcmodified  int64
-	ti          int32
-	cid         int32
-	ordkey      int16
-	maxinrowlen int16
-	status      int32
-	offset      int32
-	nullbit     int32
-	bitpos      int16
-	olguid      []byte
+	Rsid        uint64 //partition id
+	Rscolid     int32
+	Hbcolid     int32
+	Rcmodified  int64
+	Ti          int32
+	Cid         uint32
+	Ordkey      int16
+	Maxinrowlen int16
+	Status      int32
+	Offset      int32 //end offset of static column within datarow
+	Nullbit     int32
+	Bitpos      int16
+	Olguid      []byte
 }
 
 type SysRowSets struct {
@@ -151,6 +151,13 @@ type Result[F, S, T, FH, FT, SX, SV any] struct {
 	Seventh SV
 }
 
+type SystemTable interface {
+	GetName() string
+	SetName([]byte)
+	ShowData()
+	GetData() (any, any)
+}
+
 func (sysobject SysObjects) GetData() (any, any) {
 	return nil, nil
 }
@@ -165,6 +172,24 @@ func (sysobject *SysObjects) SetName([]byte) {
 
 func (sysobjects *SysObjects) ShowData() {
 	fmt.Printf("sysobjects")
+}
+
+func (sysrscols SysRsCols) GetName() string {
+	return ""
+}
+
+func (sysrscols SysRsCols) GetData() (any, any) {
+	return uint64(sysrscols.Rsid), Result[uint32, int32, int64, int32, int32, int16, int32]{sysrscols.Cid,
+		sysrscols.Offset, sysrscols.Rcmodified,
+		sysrscols.Hbcolid, sysrscols.Rscolid, sysrscols.Bitpos, sysrscols.Nullbit}
+}
+
+func (sysrscols *SysRsCols) SetName([]byte) {
+
+}
+
+func (sysrscols *SysRsCols) ShowData() {
+	fmt.Printf("sysrsobjects partition id %d  colid %d offset %d", sysrscols.Rsid, sysrscols.Cid, sysrscols.Offset)
 }
 
 func (sysrowsets *SysRowSets) SetName([]byte) {
