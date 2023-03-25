@@ -20,7 +20,7 @@ var PageTypes = map[uint8]string{
 
 var SystemTablesFlags = map[string]uint8{
 	"syscolpars": 0x29, "sysrowsets": 0x05, "sysiscols": 0x37, "sysallocationunits": 0x07,
-	"sysschobjs": 0x22}
+	"sysschobjs": 0x22, "sysrscols": 0x03}
 
 type Pages []Page
 
@@ -154,24 +154,27 @@ func (pagesMap PagesMap) FilterByType(pageType string) PagesMap {
 	})
 }
 
-func (pagesMap PagesMap) FilterBySystemTables(systemTable string) PagesMap {
-	return utils.FilterMap(pagesMap, func(page Page) bool {
-		if systemTable == "all" {
-			return page.Header.ObjectId == 0x22 ||
-				page.Header.ObjectId == 0x37 || //sysiscols,
-				page.Header.ObjectId == 0x05 || //sysrowsets, and
-				page.Header.ObjectId == 0x07 //sysallocationunits
-		} else {
-			return page.Header.ObjectId == int32(SystemTablesFlags[systemTable])
-		}
+func (pagesMap PagesMap) FilterBySystemTablesToList(systemTable string) Pages {
+	return utils.FilterMapToList(pagesMap, func(page Page) bool {
+		return page.isSystemPage(systemTable)
 	})
 }
 
-type SystemTable interface {
-	GetName() string
-	SetName([]byte)
-	ShowData()
-	GetData() (any, any)
+func (pagesMap PagesMap) FilterBySystemTables(systemTable string) PagesMap {
+	return utils.FilterMap(pagesMap, func(page Page) bool {
+		return page.isSystemPage(systemTable)
+	})
+}
+
+func (page Page) isSystemPage(systemTable string) bool {
+	if systemTable == "all" {
+		return page.Header.ObjectId == 0x22 ||
+			page.Header.ObjectId == 0x37 || //sysiscols,
+			page.Header.ObjectId == 0x05 || //sysrowsets, and
+			page.Header.ObjectId == 0x07 //sysallocationunits
+	} else {
+		return page.Header.ObjectId == int32(SystemTablesFlags[systemTable])
+	}
 }
 
 func retrieveSlots(data []byte) []utils.SlotOffset {
@@ -296,7 +299,8 @@ func (page *Page) parseDATA(data []byte, offset int) {
 				dataRow.Process(sysallocationunits)
 
 			} else if page.Header.ObjectId == 0x03 {
-
+				var sysrscols *SysRsCols = new(SysRsCols)
+				dataRow.Process(sysrscols)
 			} else if page.Header.ObjectId == 0x05 {
 				var sysrowsets *SysRowSets = new(SysRowSets)
 				dataRow.Process(sysrowsets)
