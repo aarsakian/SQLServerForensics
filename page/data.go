@@ -204,20 +204,19 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 
 }
 
-func (dataRow *DataRow) ProcessData(colId uint16, colsize int16,
-	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds,
-	fixColsOffset int) (data []byte) {
+func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, endoffset int32,
+	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds) (data []byte) {
 
 	if static {
 		if int(colsize) > len(dataRow.FixedLenCols) {
 			mslogger.Mslogger.Error(fmt.Sprintf("Column size %d exceeded fixed len cols size %d", colsize, len(dataRow.FixedLenCols)))
 			return nil // bad practice ???
-		} else if fixColsOffset+int(colsize) > len(dataRow.FixedLenCols) {
-			mslogger.Mslogger.Error(fmt.Sprintf("column size %d exceeded availabl area of fixed len cols by %d", colsize,
-				fixColsOffset+int(colsize)-len(dataRow.FixedLenCols)))
+		} else if int(endoffset) > len(dataRow.FixedLenCols) {
+			mslogger.Mslogger.Error(fmt.Sprintf("column end offset %d exceeded available area of fixed len cols by %d", endoffset,
+				int(endoffset)-len(dataRow.FixedLenCols)))
 			return nil
 		} else {
-			return dataRow.FixedLenCols[fixColsOffset : fixColsOffset+int(colsize)]
+			return dataRow.FixedLenCols[endoffset-int32(colsize) : endoffset]
 		}
 
 	} else {
@@ -240,37 +239,8 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16,
 }
 
 func (dataRow *DataRow) Process(systemtable SystemTable) {
-	//nofColsFixedLen := int(dataRow.NumberOfCols - dataRow.NumberOfVarLengthCols)
 
 	utils.Unmarshal(dataRow.FixedLenCols, systemtable)
 	dataRow.SystemTable = systemtable
-	/*var dataCols DataCols
-	for colId := 0; colId < nofColsFixedLen; colId++ {
-
-		if dataRow.NullBitmap>>colId&1 == 1 { //col is NULL skip
-			continue
-		}
-
-		if colOffset+2 >= len(data) {
-			break
-		}
-
-		dataCols = append(dataCols, DataCol{uint16(colId), uint16(colOffset), data[colOffset : colOffset+2]}) // fixed size col =2 bytes
-		colOffset += 2
-	}*/
-
-	/*for colId := 0; colId < int(dataRow.NumberOfVarLengthCols); colId++ {
-		if colId+nofColsFixedLen == int(dataRow.NullBitmap&1<<colId) { //col is NULL skip
-			continue
-		}
-		endVarColOffset := dataRow.VarLengthColOffsets[colId]
-
-		dataCols = append(dataCols, DataCol{uint16(colId + nofColsFixedLen),
-			startVarColOffset, data[startVarColOffset:endVarColOffset]})
-		startVarColOffset = endVarColOffset
-
-	}
-
-	dataRow.DataCols = &dataCols*/
 
 }
