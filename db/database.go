@@ -5,7 +5,6 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
-	"sort"
 )
 
 type Database struct {
@@ -27,14 +26,12 @@ func (db *Database) FilterBySystemTables(systemTables string) {
 
 func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint, uint, uint, uint] {
 	results := map[any]page.Result[string, string, uint64, uint, uint, uint, uint]{}
-	systemPages := db.PagesMap.FilterBySystemTables(tablename)
-	for _, tablePages := range systemPages {
-		for _, tablePage := range tablePages {
-			for _, datarow := range tablePage.DataRows {
-				objectId, res := datarow.SystemTable.GetData()
-				results[objectId] = res.(page.Result[string, string, uint64, uint, uint, uint, uint])
+	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	for _, systemPage := range systemPages {
+		for _, datarow := range systemPage.DataRows {
+			objectId, res := datarow.SystemTable.GetData()
+			results[objectId] = res.(page.Result[string, string, uint64, uint, uint, uint, uint])
 
-			}
 		}
 
 	}
@@ -43,15 +40,14 @@ func (db Database) createMap(tablename string) map[any]page.Result[string, strin
 
 func (db Database) createMapGeneric(tablename string) map[any]uint64 {
 	results := map[any]uint64{}
-	systemPages := db.PagesMap.FilterBySystemTables(tablename)
-	for _, tablePages := range systemPages {
-		for _, tablePage := range tablePages {
-			for _, datarow := range tablePage.DataRows {
-				objectId, val := datarow.SystemTable.GetData()
+	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	for _, systemPage := range systemPages {
 
-				results[objectId] = val.(uint64)
+		for _, datarow := range systemPage.DataRows {
+			objectId, val := datarow.SystemTable.GetData()
 
-			}
+			results[objectId] = val.(uint64)
+
 		}
 
 	}
@@ -60,15 +56,32 @@ func (db Database) createMapGeneric(tablename string) map[any]uint64 {
 
 func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 	results := map[any][]uint64{}
-	systemPages := db.PagesMap.FilterBySystemTables(tablename)
-	for _, tablePages := range systemPages {
-		for _, tablePage := range tablePages {
-			for _, datarow := range tablePage.DataRows {
-				objectId, val := datarow.SystemTable.GetData()
+	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	for _, systemPage := range systemPages {
 
-				results[objectId] = append(results[objectId], val.(uint64))
+		for _, datarow := range systemPage.DataRows {
+			objectId, val := datarow.SystemTable.GetData()
 
-			}
+			results[objectId] = append(results[objectId], val.(uint64))
+		}
+
+	}
+	return results
+}
+
+func (db Database) createColMapOffsets(tablename string) map[uint64][]page.Result[uint32, int32, int64, int32, int32, int16, int32] {
+	results := map[uint64][]page.Result[uint32, int32, int64, int32, int32, int16, int32]{}
+	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	for _, systemPage := range systemPages {
+		if systemPage.GetType() != "DATA" {
+			continue
+		}
+
+		for _, datarow := range systemPage.DataRows {
+			partitionId, res := datarow.SystemTable.GetData()
+
+			results[(partitionId).(uint64)] = append(results[(partitionId).(uint64)],
+				res.(page.Result[uint32, int32, int64, int32, int32, int16, int32]))
 		}
 
 	}
@@ -77,17 +90,16 @@ func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 
 func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, int16, uint16, uint32, uint8, uint8] {
 	results := map[int32][]page.Result[string, string, int16, uint16, uint32, uint8, uint8]{}
-	systemPages := db.PagesMap.FilterBySystemTables(tablename)
-	for _, tablePages := range systemPages {
-		for _, tablePage := range tablePages {
-			for _, datarow := range tablePage.DataRows {
-				objectId, res := datarow.SystemTable.GetData()
+	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	for _, systemPage := range systemPages {
 
-				results[(objectId).(int32)] = append(results[(objectId).(int32)],
-					res.(page.Result[string, string, int16, uint16, uint32, uint8, uint8]))
-			}
+		for _, datarow := range systemPage.DataRows {
+			objectId, res := datarow.SystemTable.GetData()
 
+			results[(objectId).(int32)] = append(results[(objectId).(int32)],
+				res.(page.Result[string, string, int16, uint16, uint32, uint8, uint8]))
 		}
+
 	}
 	return results
 }
@@ -139,6 +151,8 @@ func (db Database) GetTablesInformation() []Table {
 	tablesMap := db.createMap("sysschobjs")   // table information holds a map of object ids and table names
 	colsMap := db.createMapList("syscolpars") //table objectid = name , type, size, colorder
 
+	colsMapOffsets := db.createColMapOffsets("sysrscols") //Rowsetid = colid ,offset
+
 	tableAllocsMap := db.createMapListGeneric("sysrowsets")            //(ttable objectid) = sysrowsets.Rowsetid (partitions)
 	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  OwnerId, page allocunitid
 
@@ -157,9 +171,9 @@ func (db Database) GetTablesInformation() []Table {
 			//		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
 
 			table.addColumns(results)
-			table.updateVarLenCols()
+			//	table.updateVarLenCols()
 			// sort by col order static always first
-			sort.Sort(table)
+			//	sort.Sort(table)
 
 		}
 
@@ -171,6 +185,11 @@ func (db Database) GetTablesInformation() []Table {
 
 		for _, partitionId := range partitionIds {
 			allocationUnitIds, ok := tableSysAllocsMap[partitionId] // from sysallocunits PartitionId => page m allocation unit id
+
+			for _, rscolinfo := range colsMapOffsets[partitionId] {
+				table.updateColOffsets(rscolinfo.First, rscolinfo.Second)
+			}
+
 			if ok {
 				for _, allocationUnitId := range allocationUnitIds {
 
