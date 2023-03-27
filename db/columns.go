@@ -18,7 +18,7 @@ type Column struct {
 	CollationId uint32
 	Precision   uint8
 	Scale       uint8
-	Offset      int32
+	Offset      int16
 }
 
 type SqlVariant struct {
@@ -126,7 +126,7 @@ func (c Column) toString(data []byte) string {
 			utils.Reverse(data[6:8]), data[8:10], data[10:16])
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
-		return fmt.Sprintf("unhandled type %s %x", c.Type, data[:])
+		return fmt.Sprintf("unhandled type %s", c.Type)
 	}
 }
 
