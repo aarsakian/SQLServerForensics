@@ -161,10 +161,10 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 			continue
 		} else if int(startVarColOffset) > len(data) {
 			break
-		} else if int(endVarColOffset) > len(data) ||
-			int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
+		} else if int(endVarColOffset) > len(data) {
 			endVarColOffset = int16(len(data))
-
+		} else if int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
+			endVarColOffset = int16(8192 - 2*len(dataRow.VarLengthColOffsets))
 		}
 		cpy := make([]byte, endVarColOffset-startVarColOffset) // var col length
 		copy(cpy, data[startVarColOffset:endVarColOffset])
@@ -204,19 +204,29 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 
 }
 
-func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, endoffset int32,
+func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int16,
 	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds) (data []byte) {
 
 	if static {
+		fixedLenColsOffset := 4 // include status flag nofcols
 		if int(colsize) > len(dataRow.FixedLenCols) {
-			mslogger.Mslogger.Error(fmt.Sprintf("Column size %d exceeded fixed len cols size %d", colsize, len(dataRow.FixedLenCols)))
+			mslogger.Mslogger.Error(fmt.Sprintf("Col Id %d Column size %d exceeded fixed len cols size %d",
+				colId, colsize, len(dataRow.FixedLenCols)))
 			return nil // bad practice ???
-		} else if int(endoffset) > len(dataRow.FixedLenCols) {
-			mslogger.Mslogger.Error(fmt.Sprintf("column end offset %d exceeded available area of fixed len cols by %d", endoffset,
-				int(endoffset)-len(dataRow.FixedLenCols)))
+		} else if int(startoffset) > len(dataRow.FixedLenCols)+fixedLenColsOffset {
+			mslogger.Mslogger.Error(fmt.Sprintf("Col Id %d column start offset %d exceeded available area of fixed len cols by %d",
+				colId, startoffset, int(startoffset)-len(dataRow.FixedLenCols)))
+			return nil
+		} else if int(startoffset)+int(colsize) > len(dataRow.FixedLenCols)+fixedLenColsOffset {
+			mslogger.Mslogger.Error(fmt.Sprintf("Col Id %d End offset %d exceeded available area of fixed len cols by %d ?",
+				colId, int(startoffset)+int(colsize), int(startoffset)+int(colsize)-len(dataRow.FixedLenCols)))
+			return nil
+		} else if startoffset < 4 {
+			mslogger.Mslogger.Error(fmt.Sprintf("Col id %d start offset %d is less than 4 fixed len cols offset",
+				colId, startoffset))
 			return nil
 		} else {
-			return dataRow.FixedLenCols[endoffset-int32(colsize) : endoffset]
+			return dataRow.FixedLenCols[startoffset-int16(fixedLenColsOffset) : startoffset+colsize-int16(fixedLenColsOffset)] //offset is from start of datarow
 		}
 
 	} else {
@@ -231,7 +241,13 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, endoffset int32
 
 			return lobPage.LOBS.GetData(lobPages, textLobPages) // might change
 		} else {
-			return (*dataRow.VarLenCols)[valorder].content
+			content := (*dataRow.VarLenCols)[valorder].content
+			if len(content) > int(colsize) {
+				mslogger.Mslogger.Error(fmt.Sprintf("Col id %d data len %d truncated to col size %d", colId, len(content), colsize))
+				content = content[:colsize]
+
+			}
+			return content
 		}
 
 	}
