@@ -11,8 +11,9 @@ var TableType = map[string]string{"AF": "Aggregate function (CLR)", "U": "User T
 	"V": "View", "P": "Stored Procedure", "TT": "Table Type", "UQ": "Unique Constraint", "C": "Check constraint",
 	"F": "Foreign Key", "FS": "Assembly (CLR) Scalar function", "FN": "Scalar Function", "FT": "Assembly (CLR) Table-Valued function"}
 
-type Indexes struct {
-}
+/*a set of pages of one particular type for one particular
+partition is called an allocation unit, so the final catalog view you need to learn about is sys.allocation_
+units. Therefore, a partiotion can have more than one allocation unit */
 
 type SysObjects struct { //view
 	Name             []byte
@@ -90,16 +91,16 @@ type sysIsCols struct {
 }
 
 type SysRsCols struct {
-	Rsid        uint64 //partition id
-	Rscolid     int32
-	Hbcolid     int32
-	Rcmodified  int64
-	Ti          int32
-	Cid         uint32
-	Ordkey      int16
-	Maxinrowlen int16
-	Status      int32
-	Offset      int32 //end offset of static column within datarow
+	Rsid        uint64 //1-8 partition id
+	Rscolid     int32  //8-12 column id
+	Hbcolid     int32  //12 - 16  ordinal position of the column in the index
+	Rcmodified  int64  //16 -24
+	Ti          int32  //24 -28
+	Cid         uint32 //28 -32
+	Ordkey      int16  //32 - 34
+	Maxinrowlen int16  //34 - 36
+	Status      int32  //36 - 40
+	Offset      int32  //end offset of static column within datarow 40 - 44
 	Nullbit     int32
 	Bitpos      int16
 	Olguid      []byte
@@ -109,7 +110,7 @@ type SysRowSets struct {
 	Rowsetid   uint64
 	Ownertype  uint8
 	Idmajor    uint32
-	Idminor    uint32
+	Idminor    uint32 // index id
 	Numpart    uint32
 	Status     uint32
 	Fgidfs     uint16
@@ -179,9 +180,14 @@ func (sysrscols SysRsCols) GetName() string {
 }
 
 func (sysrscols SysRsCols) GetData() (any, any) {
-	return uint64(sysrscols.Rsid), Result[uint32, int32, int64, int32, int32, int16, int32]{sysrscols.Cid,
-		sysrscols.Offset, sysrscols.Rcmodified,
-		sysrscols.Hbcolid, sysrscols.Rscolid, sysrscols.Bitpos, sysrscols.Nullbit}
+	return uint64(sysrscols.Rsid), Result[int32, int16, int64, int32, int32, int16, int32]{sysrscols.Rscolid,
+		sysrscols.GetLeafOffset(), sysrscols.Rcmodified,
+		sysrscols.Hbcolid, sysrscols.Rscolid, sysrscols.Ordkey, sysrscols.Nullbit}
+}
+
+func (sysrscols SysRsCols) GetLeafOffset() int16 {
+	return int16(sysrscols.Offset & 0xffff)
+
 }
 
 func (sysrscols *SysRsCols) SetName([]byte) {
@@ -205,7 +211,10 @@ func (sysrowsets SysRowSets) ShowData() {
 }
 
 func (sysrowsets SysRowSets) GetData() (any, any) {
-	return int32(sysrowsets.Idmajor), sysrowsets.Rowsetid // table object ID, partition ID
+	return int32(sysrowsets.Idmajor), Result[uint64, uint32, uint8, uint16, uint16, uint16, uint32]{
+		sysrowsets.Rowsetid, sysrowsets.Idminor, sysrowsets.Comprlevel,
+		sysrowsets.Maxint, sysrowsets.Minint, sysrowsets.Fgidfs, sysrowsets.Maxleaf}
+	// table object ID, partition ID
 }
 
 func (sysiscols *sysIsCols) SetName([]byte) {
