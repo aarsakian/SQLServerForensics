@@ -155,7 +155,7 @@ func main() {
 	database.PagesMap = pages
 	database.Name = strings.Split(*inputfile, ".")[0]
 
-	tables := database.GetTablesInformation()
+	tables := database.GetTablesInformation(*tableName)
 	database.Tables = tables
 
 	fmt.Printf("Reconstructed %d tables.\n", len(tables))
