@@ -241,13 +241,7 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 
 			return lobPage.LOBS.GetData(lobPages, textLobPages) // might change
 		} else {
-			content := (*dataRow.VarLenCols)[valorder].content
-			if len(content) > int(colsize) {
-				mslogger.Mslogger.Error(fmt.Sprintf("Col id %d data len %d truncated to col size %d", colId, len(content), colsize))
-				content = content[:colsize]
-
-			}
-			return content
+			return (*dataRow.VarLenCols)[valorder].content
 		}
 
 	}
