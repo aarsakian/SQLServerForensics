@@ -370,6 +370,11 @@ func Unmarshal(data []byte, v interface{}) error {
 			binary.Read(bytes.NewBuffer(data[idx:idx+1]), binary.LittleEndian, &temp)
 			field.SetUint(uint64(temp))
 			idx += 1
+		case reflect.Int16:
+			var temp int16
+			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+			field.SetInt(int64(temp))
+			idx += 2
 		case reflect.Uint16:
 			var temp uint16
 
@@ -383,6 +388,11 @@ func Unmarshal(data []byte, v interface{}) error {
 
 			field.SetUint(uint64(temp))
 			idx += 2
+		case reflect.Int32:
+			var temp int32
+			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
+			field.SetInt(int64(temp))
+			idx += 4
 
 		case reflect.Uint32:
 			var temp uint32
@@ -398,17 +408,15 @@ func Unmarshal(data []byte, v interface{}) error {
 			idx += 8
 
 			field.SetUint(temp)
-		case reflect.Int16:
-			var temp int16
-			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
-			field.SetInt(int64(temp))
-			idx += 2
 
-		case reflect.Int32:
-			var temp int32
-			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
-			field.SetInt(int64(temp))
-			idx += 4
+		case reflect.Int64:
+			var temp int64
+
+			binary.Read(bytes.NewBuffer(data[idx:idx+8]), binary.LittleEndian, &temp)
+			idx += 8
+
+			field.SetInt(temp)
+
 		case reflect.Struct:
 			name := structType.Elem().Field(i).Name
 			if name == "LSN" {
