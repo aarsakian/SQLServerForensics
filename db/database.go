@@ -5,6 +5,7 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
+	"sort"
 )
 
 type Database struct {
@@ -69,8 +70,8 @@ func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 	return results
 }
 
-func (db Database) createColMapOffsets(tablename string) map[uint64][]page.Result[uint32, int32, int64, int32, int32, int16, int32] {
-	results := map[uint64][]page.Result[uint32, int32, int64, int32, int32, int16, int32]{}
+func (db Database) createColMapOffsets(tablename string) map[uint64][]page.Result[int32, int16, int64, int32, int32, int16, int32] {
+	results := map[uint64][]page.Result[int32, int16, int64, int32, int32, int16, int32]{}
 	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
 		if systemPage.GetType() != "DATA" {
@@ -81,7 +82,26 @@ func (db Database) createColMapOffsets(tablename string) map[uint64][]page.Resul
 			partitionId, res := datarow.SystemTable.GetData()
 
 			results[(partitionId).(uint64)] = append(results[(partitionId).(uint64)],
-				res.(page.Result[uint32, int32, int64, int32, int32, int16, int32]))
+				res.(page.Result[int32, int16, int64, int32, int32, int16, int32]))
+		}
+
+	}
+	return results
+}
+
+func (db Database) createMapListPartitions(tablename string) map[int32][]page.Result[uint64, uint32, uint8, uint16, uint16, uint16, uint32] {
+	results := map[int32][]page.Result[uint64, uint32, uint8, uint16, uint16, uint16, uint32]{}
+	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	for _, systemPage := range systemPages {
+		if systemPage.GetType() != "DATA" {
+			continue
+		}
+
+		for _, datarow := range systemPage.DataRows {
+			objectId, res := datarow.SystemTable.GetData()
+
+			results[(objectId).(int32)] = append(results[(objectId).(int32)],
+				res.(page.Result[uint64, uint32, uint8, uint16, uint16, uint16, uint32]))
 		}
 
 	}
@@ -140,7 +160,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 }
 
-func (db Database) GetTablesInformation() []Table {
+func (db Database) GetTablesInformation(tablename string) []Table {
 	/*
 	 get objectid for each table  sysschobjs
 	 for each table using its objectid retrieve its columns from syscolpars
@@ -153,12 +173,18 @@ func (db Database) GetTablesInformation() []Table {
 
 	colsMapOffsets := db.createColMapOffsets("sysrscols") //Rowsetid = colid ,offset
 
-	tableAllocsMap := db.createMapListGeneric("sysrowsets")            //(ttable objectid) = sysrowsets.Rowsetid (partitions)
+	tablePartitionsMap := db.createMapListPartitions("sysrowsets")     //(table objectid) = (partitionId, index_id, ...)
 	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  OwnerId, page allocunitid
 
 	var tables []Table
 	for tobjectId, res := range tablesMap {
 		tname := res.First
+
+		if tablename != "all" && tablename != tname {
+			msg := fmt.Sprintf("table %s not processed", tname)
+			mslogger.Mslogger.Info(msg)
+			continue
+		}
 
 		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
 
@@ -166,29 +192,24 @@ func (db Database) GetTablesInformation() []Table {
 
 		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 		mslogger.Mslogger.Info(msg)
-		mslogger.Mslogger.Info(fmt.Sprintf("%t", ok))
+
 		if ok {
 			//		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
 
 			table.addColumns(results)
-			//	table.updateVarLenCols()
-			// sort by col order static always first
-			//	sort.Sort(table)
+			table.updateVarLenCols()
+			// sort by col order
+			sort.Sort(table)
 
 		}
 
-		partitionIds, ok := tableAllocsMap[tobjectId] // from sysrowsets idmajor => rowsetid
-		if ok {
-			table.PartitionIds = partitionIds // rowsetid
-		}
+		partitions, ok := tablePartitionsMap[tobjectId.(int32)] // from sysrowsets idmajor => rowsetid
+
 		var table_alloc_pages page.Pages
 
-		for _, partitionId := range partitionIds {
-			allocationUnitIds, ok := tableSysAllocsMap[partitionId] // from sysallocunits PartitionId => page m allocation unit id
-
-			for _, rscolinfo := range colsMapOffsets[partitionId] {
-				table.updateColOffsets(rscolinfo.First, rscolinfo.Second)
-			}
+		for _, partition := range partitions {
+			table.PartitionIds = append(table.PartitionIds, partition.First)
+			allocationUnitIds, ok := tableSysAllocsMap[partition.First] // from sysallocunits PartitionId => page m allocation unit id
 
 			if ok {
 				for _, allocationUnitId := range allocationUnitIds {
@@ -198,6 +219,13 @@ func (db Database) GetTablesInformation() []Table {
 
 			}
 			table.AllocationUnitIds = allocationUnitIds
+
+			if partition.Second != 1 { // index_id 1 for data pages
+				continue
+			}
+			for _, rscolinfo := range colsMapOffsets[partition.First] {
+				table.updateColOffsets(rscolinfo.First, rscolinfo.Second, rscolinfo.Sixth) //columnd_id ,offset, ordkey
+			}
 
 		}
 		dataPages := table_alloc_pages.FilterByTypeToMap("DATA") // pageId -> Page
