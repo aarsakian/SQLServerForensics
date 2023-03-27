@@ -46,16 +46,16 @@ func (table *Table) addColumns(results []page.Result[string, string, int16, uint
 func (table *Table) updateVarLenCols() {
 
 	vid := 0
-	colorder := uint16(1)
+	//colorder := uint16(1)
 	// first arrange static
 
-	for idx := range table.Schema {
+	/*	for idx := range table.Schema {
 		if table.Schema[idx].isStatic() {
 			table.Schema[idx].Order = colorder
 			table.Schema[idx].VarLenOrder = 0
 			colorder++
 		}
-	}
+	}*/
 
 	//2nd pass for var len cols
 	for idx := range table.Schema {
@@ -63,9 +63,8 @@ func (table *Table) updateVarLenCols() {
 			continue
 		}
 		table.Schema[idx].VarLenOrder = uint16(vid)
-		table.Schema[idx].Order = colorder
+
 		vid++
-		colorder++
 
 	}
 }
@@ -73,11 +72,15 @@ func (table *Table) updateVarLenCols() {
 func (table Table) printSchema() {
 	if table.Schema != nil {
 
-		fmt.Printf("Schema col name type static:  %s \n", table.Name)
+		fmt.Printf("Table Name:  %s \n", table.Name)
+		fmt.Printf("Static cols \n")
 		for _, col := range table.Schema {
-			fmt.Printf(" | %s %s %t", col.Name, col.Type, col.isStatic())
+			if !col.isStatic() {
+				continue
+			}
+			fmt.Printf(" | %s %s", col.Name, col.Type)
 		}
-		fmt.Printf("\nDynamic cols")
+		fmt.Printf("\nDynamic cols\n")
 		for _, col := range table.Schema {
 			if col.isStatic() {
 				continue
@@ -171,6 +174,7 @@ func (table Table) printHeader() {
 	}
 	fmt.Printf("\n")
 }
+
 func (table Table) printData(showtorow int, showrow int) {
 	for idx, row := range table.rows {
 		if showtorow != -1 && idx > showtorow {
@@ -189,8 +193,18 @@ func (table Table) printData(showtorow int, showrow int) {
 
 }
 
-func (table *Table) updateColOffsets(cid uint32, offset int32) {
-	table.Schema[cid].Offset = offset
+func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16) {
+	if len(table.Schema) < int(column_id) {
+		msg := fmt.Sprintf("Partition columnd id %d exceeds nof cols %d of table %s", column_id, len(table.Schema), table.Name)
+		mslogger.Mslogger.Info(msg)
+	} else if offset < 4 {
+		msg := fmt.Sprintf("Offset %d of col %s of table %s is less than the minimum allowed offset of 4", offset,
+			table.Schema[column_id-1].Name, table.Name)
+		mslogger.Mslogger.Info(msg)
+	} else {
+		table.Schema[column_id-1].Offset = offset
+	}
+
 }
 
 func (table *Table) setContent(dataPages page.PageMapIds,
