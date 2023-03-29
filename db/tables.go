@@ -154,7 +154,9 @@ func (table Table) printAllocation() {
 
 func (table Table) GetRecords() utils.Records {
 	var records utils.Records
+
 	records = append(records, table.getHeader())
+
 	for _, row := range table.rows {
 		var record utils.Record
 		for _, c := range table.Schema {
@@ -165,6 +167,23 @@ func (table Table) GetRecords() utils.Records {
 	}
 	return records
 
+}
+
+func (table Table) GetImages() utils.Images {
+	var images utils.Images
+
+	for _, row := range table.rows {
+
+		for _, c := range table.Schema {
+			if c.Type != "image" {
+				continue
+			}
+			content := row[c.Name]
+
+			images = append(images, content)
+		}
+	}
+	return images
 }
 
 func (table Table) printHeader() {
