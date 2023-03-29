@@ -63,6 +63,7 @@ func main() {
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 	logActive := flag.Bool("log", false, "log activity")
 	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
+	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 
 	flag.Parse()
 
@@ -165,7 +166,7 @@ func main() {
 	reporter.ShowTableInfo(database)
 
 	if *export {
-		exp := exporter.Exporter{Format: *exportFormat}
+		exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage}
 		exp.Export(database, *tableName, *tabletype)
 	}
 
