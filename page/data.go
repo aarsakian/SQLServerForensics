@@ -189,10 +189,11 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 		} else if inlineBlob16 != nil {
 			datacols = append(datacols,
 				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
+			inlineBlob16 = nil
 		} else if inlineBlob24 != nil {
 			datacols = append(datacols,
 				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob24: inlineBlob24})
-
+			inlineBlob24 = nil
 		} else {
 			datacols = append(datacols,
 				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset)})
