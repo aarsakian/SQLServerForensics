@@ -40,6 +40,8 @@ type Auid struct {
 	Zeros    uint32
 }
 
+type Images [][]byte
+
 // Datetime2: 8 bytes rtl reading first 5 time unit intervals since midnight,last 3 (left) how many days have passed since 0001/01/01
 //0x07 prefix time unit 100ns, 0x06 1 micro second intervals
 func DateTime2Tostr(data []byte) string {
