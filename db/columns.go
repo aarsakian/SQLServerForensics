@@ -4,6 +4,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	b64 "encoding/base64"
 	"fmt"
 )
 
@@ -114,11 +115,12 @@ func (c Column) toString(data []byte) string {
 	} else if c.Type == "varbinary" {
 		return fmt.Sprintf("%x", data)
 	} else if c.Type == "decimal" {
-
 		return c.parseDecimal(data)
 	} else if c.Type == "sql_variant" {
 		sqlVariant := c.parseSqlVariant(data)
 		return sqlVariant.getData()
+	} else if c.Type == "image" {
+		return b64.StdEncoding.EncodeToString(data)
 	} else if c.Type == "bit" {
 		return fmt.Sprintf("%1d", utils.ToInt8(data))
 	} else if c.Type == "uniqueidentifier" {
