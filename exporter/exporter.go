@@ -15,10 +15,12 @@ type Writer interface {
 
 type Exporter struct {
 	Format string
+	Image  bool
 }
 
 func (exp Exporter) Export(database db.Database, tablename string, tabletype string) {
 	var records utils.Records
+	var images utils.Images
 
 	err := os.Mkdir(database.Name, 0750)
 
@@ -45,6 +47,13 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 		}
 
 		records = table.GetRecords()
+
+		if exp.Image {
+			images = table.GetImages()
+
+			writeImages(images, table.Name, database.Name+"/"+table.Type)
+
+		}
 
 		if exp.Format == "csv" {
 			msg := fmt.Sprintf("Exporting Table %s with %d records", table.Name, len(records)-1)
