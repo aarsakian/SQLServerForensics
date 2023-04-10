@@ -111,16 +111,16 @@ func (dataCol DataCol) hasBlob16() bool {
 
 }
 
-func (dataCol DataCol) GetLOBPage() uint32 {
+func (dataCol DataCol) GetLOBPage() (utils.RowId, uint32) {
 	if dataCol.hasBlob16() {
-		return dataCol.InlineBlob16.RowId.PageId // needs check for more rowids
+		return dataCol.InlineBlob16.RowId, dataCol.InlineBlob16.Timestamp // needs check for more rowids
 	} else if dataCol.hasBlob24() {
-		return dataCol.InlineBlob24.RowId.PageId // needs check for more rowids
+		return dataCol.InlineBlob24.RowId, dataCol.InlineBlob24.Timestamp // needs check for more rowids
 	}
-	return 0
+	return utils.RowId{}, 0
 }
 
-func (dataRow DataRow) GetBloBPageId(colNum uint16) uint32 {
+func (dataRow DataRow) GetBloBInfo(colNum uint16) (utils.RowId, uint32) {
 	return (*dataRow.VarLenCols)[colNum].GetLOBPage()
 }
 
@@ -235,12 +235,12 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 			// should had bitmap set to 1 however it is not expiremental
 			return nil
 		}
-		pageId := dataRow.GetBloBPageId(valorder)
-		if pageId != 0 {
+		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
+		if rowId.FileId != 0 {
 
-			lobPage := lobPages[pageId]
+			lobPage := lobPages[rowId.PageId]
 
-			return lobPage.LOBS.GetData(lobPages, textLobPages) // might change
+			return lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp)) // might change
 		} else {
 			return (*dataRow.VarLenCols)[valorder].content
 		}
