@@ -177,6 +177,21 @@ func (page Page) isSystemPage(systemTable string) bool {
 	}
 }
 
+func (page Page) GetLobData(lobPages PageMapIds, textLobPages PageMapIds, SlotNumber uint, textTimestamp uint) []byte {
+
+	var dataParts [][]byte
+	for _, lob := range page.LOBS {
+
+		if lob.Id != uint64(textTimestamp) {
+			continue
+		}
+
+		dataParts = lob.walk(lobPages, textLobPages, dataParts, textTimestamp, page.Header.PageId)
+
+	}
+	return bytes.Join(dataParts, []byte{})
+}
+
 func retrieveSlots(data []byte) []utils.SlotOffset {
 	var slotsOffset []utils.SlotOffset
 

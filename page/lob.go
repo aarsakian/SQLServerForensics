@@ -2,7 +2,6 @@ package page
 
 import (
 	"MSSQLParser/utils"
-	"bytes"
 )
 
 type LOBS []LOB
@@ -80,38 +79,47 @@ func (lob *LOB) ParseInternal(data []byte) {
 	lob.Internal = internal
 }
 
-func (lob LOB) walk(lobPages PageMapIds, textLobPages PageMapIds, dataParts [][]byte) [][]byte {
+func (lob LOB) walk(lobPages PageMapIds, textLobPages PageMapIds, dataParts [][]byte, textTimestamp uint, parentPageId uint32) [][]byte {
 
 	if lob.Type == 2 {
-		for _, dataLob := range lob.Internal.DataPointers {
+		for _, dataLob := range lob.Internal.DataPointers { //points to lob type 3
 			lobPage := lobPages[dataLob.PageId]
 			for _, lob := range lobPage.LOBS {
+				if lob.Id != uint64(textTimestamp) {
+					continue
+				}
 				dataParts = append(dataParts, lob.Data)
 			}
 		}
 
-	} else {
-		for _, internalLob := range lob.Root.InternalPointers {
-			lobPage := textLobPages[internalLob.PageId]
-			for _, lob := range lobPage.LOBS {
-				dataParts = lob.walk(lobPages, textLobPages, dataParts)
+	} else if lob.Type == 3 && lob.Id == uint64(textTimestamp) {
+		dataParts = append(dataParts, lob.Data)
+	} else if lob.Type == 5 { // type 5
+		for _, internalLob := range lob.Root.InternalPointers { //internal lob type 2 or type 3
+
+			if parentPageId == internalLob.PageId { //cyclic reference protection
+				continue
 			}
+
+			var lobPage Page
+			lobPage = lobPages[internalLob.PageId]
+
+			if lobPage.Header.PageId == 0 { // lob Pages does not contains thiss page id
+				lobPage = textLobPages[internalLob.PageId]
+			}
+
+			for _, lob := range lobPage.LOBS {
+
+				if lob.Id != uint64(textTimestamp) {
+					continue
+				}
+
+				dataParts = lob.walk(lobPages, textLobPages, dataParts, textTimestamp, internalLob.PageId)
+
+			}
+
 		}
 	}
 	return dataParts
 
-}
-
-func (lobs LOBS) GetData(lobPages PageMapIds, textLobPages PageMapIds) []byte {
-
-	var dataParts [][]byte
-	for _, lob := range lobs {
-		if lob.Type == 3 && len(lobs) == 1 { //dataRow has only one lob and it is leaf
-			dataParts = append(dataParts, lob.Data)
-		} else if lob.Type == 5 {
-			dataParts = lob.walk(lobPages, textLobPages, dataParts)
-		}
-	}
-
-	return bytes.Join(dataParts, []byte{})
 }
