@@ -5,13 +5,74 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
+	"os"
 	"sort"
+	"strings"
 )
 
+var PAGELEN = 8192
+
 type Database struct {
-	Name     string
+	Fname    string
 	PagesMap page.PagesMap //allocationunitid -> Pages
 	Tables   []Table
+}
+
+func (db *Database) Process(selectedPage int, fromPage int, toPage int) int {
+	file, err := os.Open(db.Fname) //
+	if err != nil {
+		// handle the error here
+		fmt.Printf("err %s for reading the mdf file ", err)
+		return -1
+	}
+
+	fsize, err := file.Stat() //file descriptor
+	if err != nil {
+		mslogger.Mslogger.Error(err)
+		return -1
+	}
+	// read the file
+
+	defer file.Close()
+
+	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
+
+	pages := page.PagesMap{}
+
+	fmt.Println("Processing pages...")
+	totalProcessedPages := 0
+	for offset := 0; offset < int(fsize.Size()); offset += PAGELEN {
+		_, err := file.ReadAt(bs, int64(offset))
+
+		if err != nil {
+			fmt.Printf("error reading file --->%s prev offset %d  mod %d",
+				err, offset/PAGELEN, offset%PAGELEN)
+			break
+		}
+
+		if selectedPage != -1 && (offset/PAGELEN < selectedPage ||
+			offset/PAGELEN > selectedPage) {
+			continue
+		}
+
+		if (offset / PAGELEN) < fromPage {
+			continue
+		}
+
+		if toPage != -1 && (offset/PAGELEN) > toPage {
+			continue
+		}
+		msg := fmt.Sprintf("Processing offset %d", offset)
+		mslogger.Mslogger.Info(msg)
+		page := db.ProcessPage(bs, offset)
+		pages[page.Header.GetMetadataAllocUnitId()] = append(pages[page.Header.GetMetadataAllocUnitId()], page)
+
+		totalProcessedPages++
+
+	}
+	db.PagesMap = pages
+	return totalProcessedPages
+
 }
 
 func (db Database) ProcessPage(bs []byte, offset int) page.Page {
@@ -23,6 +84,14 @@ func (db Database) ProcessPage(bs []byte, offset int) page.Page {
 
 func (db *Database) FilterBySystemTables(systemTables string) {
 	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTables)
+}
+
+func (db *Database) FilterPagesByType(pageType string) {
+	db.PagesMap = db.PagesMap.FilterByType(pageType) //mutable
+}
+
+func (db *Database) FilterPagesBySystemTables(systemTable string) {
+	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTable)
 }
 
 func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint, uint, uint, uint] {
@@ -37,6 +106,10 @@ func (db Database) createMap(tablename string) map[any]page.Result[string, strin
 
 	}
 	return results
+}
+
+func (db Database) GetName() string {
+	return strings.Split(db.Fname, ".")[0]
 }
 
 func (db Database) createMapGeneric(tablename string) map[any]uint64 {
