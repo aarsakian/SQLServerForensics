@@ -22,7 +22,7 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 	var records utils.Records
 	var images utils.Images
 
-	err := os.Mkdir(database.Name, 0750)
+	err := os.Mkdir(database.GetName(), 0750)
 
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
@@ -40,7 +40,7 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 		}
 
 		if table.Type != "" {
-			err := os.Mkdir(database.Name+"/"+table.Type, 0750)
+			err := os.Mkdir(database.GetName()+"/"+table.Type, 0750)
 			if err != nil && !os.IsExist(err) {
 				log.Fatal(err)
 			}
@@ -51,14 +51,14 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 		if exp.Image {
 			images = table.GetImages()
 
-			writeImages(images, table.Name, database.Name+"/"+table.Type)
+			writeImages(images, table.Name, database.GetName()+"/"+table.Type)
 
 		}
 
 		if exp.Format == "csv" {
 			msg := fmt.Sprintf("Exporting Table %s with %d records", table.Name, len(records)-1)
 			mslogger.Mslogger.Info(msg)
-			writeCSV(records, table.Name, database.Name+"/"+table.Type)
+			writeCSV(records, table.Name, database.GetName()+"/"+table.Type)
 		}
 
 	}
