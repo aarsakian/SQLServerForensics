@@ -21,22 +21,31 @@ Index allocation map (IAM) pages keep track of the extents used by a heap or ind
 package main
 
 import (
-	db "MSSQLParser/db"
+	"MSSQLParser/db"
 	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
-	"MSSQLParser/page"
 	"MSSQLParser/reporter"
 	"flag"
 	"fmt"
-	"os"
-	"strings"
+	"math"
+	"path/filepath"
+	"sync"
+
+	disk "github.com/aarsakian/MFTExtractor/Disk"
+	"github.com/aarsakian/MFTExtractor/FS/NTFS/MFT"
+	mftExporter "github.com/aarsakian/MFTExtractor/exporter"
+	"github.com/aarsakian/MFTExtractor/img"
+	"github.com/aarsakian/MFTExtractor/utils"
 )
 
 func main() {
 
-	PAGELEN := 8192
-
 	inputfile := flag.String("db", "", "absolute path to the MDF file")
+	physicalDrive := flag.Int("disk", -1, "select the physical disk number to look for MDF file")
+	evidencefile := flag.String("evidence", "", "path to image file")
+	partitionNum := flag.Int("partitionNumber", -1, "select the partition number to look for MDF files")
+	location := flag.String("location", "MDF", "the path to export  files")
+
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
@@ -69,26 +78,6 @@ func main() {
 
 	mslogger.InitializeLogger(*logActive)
 
-	file, err := os.Open(*inputfile) //
-	if err != nil {
-		// handle the error here
-		fmt.Printf("err %s for reading the mdf file ", err)
-		return
-	}
-
-	fsize, err := file.Stat() //file descriptor
-	if err != nil {
-		mslogger.Mslogger.Error(err)
-		return
-	}
-	// read the file
-
-	defer file.Close()
-
-	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
-	var database db.Database
-	pages := page.PagesMap{}
-
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
 		ShowSGamExtents:     *showSGamExtents,
 		ShowIAMExtents:      *showIAMExtents,
@@ -106,68 +95,87 @@ func main() {
 		ShowTableRow:        *showTableRow,
 		TableType:           *tabletype}
 
-	fmt.Println("Processing pages...")
-	totalProcessedPages := 0
-	for offset := 0; offset < int(fsize.Size()); offset += PAGELEN {
-		_, err := file.ReadAt(bs, int64(offset))
+	var hD img.DiskReader
 
-		if err != nil {
-			fmt.Printf("error reading file --->%s prev offset %d  mod %d",
-				err, offset/PAGELEN, offset%PAGELEN)
-			return
+	var physicalDisk disk.Disk
+	var inputfiles []string
+	if *evidencefile != "" || *physicalDrive != -1 {
+		var records MFT.Records
+
+		if *physicalDrive != -1 {
+
+			hD = img.GetHandler(fmt.Sprintf("\\\\.\\PHYSICALDRIVE%d", *physicalDrive), "physicalDrive")
+
+		} else {
+			hD = img.GetHandler(*evidencefile, "image")
+
 		}
+		physicalDisk = disk.Disk{Handler: hD}
+		physicalDisk.DiscoverPartitions()
 
-		if *selectedPage != -1 && (offset/PAGELEN < *selectedPage || offset/PAGELEN > *selectedPage) && !*showPageStats {
-			continue
+		physicalDisk.ProcessPartitions(*partitionNum, []int{}, -1, math.MaxUint32)
+		records = physicalDisk.GetFileSystemMetadata(*partitionNum)
+		defer hD.CloseHandler()
+
+		records = records.FilterByExtension("mdf")
+
+		if (*evidencefile != "" || *physicalDrive != -1) && *location != "" && len(records) != 0 {
+
+			results := make(chan utils.AskedFile, len(records))
+			wg := new(sync.WaitGroup)
+			wg.Add(2)
+
+			exp := mftExporter.Exporter{Location: *location}
+
+			go exp.ExportData(wg, results)                              //consummer
+			go physicalDisk.Worker(wg, records, results, *partitionNum) //producer
+			wg.Wait()
+			for _, record := range records {
+				fullpath := filepath.Join(exp.Location, record.GetFname())
+				inputfiles = append(inputfiles, fullpath)
+			}
+
 		}
-
-		if !*showPageStats && (offset/PAGELEN) < *fromPage {
-			continue
-		}
-
-		if !*showPageStats && *toPage != -1 && (offset/PAGELEN) > *toPage {
-			continue
-		}
-		msg := fmt.Sprintf("Processing offset %d", offset)
-		mslogger.Mslogger.Info(msg)
-		page := database.ProcessPage(bs, offset)
-		pages[page.Header.GetMetadataAllocUnitId()] = append(pages[page.Header.GetMetadataAllocUnitId()], page)
-
-		totalProcessedPages++
 
 	}
 
-	if *pageType != "" {
-		pages = pages.FilterByType(*pageType) //mutable
-
+	if *inputfile != "" {
+		inputfiles = append(inputfiles, *inputfile)
 	}
+	for _, inputFile := range inputfiles {
+		database := db.Database{Fname: inputFile}
+		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage)
 
-	if *systemTables != "" {
-		pages = pages.FilterBySystemTables(*systemTables)
+		if *pageType != "" {
+			database.FilterPagesByType(*pageType) //mutable
 
-	}
+		}
 
-	if *userTable != "" {
-		pages = pages.FilterBySystemTables("sysschobjs")
-	}
+		if *systemTables != "" {
+			database.FilterPagesBySystemTables(*systemTables)
 
-	fmt.Printf("Processed %d pages.\n", totalProcessedPages)
-	fmt.Println("Reconstructing tables...")
-	database.PagesMap = pages
-	database.Name = strings.Split(*inputfile, ".")[0]
+		}
 
-	tables := database.GetTablesInformation(*tableName)
-	database.Tables = tables
+		if *userTable != "" {
+			database.FilterPagesBySystemTables("sysschobjs")
+		}
 
-	fmt.Printf("Reconstructed %d tables.\n", len(tables))
-	fmt.Println("Reporting & exporting stage.")
+		fmt.Printf("Processed %d pages.\n", totalProcessedPages)
+		fmt.Println("Reconstructing tables...")
 
-	reporter.ShowPageInfo(database, uint32(*selectedPage))
-	reporter.ShowTableInfo(database)
+		tables := database.GetTablesInformation(*tableName)
+		database.Tables = tables
 
-	if *export {
-		exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage}
-		exp.Export(database, *tableName, *tabletype)
+		fmt.Printf("Reconstructed %d tables.\n", len(tables))
+		fmt.Println("Reporting & exporting stage.")
+
+		reporter.ShowPageInfo(database, uint32(*selectedPage))
+		reporter.ShowTableInfo(database)
+
+		if *export {
+			exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage}
+			exp.Export(database, *tableName, *tabletype)
+		}
 	}
 
 }
