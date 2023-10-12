@@ -33,7 +33,7 @@ import (
 
 	disk "github.com/aarsakian/MFTExtractor/Disk"
 	"github.com/aarsakian/MFTExtractor/FS/NTFS/MFT"
-	mftExporter "github.com/aarsakian/MFTExtractor/exporter"
+	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
 	"github.com/aarsakian/MFTExtractor/img"
 	"github.com/aarsakian/MFTExtractor/utils"
 )
@@ -41,9 +41,9 @@ import (
 func main() {
 
 	inputfile := flag.String("db", "", "absolute path to the MDF file")
-	physicalDrive := flag.Int("disk", -1, "select the physical disk number to look for MDF file")
+	physicalDrive := flag.Int("physicaldrive", -1, "select the physical disk number to look for MDF file")
 	evidencefile := flag.String("evidence", "", "path to image file")
-	partitionNum := flag.Int("partitionNumber", -1, "select the partition number to look for MDF files")
+	partitionNum := flag.Int("partition", -1, "select the partition number to look for MDF files")
 	location := flag.String("location", "MDF", "the path to export  files")
 
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
@@ -98,9 +98,9 @@ func main() {
 	var hD img.DiskReader
 
 	var physicalDisk disk.Disk
+	var recordsPerPartition map[int]MFT.Records
 	var inputfiles []string
 	if *evidencefile != "" || *physicalDrive != -1 {
-		var records MFT.Records
 
 		if *physicalDrive != -1 {
 
@@ -114,22 +114,25 @@ func main() {
 		physicalDisk.DiscoverPartitions()
 
 		physicalDisk.ProcessPartitions(*partitionNum, []int{}, -1, math.MaxUint32)
-		records = physicalDisk.GetFileSystemMetadata(*partitionNum)
+		recordsPerPartition = physicalDisk.GetFileSystemMetadata(*partitionNum)
+
 		defer hD.CloseHandler()
+		exp := MFTExporter.Exporter{Location: *location}
+		for partitionId, records := range recordsPerPartition {
 
-		records = records.FilterByExtension("mdf")
+			records = records.FilterByExtension("mdf")
 
-		if (*evidencefile != "" || *physicalDrive != -1) && *location != "" && len(records) != 0 {
+			if *location != "" && len(records) != 0 {
 
-			results := make(chan utils.AskedFile, len(records))
-			wg := new(sync.WaitGroup)
-			wg.Add(2)
+				results := make(chan utils.AskedFile, len(records))
+				wg := new(sync.WaitGroup)
+				wg.Add(2)
 
-			exp := mftExporter.Exporter{Location: *location}
+				go exp.ExportData(wg, results)                            //consumer
+				go physicalDisk.Worker(wg, records, results, partitionId) //producer
+				wg.Wait()
 
-			go exp.ExportData(wg, results)                              //consummer
-			go physicalDisk.Worker(wg, records, results, *partitionNum) //producer
-			wg.Wait()
+			}
 			for _, record := range records {
 				fullpath := filepath.Join(exp.Location, record.GetFname())
 				inputfiles = append(inputfiles, fullpath)
