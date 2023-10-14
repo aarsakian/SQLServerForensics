@@ -6,6 +6,8 @@ github.com/aarsakian/MFTExtractor v0.0.0-20231012164709-8e3d94c6a208 h1:s0GOggLW
 github.com/aarsakian/MFTExtractor v0.0.0-20231012164709-8e3d94c6a208/go.mod h1:5rDBrKabUaUjAXOiPmJm8AdPAKkKcXit89TF48U8bBE=
 github.com/aarsakian/MFTExtractor v0.0.0-20231012172230-9337fd902561 h1:kt4oJ3xOf+hLASZn0qUXIm+xQtLLtbJyXkoIKvAzM+E=
 github.com/aarsakian/MFTExtractor v0.0.0-20231012172230-9337fd902561/go.mod h1:5rDBrKabUaUjAXOiPmJm8AdPAKkKcXit89TF48U8bBE=
+github.com/aarsakian/MFTExtractor v0.0.0-20231012180829-3c346ed526f0 h1:wrSnqi9nImuIvyek9bnnErFsWRNMjefDtZfwkYqK/Z8=
+github.com/aarsakian/MFTExtractor v0.0.0-20231012180829-3c346ed526f0/go.mod h1:5rDBrKabUaUjAXOiPmJm8AdPAKkKcXit89TF48U8bBE=
 golang.org/x/sys v0.13.0 h1:Af8nKPmuFypiUBjVoU9V20FiaFXOcuZI21p0ycVYYGE=
 golang.org/x/sys v0.13.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/text v0.13.0 h1:ablQoSUd0tRdKxZewP80B+BaqeKJuVhuRxj/dkrun3k=
