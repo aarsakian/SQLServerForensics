@@ -120,7 +120,7 @@ func main() {
 		exp := MFTExporter.Exporter{Location: *location}
 		for partitionId, records := range recordsPerPartition {
 
-			records = records.FilterByExtension("mdf")
+			records = records.FilterByExtension("MDF")
 
 			if *location != "" && len(records) != 0 {
 
@@ -146,7 +146,9 @@ func main() {
 		inputfiles = append(inputfiles, *inputfile)
 	}
 	for _, inputFile := range inputfiles {
+		fmt.Printf("about to process database file %s \n", inputFile)
 		database := db.Database{Fname: inputFile}
+
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage)
 
 		if *pageType != "" {
