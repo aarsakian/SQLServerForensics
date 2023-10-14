@@ -269,6 +269,10 @@ func (page *Page) parseDATA(data []byte, offset int) {
 	var forwardingPointers ForwardingPointers
 
 	for slotnum, slotoffset := range page.Slots {
+		var dataRowLen utils.SlotOffset
+		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
+		var dataRow *DataRow = new(DataRow)
+
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
 
@@ -276,16 +280,15 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			fmt.Printf("slotoffset %d less than header size \n", slotoffset)
 			continue
 		}
-		var dataRowLen utils.SlotOffset
-		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
-		var dataRow *DataRow = new(DataRow)
 
-		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
-			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
-		} else if page.Header.FreeData < uint16(slotoffset) {
+		if page.Header.FreeData < uint16(slotoffset) {
 			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slotoffset)
 			mslogger.Mslogger.Warning(msg)
 			continue
+		}
+
+		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
+			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
 		} else { //last slot
 			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
