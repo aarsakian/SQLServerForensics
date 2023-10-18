@@ -117,7 +117,7 @@ func main() {
 		recordsPerPartition = physicalDisk.GetFileSystemMetadata(*partitionNum)
 
 		defer hD.CloseHandler()
-		exp := MFTExporter.Exporter{Location: *location}
+		exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1"}
 		for partitionId, records := range recordsPerPartition {
 
 			records = records.FilterByExtension("MDF")
@@ -125,11 +125,14 @@ func main() {
 			if *location != "" && len(records) != 0 {
 
 				results := make(chan utils.AskedFile, len(records))
+				copyresults := make(chan utils.AskedFile, len(records))
 				wg := new(sync.WaitGroup)
-				wg.Add(2)
+				wg.Add(3)
 
-				go exp.ExportData(wg, results)                            //consumer
+				go exp.ExportData(wg, results, copyresults)               //consumer
 				go physicalDisk.Worker(wg, records, results, partitionId) //producer
+				go exp.HashFile(wg, copyresults)
+
 				wg.Wait()
 
 			}
