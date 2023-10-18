@@ -126,7 +126,7 @@ type SysRowSets struct {
 	Scope_id   uint32
 }
 
-//stores table/ contstraints information
+// stores table/ contstraints information
 type Sysschobjs struct {
 	Id       int32   //0-3
 	Nsid     uint32  //3-7
@@ -310,14 +310,12 @@ func (syscolpars SysColpars) GetType() string {
 		return "tinyint"
 	} else if syscolpars.Xtype == 0x34 {
 		return "smallint"
+	} else if syscolpars.Xtype == 0x3c {
+		return "money"
 	} else if syscolpars.Xtype == 0xA7 {
 		return "varchar"
 	} else if syscolpars.Xtype == 0x2A {
 		return "datetime2"
-	} else if syscolpars.Xtype == 0x6A {
-		return "decimal"
-	} else if syscolpars.Xtype == 0xEF {
-		return "nchar"
 	} else if syscolpars.Xtype == 0xE7 {
 		return "nvarchar"
 	} else if syscolpars.Xtype == 0xA5 {
