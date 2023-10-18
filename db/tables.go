@@ -215,11 +215,14 @@ func (table Table) printData(showtorow int, showrow int) {
 func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16) {
 	if len(table.Schema) < int(column_id) {
 		msg := fmt.Sprintf("Partition columnd id %d exceeds nof cols %d of table %s", column_id, len(table.Schema), table.Name)
-		mslogger.Mslogger.Info(msg)
+		mslogger.Mslogger.Warning(msg)
+	} else if column_id < 1 {
+		msg := fmt.Sprintf("Column Id is less than one %d,\n", column_id)
+		mslogger.Mslogger.Warning(msg)
 	} else if offset < 4 {
 		msg := fmt.Sprintf("Offset %d of col %s of table %s is less than the minimum allowed offset of 4", offset,
 			table.Schema[column_id-1].Name, table.Name)
-		mslogger.Mslogger.Info(msg)
+		mslogger.Mslogger.Warning(msg)
 	} else {
 		table.Schema[column_id-1].Offset = offset
 	}
@@ -260,7 +263,7 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 			for colnum, col := range table.Schema {
 				//schema is sorted by colorder use colnum instead of col.Order
 				if colnum+1 != int(col.Order) {
-					mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
+					mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
 				}
 				if utils.HasFlagSet(datarow.NullBitmap, colnum+1, nofCols) { //col is NULL skip when ASCII 49  (1)
 
