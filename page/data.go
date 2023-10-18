@@ -136,7 +136,10 @@ func (dataRow DataRow) ShowData() {
 	if dataRow.SystemTable != nil {
 		dataRow.SystemTable.ShowData()
 	}
-	fmt.Printf("static ends %d %x ", 4+reflect.ValueOf(dataRow.FixedLenCols).Len(), dataRow.FixedLenCols)
+	fmt.Printf("fixed len ends at %d len %x", 4+reflect.ValueOf(dataRow.FixedLenCols).Len(), dataRow.FixedLenCols)
+	if dataRow.VarLenCols == nil {
+		fmt.Printf("No Var Len cols found\n")
+	}
 	for _, dataCol := range *dataRow.VarLenCols {
 		fmt.Printf(" %d  %d  %x ",
 			dataCol.offset, reflect.ValueOf(dataCol.content).Len(), dataCol.content)
