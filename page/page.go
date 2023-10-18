@@ -404,7 +404,7 @@ func (page Page) printSlots() {
 func (page Page) ShowRowData() {
 
 	for _, datarow := range page.DataRows {
-		fmt.Printf("offset len content \n")
+
 		datarow.ShowData()
 	}
 }
