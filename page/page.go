@@ -246,9 +246,20 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 func (page *Page) parseLOB(data []byte) {
 	var lobs []LOB
 	for _, slotoffset := range page.Slots {
+		if slotoffset+14 > utils.SlotOffset(PAGELEN) {
+			mslogger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB slotoffset exceeds page size by %d\n",
+				slotoffset+14-utils.SlotOffset(PAGELEN)))
+			continue
+		}
+
 		var lob *LOB = new(LOB)
 		utils.Unmarshal(data[slotoffset:slotoffset+14], lob) // 14 byte lob header
 
+		if slotoffset+utils.SlotOffset(lob.Length) > utils.SlotOffset(PAGELEN) {
+			mslogger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB LOB length too large it exceeds page  %d\n",
+				utils.SlotOffset(lob.Length)))
+			continue
+		}
 		if lob.Type == 3 { // data leaf
 			content := make([]byte, slotoffset+utils.SlotOffset(lob.Length)-(slotoffset+14))
 			copy(content, data[slotoffset+14:slotoffset+utils.SlotOffset(lob.Length)])
@@ -277,7 +288,8 @@ func (page *Page) parseDATA(data []byte, offset int) {
 		mslogger.Mslogger.Info(msg)
 
 		if slotoffset < 96 { //offset starts from 96
-			fmt.Printf("slotoffset %d less than header size \n", slotoffset)
+			msg := fmt.Sprintf("slotoffset %d cannot be less than 96 bytes \n", slotoffset)
+			mslogger.Mslogger.Info(msg)
 			continue
 		}
 
@@ -422,7 +434,8 @@ func (page *Page) parseIndex(data []byte, offset int) {
 		mslogger.Mslogger.Info(msg)
 
 		if slotoffset < 96 { //offset starts from 96
-			fmt.Printf("slotoffset %d less than header size \n", slotoffset)
+			msg := fmt.Sprintf("slotoffset %d less than header size \n", slotoffset)
+			mslogger.Mslogger.Info(msg)
 			continue
 		}
 
