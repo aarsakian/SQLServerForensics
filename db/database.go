@@ -276,7 +276,7 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 
 		}
 
-		partitions, ok := tablePartitionsMap[tobjectId.(int32)] // from sysrowsets idmajor => rowsetid
+		partitions := tablePartitionsMap[tobjectId.(int32)] // from sysrowsets idmajor => rowsetid
 
 		var table_alloc_pages page.Pages
 
@@ -294,7 +294,9 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 			table.AllocationUnitIds = allocationUnitIds
 
 			if partition.Second != 1 { // index_id 1 for data pages
-				continue
+				msg := fmt.Sprintf("Table %s has partition heap index id %d\n",
+					table.Name, partition.Second)
+				mslogger.Mslogger.Info(msg)
 			}
 			for _, rscolinfo := range colsMapOffsets[partition.First] {
 				table.updateColOffsets(rscolinfo.First, rscolinfo.Second, rscolinfo.Sixth) //columnd_id ,offset, ordkey
