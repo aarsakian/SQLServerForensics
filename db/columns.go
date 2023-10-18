@@ -93,13 +93,17 @@ func (c Column) toString(data []byte) string {
 		mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
 		return ""
 	}
-	if c.Type == "varchar" || c.Type == "nvarchar" || c.Type == "text" || c.Type == "ntext" {
+	if c.Type == "varchar" || c.Type == "text" { //ansi
 		if c.CollationId == 872468488 { //SQL_Latin1_General_CP1_CI_AS
 			return string(data)
+		} else if c.CollationId == 53255 { // Greek_CI_AS
+			return utils.FromGreekCIToString(data)
 		} else {
-			return utils.DecodeUTF16(data)
+			return string(data)
 		}
 
+	} else if c.Type == "nvarchar" || c.Type == "ntext" { //n implies unicode
+		return utils.DecodeUTF16(data)
 	} else if c.Type == "datetime2" {
 		return utils.DateTime2Tostr(data)
 	} else if c.Type == "datetime" {
