@@ -130,6 +130,8 @@ func (c Column) toString(data []byte) string {
 	} else if c.Type == "uniqueidentifier" {
 		return fmt.Sprintf("%x-%x-%x-%x-%x", utils.Reverse(data[0:4]), utils.Reverse(data[4:6]),
 			utils.Reverse(data[6:8]), data[8:10], data[10:16])
+	} else if c.Type == "money" {
+		return utils.MoneyToStr(data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
