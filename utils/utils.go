@@ -43,7 +43,7 @@ type Auid struct {
 type Images [][]byte
 
 // Datetime2: 8 bytes rtl reading first 5 time unit intervals since midnight,last 3 (left) how many days have passed since 0001/01/01
-//0x07 prefix time unit 100ns, 0x06 1 micro second intervals
+// 0x07 prefix time unit 100ns, 0x06 1 micro second intervals
 func DateTime2Tostr(data []byte) string {
 	return ""
 }
@@ -87,6 +87,14 @@ func DateTimeTostr(data []byte) string {
 	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d.%03d", day, month, years+1900, hours, minutes, seconds, uint(1000*msecs))
 }
 
+func MoneyToStr(data []byte) string {
+	//MONEY both store a value up to 15 digits
+	val := strconv.FormatInt(ToInt64(data), 10)
+	return fmt.Sprintf("%s.%s", val[:len(val)-4], val[len(val)-4:])
+}
+
+//SMALLMONEY can only store a maximum of six digits before the decimal point.
+
 func DecimalToStr(data []byte, precision uint8, scale uint8) string {
 	//reverse bytes
 	//Decimal 10.3 allocate bytes to accomodate for precision e.g. 1.7 = 1700 = a406  (Little Endian) 4 bytes mini length
@@ -118,10 +126,10 @@ func RemoveSignBit(val int16) int16 {
 	return int16(uint16(val<<1) >> 1)
 }
 
-func ToInt64(data []byte) int {
+func ToInt64(data []byte) int64 {
 	var temp int64
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
-	return int(temp)
+	return temp
 }
 
 func ToInt32(data []byte) int {
