@@ -246,12 +246,12 @@ func (sysallocunits SysAllocUnits) GetData() (any, any) {
 }
 
 func (sysallocunits SysAllocUnits) getIndexId() int {
-	return utils.ToInt64(sysallocunits.Auid[:]) >> 48
+	return int(utils.ToInt64(sysallocunits.Auid[:])) >> 48
 }
 
 func (sysallocunits SysAllocUnits) getPageId() int {
 	indexId := sysallocunits.getIndexId()
-	return (utils.ToInt64(sysallocunits.Auid[:]) - (indexId << 48)) >> 16
+	return int(utils.ToInt64(sysallocunits.Auid[:])) - (indexId<<48)>>16
 }
 func (sysallocunits SysAllocUnits) ShowData() {
 
