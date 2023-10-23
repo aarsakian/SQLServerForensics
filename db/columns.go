@@ -132,6 +132,8 @@ func (c Column) toString(data []byte) string {
 			utils.Reverse(data[6:8]), data[8:10], data[10:16])
 	} else if c.Type == "money" {
 		return utils.MoneyToStr(data)
+	} else if c.Type == "date" {
+		return utils.DateToStr(data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)

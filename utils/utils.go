@@ -56,6 +56,31 @@ func isLeapYear(year uint) bool {
 
 }
 
+func DateToStr(data []byte) string {
+	/*DATE is the byte-reversed number of days since the year 0001-01-01, stored as three bytes. */
+	var day uint
+	var month uint
+	var b bytes.Buffer
+	b.Grow(4)
+
+	b.Write(data)
+	b.Write([]byte{0x00})
+	daysSince0001 := ToInt32(b.Bytes())
+	years := int(math.Floor(float64(daysSince0001) / float64(365.24)))
+	nofLeapYears := years/4 - years/100 + years/400
+	daysInTheYear := uint(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+	years = years + 1
+	if isLeapYear(uint(years + 1)) {
+		month = uint(float64(daysInTheYear)/30.41667 + 1)
+		day = daysInTheYear - LeapYear[month] + 1
+	} else {
+		month = uint(float64(daysInTheYear)/30.5 + 1)
+		day = daysInTheYear - Year[month] + 1
+	}
+	return fmt.Sprintf("%d-%d-%d", day, month, years)
+
+}
+
 /*
 Datetime is stored as two 4-byte values: the first (for
 the date) being the number of days before or after the base date of January 1, 1900, and the second
