@@ -64,10 +64,10 @@ func StartService() {
 		if waitTime < 1000 {
 			waitTime = 1000
 		} else if waitTime > 1000 {
-			waitTime = 10000
+			waitTime = 5000
 		}
 
-		time.Sleep(time.Duration(waitTime))
+		time.Sleep(time.Duration(waitTime) * time.Millisecond)
 
 		if windows.QueryServiceStatusEx(
 			schService,
@@ -125,10 +125,10 @@ func StartService() {
 		if waitTime < 1000 {
 			waitTime = 1000
 		} else if waitTime > 1000 {
-			waitTime = 10000
+			waitTime = 5000
 		}
 
-		time.Sleep(time.Duration(waitTime))
+		time.Sleep(time.Duration(waitTime) * time.Millisecond)
 
 		if windows.QueryServiceStatusEx(
 			schService,
@@ -233,7 +233,7 @@ func StopService() {
 		if dwWaitTime < 1000 {
 			dwWaitTime = 1000
 		} else if dwWaitTime > 10000 {
-			dwWaitTime = 10000
+			dwWaitTime = 5000
 		}
 
 		time.Sleep(time.Duration(dwWaitTime) * time.Millisecond)
@@ -275,7 +275,7 @@ func StopService() {
 	// Wait for the service to stop.
 
 	for ssStatus.CurrentState != windows.SERVICE_STOPPED {
-		time.Sleep(time.Duration(ssStatus.WaitHint))
+		time.Sleep(time.Duration(ssStatus.WaitHint) * time.Millisecond)
 		if windows.QueryServiceStatusEx(
 			schService,
 			windows.SC_STATUS_PROCESS_INFO,
@@ -381,7 +381,7 @@ func stopDependentServices() bool {
 			// Wait for the service to stop.
 			for ssp.CurrentState != windows.SERVICE_STOPPED {
 
-				time.Sleep(time.Duration(ssp.WaitHint))
+				time.Sleep(time.Duration(ssp.WaitHint) * time.Millisecond)
 				if windows.QueryServiceStatusEx(
 					hDepService,
 					windows.SC_STATUS_PROCESS_INFO,
