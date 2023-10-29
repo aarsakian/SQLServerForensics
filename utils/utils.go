@@ -115,7 +115,13 @@ func DateTimeTostr(data []byte) string {
 func MoneyToStr(data []byte) string {
 	//MONEY both store a value up to 15 digits
 	val := strconv.FormatInt(ToInt64(data), 10)
-	return fmt.Sprintf("%s.%s", val[:len(val)-4], val[len(val)-4:])
+
+	if len(val) > 4 { //always if data >0
+		return fmt.Sprintf("%s.%s", val[:len(val)-4], val[len(val)-4:])
+	} else {
+		return "0.0000"
+	}
+
 }
 
 //SMALLMONEY can only store a maximum of six digits before the decimal point.
