@@ -62,7 +62,7 @@ func StartService() {
 	for ssStatus.CurrentState == windows.SERVICE_STOP_PENDING {
 		waitTime := ssStatus.WaitHint
 		if waitTime < 1000 {
-			waitTime = 10000
+			waitTime = 1000
 		} else if waitTime > 1000 {
 			waitTime = 10000
 		}
@@ -87,10 +87,79 @@ func StartService() {
 
 				fmt.Printf("Timeout waiting for service to stop\n")
 				goto stop_cleanup
-				return
+
 			}
 		}
 
+	}
+
+	if windows.StartService(
+		schService,   // handle to service
+		0,            // number of arguments
+		nil) != nil { // no arguments
+
+		fmt.Printf("StartService failed (%d)\n", windows.GetLastError())
+		goto stop_cleanup
+	} else {
+		fmt.Printf("Service start pending...\n")
+	}
+
+	// Check the status until the service is no longer start pending.
+
+	if windows.QueryServiceStatusEx(
+		schService,                         // handle to service
+		windows.SC_STATUS_PROCESS_INFO,     // info level
+		(*byte)(unsafe.Pointer(&ssStatus)), // address of structure
+		buffSize,                           // size of structure
+		&bytesNeeded) != nil {              // if buffer too small
+
+		fmt.Printf("QueryServiceStatusEx failed (%d)\n", windows.GetLastError())
+		goto stop_cleanup
+	}
+
+	startTime = time.Now()
+	oldCheckPoint = ssStatus.CheckPoint
+
+	for ssStatus.CurrentState == windows.SERVICE_START_PENDING {
+		waitTime := ssStatus.WaitHint
+		if waitTime < 1000 {
+			waitTime = 1000
+		} else if waitTime > 1000 {
+			waitTime = 10000
+		}
+
+		time.Sleep(time.Duration(waitTime))
+
+		if windows.QueryServiceStatusEx(
+			schService,
+			windows.SC_STATUS_PROCESS_INFO,
+			(*byte)(unsafe.Pointer(&ssStatus)),
+			buffSize,
+			&bytesNeeded) != nil {
+			fmt.Printf("QueryServiceStatusEx failed %s\n", windows.GetLastError())
+			goto stop_cleanup
+		}
+
+		if ssStatus.CheckPoint > oldCheckPoint {
+			startTime = time.Now()
+			oldCheckPoint = ssStatus.CheckPoint
+		} else {
+			if time.Since(startTime) > time.Duration(ssStatus.WaitHint) {
+
+				break
+
+			}
+		}
+	}
+
+	if ssStatus.CurrentState == windows.SERVICE_RUNNING {
+		fmt.Printf("Service started successfully.\n")
+	} else {
+		fmt.Printf("Service not started. \n")
+		fmt.Printf("  Current State: %d\n", ssStatus.CurrentState)
+		fmt.Printf("  Exit Code: %d\n", ssStatus.Win32ExitCode)
+		fmt.Printf("  Check Point: %d\n", ssStatus.CheckPoint)
+		fmt.Printf("  Wait Hint: %d\n", ssStatus.WaitHint)
 	}
 
 stop_cleanup:
@@ -143,12 +212,12 @@ func StopService() {
 		buffSize,
 		&bytesNeeded) != nil {
 		fmt.Printf("QueryServiceStatusEx failed %s\n", windows.GetLastError())
-		goto stop_cleanup
+		goto start_cleanup
 	}
 
 	if ssStatus.CurrentState == windows.SERVICE_STOP {
 		fmt.Printf("Cannot stop the service because it is already stopped")
-		goto stop_cleanup
+		goto start_cleanup
 	}
 
 	for ssStatus.CurrentState == windows.SERVICE_STOP_PENDING {
@@ -176,18 +245,18 @@ func StopService() {
 			buffSize,
 			&bytesNeeded) != nil {
 			fmt.Printf("QueryServiceStatusEx failed (%d)\n", windows.GetLastError())
-			goto stop_cleanup
+			goto start_cleanup
 		}
 
 		if ssStatus.CurrentState == windows.SERVICE_STOPPED {
 			fmt.Printf("Service stopped successfully.\n")
-			goto stop_cleanup
+			goto start_cleanup
 		}
 
 		if time.Since(startTime) > dwTimeout {
 
 			fmt.Printf("Service stop timed out.\n")
-			goto stop_cleanup
+			goto start_cleanup
 		}
 	}
 
@@ -199,8 +268,8 @@ func StopService() {
 		schService,
 		windows.SERVICE_CONTROL_STOP,
 		(*windows.SERVICE_STATUS)(unsafe.Pointer(&ssStatus))) != nil {
-		fmt.Printf("ControlService failed (%d)\n", windows.GetLastError())
-		goto stop_cleanup
+		fmt.Printf("ControlService failed (%s)\n", windows.GetLastError())
+		goto start_cleanup
 	}
 
 	// Wait for the service to stop.
@@ -215,7 +284,7 @@ func StopService() {
 			&bytesNeeded) != nil {
 
 			fmt.Printf("QueryServiceStatusEx failed (%d)\n", windows.GetLastError())
-			goto stop_cleanup
+			goto start_cleanup
 		}
 
 		if ssStatus.CurrentState == windows.SERVICE_STOPPED {
@@ -227,13 +296,12 @@ func StopService() {
 		if time.Since(startTime) > dwTimeout {
 
 			fmt.Printf("Wait timed out\n")
-			goto stop_cleanup
+			goto start_cleanup
 		}
 
-		fmt.Printf("Service stopped successfully\n")
 	}
 
-stop_cleanup:
+start_cleanup:
 	windows.CloseServiceHandle(schService)
 	windows.CloseServiceHandle(schSCManager)
 

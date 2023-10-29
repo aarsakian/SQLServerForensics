@@ -25,6 +25,7 @@ import (
 	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
+	"MSSQLParser/servicer"
 	"flag"
 	"fmt"
 	"math"
@@ -41,9 +42,11 @@ import (
 func main() {
 
 	inputfile := flag.String("db", "", "absolute path to the MDF file")
-	physicalDrive := flag.Int("physicaldrive", -1, "select the physical disk number to look for MDF file")
+	physicalDrive := flag.Int("physicaldrive", -1,
+		"select the physical disk number to look for MDF file (requires admin rights!)")
 	evidencefile := flag.String("evidence", "", "path to image file")
-	partitionNum := flag.Int("partition", -1, "select the partition number to look for MDF files")
+	partitionNum := flag.Int("partition", -1,
+		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export  files")
 
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
@@ -73,6 +76,7 @@ func main() {
 	logActive := flag.Bool("log", false, "log activity")
 	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
+	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 
 	flag.Parse()
 
@@ -100,6 +104,12 @@ func main() {
 	var physicalDisk disk.Disk
 	var recordsPerPartition map[int]MFT.Records
 	var inputfiles []string
+
+	if *stopService {
+		servicer.StopService()
+		defer servicer.StartService()
+	}
+
 	if *evidencefile != "" || *physicalDrive != -1 {
 
 		if *physicalDrive != -1 {
