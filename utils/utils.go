@@ -390,17 +390,18 @@ func FindValueInStruct(colName string, v interface{}) []byte {
 	return buf.Bytes()
 }
 
-func Unmarshal(data []byte, v interface{}) error {
+func Unmarshal(data []byte, v interface{}) (int, error) {
 	idx := 0
 	structValPtr := reflect.ValueOf(v)
 	structType := reflect.TypeOf(v)
 	interfaceName := structType.Elem().Name()
 	if structType.Elem().Kind() != reflect.Struct {
-		return errors.New("must be a struct")
+		return -1, errors.New("must be a struct")
 	}
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
 		if idx >= reflect.ValueOf(data).Len() {
-			break
+			mslogger.Mslogger.Error("data exhausted no remaining data to parse")
+			return idx, errors.New("data exhausted no remaining data to parse")
 		}
 		field := structValPtr.Elem().Field(i) //StructField type
 		switch field.Kind() {
@@ -499,16 +500,16 @@ func Unmarshal(data []byte, v interface{}) error {
 					nofColsOffset := structValPtr.Elem().FieldByName("NofColsOffset").Uint()
 					if nofColsOffset == 0 {
 						mslogger.Mslogger.Error("datarow does not have fixed len cols.")
-						break
+						return idx, errors.New("datarow does not have fixed len cols.")
 					}
 					if nofColsOffset < 4 {
 						mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offsets cannot end before 4 %d", nofColsOffset))
-						break
+						return idx, errors.New("fixed len cols offsets cannot end before 4")
 					}
 
 					if nofColsOffset > 8060 {
 						mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offset cannot exceed max page available area %d", nofColsOffset))
-						break
+						return idx, errors.New("fixed len cols offset cannot exceed max page available area")
 					}
 					dst = make([]byte, nofColsOffset-uint64(idx))
 					copy(dst, data[idx:nofColsOffset])
@@ -522,6 +523,12 @@ func Unmarshal(data []byte, v interface{}) error {
 			} else if name == "NullBitmap" {
 				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
 				bytesNeeded := int(math.Ceil(float64(nofCols) / 8))
+				if idx+bytesNeeded > len(data) {
+					msg := fmt.Sprintf("Null Bitmap length exceeds available length of data by %d! \n",
+						idx+bytesNeeded-len(data))
+					mslogger.Mslogger.Error(msg)
+					return idx, errors.New("null bitmap length exceeds available length of data ")
+				}
 				byteArrayDst := make([]byte, bytesNeeded)
 				copy(byteArrayDst, data[idx:idx+bytesNeeded])
 
@@ -532,7 +539,12 @@ func Unmarshal(data []byte, v interface{}) error {
 				var arr []int16
 				nofVarLenCols := structValPtr.Elem().FieldByName("NumberOfVarLengthCols").Uint()
 				for colId := 0; colId < int(nofVarLenCols); colId++ {
-
+					if idx+2 > len(data) {
+						msg := fmt.Sprintf("Var Length Col offset calculation exceeds length of data by %d!\n",
+							idx+2-len(data))
+						mslogger.Mslogger.Error(msg)
+						return idx + 2, errors.New("var Length col offset calculation exceeds length of data")
+					}
 					binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
 					arr = append(arr, temp)
 					idx += 2
@@ -542,5 +554,4 @@ func Unmarshal(data []byte, v interface{}) error {
 		}
 
 	}
-	return nil
-}
+	return idx, nil
