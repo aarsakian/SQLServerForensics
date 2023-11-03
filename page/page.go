@@ -278,6 +278,7 @@ func (page *Page) parseLOB(data []byte) {
 func (page *Page) parseDATA(data []byte, offset int) {
 	var dataRows DataRows
 	var forwardingPointers ForwardingPointers
+	var unallocated int
 
 	for slotnum, slotoffset := range page.Slots {
 		var dataRowLen utils.SlotOffset
@@ -286,8 +287,12 @@ func (page *Page) parseDATA(data []byte, offset int) {
 
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
+		if slotoffset == 0 {
+			msg := "slotoffset is zero  potential deleted datarow \n"
+			mslogger.Mslogger.Info(msg)
+			//heuristics
 
-		if slotoffset < 96 { //offset starts from 96
+		} else if slotoffset < 96 { //offset starts from 96
 			msg := fmt.Sprintf("slotoffset %d cannot be less than 96 bytes \n", slotoffset)
 			mslogger.Mslogger.Info(msg)
 			continue
@@ -310,8 +315,24 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			forwardingPointers = append(forwardingPointers, *forwardingPointer)
 		} else if GetRowType(data[slotoffset]) == "Primary Record" {
 
-			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
-			//fmt.Println(slotoffset, slotnum, page.Header.PageId)
+			dataRowSize, _ := utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
+			if dataRow.NumberOfVarLengthCols > 0 {
+				unallocated = int(dataRowLen) - int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
+
+			} else {
+				unallocated = int(dataRowLen) - dataRowSize
+			}
+			// second condition for negative offsets in var cols offsets
+			if unallocated > 0 && unallocated < int(dataRowLen) {
+				msg := fmt.Sprintf("unallocated space discovered at %d len %d \n",
+					offset+int(slotoffset)+int(dataRowLen)-unallocated,
+					unallocated)
+				mslogger.Mslogger.Warning(msg)
+				// this section is experimental
+				var carvedDataRow *DataRow = new(DataRow)
+				utils.Unmarshal(data[int(slotoffset)+int(dataRowLen)-unallocated:], carvedDataRow)
+
+			}
 			if page.Header.ObjectId == 0x29 { //syscolpars
 
 				var syscolpars *SysColpars = new(SysColpars)
