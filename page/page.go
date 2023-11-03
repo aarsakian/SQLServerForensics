@@ -290,6 +290,7 @@ func (page *Page) parseDATA(data []byte, offset int) {
 		if slotoffset == 0 {
 			msg := "slotoffset is zero  potential deleted datarow \n"
 			mslogger.Mslogger.Info(msg)
+			continue
 			//heuristics
 
 		} else if slotoffset < 96 { //offset starts from 96
