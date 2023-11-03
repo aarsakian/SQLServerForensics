@@ -423,7 +423,8 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			name := structType.Elem().Field(i).Name
 			if name == "NumberOfVarLengthCols" &&
 				!HasVarLengthCols(uint8(structValPtr.Elem().FieldByName("StatusA").Uint())) {
-				temp = 0
+
+				return idx, nil // reached end of datarow exit
 			} else {
 				binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
 			}
