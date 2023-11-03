@@ -555,3 +555,4 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 
 	}
 	return idx, nil
+}
