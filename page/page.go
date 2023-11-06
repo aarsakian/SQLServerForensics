@@ -32,6 +32,7 @@ type Page struct {
 	Header             Header
 	Slots              []utils.SlotOffset
 	DataRows           DataRows
+	CarvedDataRows     DataRows
 	ForwardingPointers ForwardingPointers
 	LOBS               LOBS
 	PFSPage            *PFSPage
@@ -277,13 +278,14 @@ func (page *Page) parseLOB(data []byte) {
 
 func (page *Page) parseDATA(data []byte, offset int) {
 	var dataRows DataRows
+	var carvedDataRows DataRows
 	var forwardingPointers ForwardingPointers
-	var unallocated int
 
 	for slotnum, slotoffset := range page.Slots {
 		var dataRowLen utils.SlotOffset
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
+		var carvedDataRow *DataRow = new(DataRow)
 
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
@@ -315,8 +317,8 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
 			forwardingPointers = append(forwardingPointers, *forwardingPointer)
 		} else if GetRowType(data[slotoffset]) == "Primary Record" {
-
-			dataRowSize, _ := utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], dataRow)
+			dataRowSize := dataRow.Parse(data[slotoffset:slotoffset+dataRowLen], int(slotoffset)+offset, page.Header.ObjectId)
+			var unallocated int
 			if dataRow.NumberOfVarLengthCols > 0 {
 				unallocated = int(dataRowLen) - int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
 
@@ -324,52 +326,16 @@ func (page *Page) parseDATA(data []byte, offset int) {
 				unallocated = int(dataRowLen) - dataRowSize
 			}
 			// second condition for negative offsets in var cols offsets
-			if unallocated > 0 && unallocated < int(dataRowLen) {
+			if unallocated > 0 && unallocated < len(data) {
 				msg := fmt.Sprintf("unallocated space discovered at %d len %d \n",
-					offset+int(slotoffset)+int(dataRowLen)-unallocated,
-					unallocated)
+					offset+len(data)-unallocated, unallocated)
 				mslogger.Mslogger.Warning(msg)
 				// this section is experimental
-				var carvedDataRow *DataRow = new(DataRow)
-				utils.Unmarshal(data[int(slotoffset)+int(dataRowLen)-unallocated:], carvedDataRow)
+
+				utils.Unmarshal(data[len(data)-unallocated:], carvedDataRow)
+				carvedDataRows = append(carvedDataRows, *carvedDataRow)
 
 			}
-			if page.Header.ObjectId == 0x29 { //syscolpars
-
-				var syscolpars *SysColpars = new(SysColpars)
-
-				dataRow.Process(syscolpars)
-
-			} else if page.Header.ObjectId == 0x22 {
-
-				var sysschobjs *Sysschobjs = new(Sysschobjs)
-
-				dataRow.Process(sysschobjs) // from slot to end
-
-			} else if page.Header.ObjectId == 0x07 {
-				var sysallocationunits *SysAllocUnits = new(SysAllocUnits)
-				dataRow.Process(sysallocationunits)
-
-			} else if page.Header.ObjectId == 0x03 {
-				var sysrscols *SysRsCols = new(SysRsCols)
-				dataRow.Process(sysrscols)
-			} else if page.Header.ObjectId == 0x05 {
-				var sysrowsets *SysRowSets = new(SysRowSets)
-				dataRow.Process(sysrowsets)
-			} else if page.Header.ObjectId == 0x37 {
-				var sysiscols *sysIsCols = new(sysIsCols)
-				dataRow.Process(sysiscols)
-			} else if page.Header.ObjectId == -0x69 { // view object not reached
-				var sysobjects *SysObjects = new(SysObjects)
-				dataRow.Process(sysobjects)
-			} else if page.Header.ObjectId == -0x191 { //index_columns
-				fmt.Println("INDXE COLS", page.Header.PageId)
-			} else if page.Header.ObjectId == -0x18d {
-				fmt.Println("INDEXES", page.Header.PageId)
-			}
-
-			dataRow.ProcessVaryingCols(data[slotoffset:slotoffset+dataRowLen], offset+int(slotoffset))
-
 			dataRows = append(dataRows, *dataRow)
 		}
 
@@ -420,6 +386,12 @@ func (page Page) printSlots() {
 	fmt.Printf("Slots offsets: ")
 	for _, slot := range page.Slots {
 		fmt.Printf("%d ", slot)
+	}
+}
+
+func (page Page) ShowCarvedDataRows() {
+	for _, datarow := range page.CarvedDataRows {
+		datarow.ShowData()
 	}
 }
 

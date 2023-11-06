@@ -252,6 +252,49 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 
 }
 
+func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
+
+	dataRowSize, _ := utils.Unmarshal(data, dataRow)
+
+	if pageType == 0x29 { //syscolpars
+
+		var syscolpars *SysColpars = new(SysColpars)
+
+		dataRow.Process(syscolpars)
+
+	} else if pageType == 0x22 {
+
+		var sysschobjs *Sysschobjs = new(Sysschobjs)
+
+		dataRow.Process(sysschobjs) // from slot to end
+
+	} else if pageType == 0x07 {
+		var sysallocationunits *SysAllocUnits = new(SysAllocUnits)
+		dataRow.Process(sysallocationunits)
+
+	} else if pageType == 0x03 {
+		var sysrscols *SysRsCols = new(SysRsCols)
+		dataRow.Process(sysrscols)
+	} else if pageType == 0x05 {
+		var sysrowsets *SysRowSets = new(SysRowSets)
+		dataRow.Process(sysrowsets)
+	} else if pageType == 0x37 {
+		var sysiscols *sysIsCols = new(sysIsCols)
+		dataRow.Process(sysiscols)
+	} else if pageType == -0x69 { // view object not reached
+		var sysobjects *SysObjects = new(SysObjects)
+		dataRow.Process(sysobjects)
+	} else if pageType == -0x191 { //index_columns
+		fmt.Println("INDXE COLS")
+	} else if pageType == -0x18d {
+		fmt.Println("INDEXES")
+	}
+
+	dataRow.ProcessVaryingCols(data, offset)
+	return dataRowSize
+
+}
+
 func (dataRow *DataRow) Process(systemtable SystemTable) {
 
 	utils.Unmarshal(dataRow.FixedLenCols, systemtable)
