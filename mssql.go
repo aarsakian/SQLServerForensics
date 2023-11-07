@@ -45,10 +45,11 @@ func main() {
 	physicalDrive := flag.Int("physicaldrive", -1,
 		"select the physical disk number to look for MDF file (requires admin rights!)")
 	evidencefile := flag.String("evidence", "", "path to image file")
+	vmdkfile := flag.String("vmdk", "", "path to vmdk file (Sparse formats are supported)")
 	partitionNum := flag.Int("partition", -1,
 		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export  files")
-
+	showcarved := flag.Bool("carve", false, "Carve data records and try to interpret")
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
@@ -97,6 +98,7 @@ func main() {
 		ShowIndex:           *showIndex,
 		ShowTableRows:       *showTableRows,
 		ShowTableRow:        *showTableRow,
+		ShowCarved:          *showcarved,
 		TableType:           *tabletype}
 
 	var hD img.DiskReader
@@ -115,10 +117,11 @@ func main() {
 		if *physicalDrive != -1 {
 
 			hD = img.GetHandler(fmt.Sprintf("\\\\.\\PHYSICALDRIVE%d", *physicalDrive), "physicalDrive")
+		} else if *evidencefile != "" {
+			hD = img.GetHandler(*evidencefile, "ewf")
 
-		} else {
-			hD = img.GetHandler(*evidencefile, "image")
-
+		} else if *vmdkfile != "" {
+			hD = img.GetHandler(*vmdkfile, "vmdk")
 		}
 		physicalDisk = disk.Disk{Handler: hD}
 		physicalDisk.DiscoverPartitions()
