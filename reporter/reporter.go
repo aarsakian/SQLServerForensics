@@ -22,6 +22,7 @@ type Reporter struct {
 	ShowIndex           bool
 	ShowTableRows       int
 	ShowTableRow        int
+	ShowCarved          bool
 	TableType           string
 }
 
@@ -60,6 +61,10 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 				page.ShowIndexRows()
 			}
 
+			if rp.ShowCarved {
+				page.ShowCarvedDataRows()
+			}
+
 		}
 
 	}
@@ -71,7 +76,7 @@ func (rp Reporter) ShowTableInfo(database db.Database) {
 	if tablename != "" {
 
 		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
-			rp.TableType, rp.ShowTableRows, rp.ShowTableRow)
+			rp.TableType, rp.ShowTableRows, rp.ShowTableRow, rp.ShowCarved)
 
 	}
 }
