@@ -198,7 +198,7 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 }
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
-	showAllocation string, tabletype string, showrows int, showrow int) {
+	showAllocation string, tabletype string, showrows int, showrow int, showcarved bool) {
 	tableLocated := false
 	for _, table := range db.Tables {
 
