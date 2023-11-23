@@ -28,10 +28,14 @@ github.com/aarsakian/MFTExtractor v0.0.0-20231017132447-e6e7ce568466 h1:bapLhTQy
 github.com/aarsakian/MFTExtractor v0.0.0-20231017132447-e6e7ce568466/go.mod h1:yT/9IhV/2QzAUxG1P/9/2QP6cau1CwQrDTXtrxV6peQ=
 github.com/aarsakian/MFTExtractor v0.0.0-20231118211306-b7e723235050 h1:uVKkI/VvPN+KNV8A8GFd2KYX/P9nQwRRdK8lNCZ39Sg=
 github.com/aarsakian/MFTExtractor v0.0.0-20231118211306-b7e723235050/go.mod h1:TcqWz2FwU/7mxoxZ/ARsNMFnUkhSDGsMjwW3PTPgk9o=
+github.com/aarsakian/MFTExtractor v0.0.0-20231123190726-dfc28933f413 h1:iOtnFCK0OnqvX7KVtsuck2QAYQlEv/rQFVYFPH2wHXM=
+github.com/aarsakian/MFTExtractor v0.0.0-20231123190726-dfc28933f413/go.mod h1:qO6jIGijbNAqnexmWtnFwpfqeH/qTmjcvUZiG2YTDe4=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231118200502-fe069cc0734a h1:C/Hs08naqBc3fo025CZIJO+nQuGWTdUxPsukrArn2R4=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231118200502-fe069cc0734a/go.mod h1:a+SYNiPvKba0NMg3g9BXlLVZflohz06h4veLf0gyySY=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231123163652-806001343f49 h1:EG7y7SaHQxRSH330n/D0KjiLwFEXVS7s2tTLaNXwTuM=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231123163652-806001343f49/go.mod h1:a+SYNiPvKba0NMg3g9BXlLVZflohz06h4veLf0gyySY=
+github.com/aarsakian/VMDK_Reader v0.0.0-20231123185430-2e0b0827b53e h1:kz2SwaruDL0y90etGvoGulBKLzYVyulyoNsFJTBS3zw=
+github.com/aarsakian/VMDK_Reader v0.0.0-20231123185430-2e0b0827b53e/go.mod h1:a+SYNiPvKba0NMg3g9BXlLVZflohz06h4veLf0gyySY=
 golang.org/x/sys v0.13.0 h1:Af8nKPmuFypiUBjVoU9V20FiaFXOcuZI21p0ycVYYGE=
 golang.org/x/sys v0.13.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.14.0 h1:Vz7Qs629MkJkGyHxUlRHizWJRG2j8fbQKjELVSNhy7Q=
