@@ -31,12 +31,15 @@ import (
 	"math"
 	"path/filepath"
 	"sync"
+	"time"
 
 	disk "github.com/aarsakian/MFTExtractor/Disk"
 	"github.com/aarsakian/MFTExtractor/FS/NTFS/MFT"
 	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
 	"github.com/aarsakian/MFTExtractor/img"
+	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
 	"github.com/aarsakian/MFTExtractor/utils"
+	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
 )
 
 func main() {
@@ -81,7 +84,11 @@ func main() {
 
 	flag.Parse()
 
-	mslogger.InitializeLogger(*logActive)
+	now := time.Now()
+	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
+	mslogger.InitializeLogger(*logActive, logfilename)
+	MFTExtractorLogger.InitializeLogger(*logactive, logfilename)
+	VMDKLogger.InitializeLogger(*logactive, logfilename)
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
 		ShowSGamExtents:     *showSGamExtents,
