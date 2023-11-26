@@ -77,7 +77,7 @@ func main() {
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	export := flag.Bool("export", false, "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
-	logActive := flag.Bool("log", false, "log activity")
+	logactive := flag.Bool("log", false, "log activity")
 	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
@@ -86,7 +86,7 @@ func main() {
 
 	now := time.Now()
 	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
-	mslogger.InitializeLogger(*logActive, logfilename)
+	mslogger.InitializeLogger(*logactive, logfilename)
 	MFTExtractorLogger.InitializeLogger(*logactive, logfilename)
 	VMDKLogger.InitializeLogger(*logactive, logfilename)
 
