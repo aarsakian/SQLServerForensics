@@ -501,17 +501,18 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 					nofColsOffset := structValPtr.Elem().FieldByName("NofColsOffset").Uint()
 					if nofColsOffset == 0 {
 						mslogger.Mslogger.Error("datarow does not have fixed len cols.")
-						return idx, errors.New("datarow does not have fixed len cols.")
-					}
-					if nofColsOffset < 4 {
+						return idx, errors.New("datarow does not have fixed len cols")
+					} else if nofColsOffset < 4 {
 						mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offsets cannot end before 4 %d", nofColsOffset))
 						return idx, errors.New("fixed len cols offsets cannot end before 4")
-					}
-
-					if nofColsOffset > 8060 {
+					} else if nofColsOffset > 8060 {
 						mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offset cannot exceed max page available area %d", nofColsOffset))
 						return idx, errors.New("fixed len cols offset cannot exceed max page available area")
+					} else if nofColsOffset > uint64(len(data)) {
+						mslogger.Mslogger.Error(fmt.Sprintf("fixed len cols offset cannot exceed available len of data row %d", nofColsOffset))
+						return idx, errors.New("fixed len cols offset cannot exceed available len of data row")
 					}
+
 					dst = make([]byte, nofColsOffset-uint64(idx))
 					copy(dst, data[idx:nofColsOffset])
 
