@@ -232,7 +232,7 @@ func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16
 func (table *Table) setContent(dataPages page.PageMapIds,
 	lobPages page.PageMapIds, textLobPages page.PageMapIds) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
-	var rows []ColMap
+
 	var indexType string
 	for pageId, page := range dataPages {
 		if page.HasForwardingPointers() {
@@ -243,50 +243,61 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 		indexType = page.GetIndexType()
 
 		for did, datarow := range page.DataRows {
-			m := make(ColMap)
 
-			nofCols := len(table.Schema)
+			table.ProcessRow(did, datarow, pageId, lobPages, textLobPages)
 
-			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-				msg := fmt.Sprintf("Mismatch in number of cols %d in row %d,  page %d and schema cols %d table %s",
-					int(datarow.NumberOfCols), did, pageId, nofCols, table.Name)
-				mslogger.Mslogger.Warning(msg)
-				continue
-			}
-			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
-				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
-					pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
-				mslogger.Mslogger.Warning(msg)
-				continue
-			}
+		}
 
-			for colnum, col := range table.Schema {
-				//schema is sorted by colorder use colnum instead of col.Order
-				if colnum+1 != int(col.Order) {
-					mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
-				}
-				if utils.HasFlagSet(datarow.NullBitmap, colnum+1, nofCols) { //col is NULL skip when ASCII 49  (1)
+		for did, datarow := range page.CarvedDataRows {
 
-					//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
-					//mslogger.Mslogger.Error(msg)
-					continue
-				}
-
-				//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
-				colval, e := col.addContent(datarow, lobPages, textLobPages)
-				if e == nil {
-					m[col.Name] = colval
-				} else {
-					fmt.Printf("error %e", e)
-				}
-			}
-			rows = append(rows, m)
+			table.ProcessRow(did, datarow, pageId, lobPages, textLobPages)
 
 		}
 	}
 	table.indexType = indexType
-	table.rows = rows
 
+}
+
+func (table *Table) ProcessRow(did int, datarow page.DataRow, pageId uint32,
+	lobPages page.PageMapIds, textLobPages page.PageMapIds) {
+	m := make(ColMap)
+
+	nofCols := len(table.Schema)
+
+	if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
+		msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
+			int(datarow.NumberOfCols), did, pageId, nofCols, table.Name)
+		mslogger.Mslogger.Warning(msg)
+		return
+	}
+	if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
+		msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
+			pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
+		mslogger.Mslogger.Warning(msg)
+		return
+	}
+
+	for colnum, col := range table.Schema {
+		//schema is sorted by colorder use colnum instead of col.Order
+		if colnum+1 != int(col.Order) {
+			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
+		}
+		if utils.HasFlagSet(datarow.NullBitmap, colnum+1, nofCols) { //col is NULL skip when ASCII 49  (1)
+
+			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
+			//mslogger.Mslogger.Error(msg)
+			continue
+		}
+
+		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
+		colval, e := col.addContent(datarow, lobPages, textLobPages)
+		if e == nil {
+			m[col.Name] = colval
+		} else {
+			fmt.Printf("error %e", e)
+		}
+	}
+	table.rows = append(table.rows, m)
 }
 
 func (t Table) Less(i, j int) bool {
