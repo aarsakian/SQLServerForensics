@@ -273,8 +273,12 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 				}
 
 				//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
-				m[col.Name] = col.addContent(datarow, lobPages, textLobPages)
-
+				colval, e := col.addContent(datarow, lobPages, textLobPages)
+				if e == nil {
+					m[col.Name] = colval
+				} else {
+					fmt.Printf("error %e", e)
+				}
 			}
 			rows = append(rows, m)
 

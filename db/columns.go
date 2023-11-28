@@ -141,9 +141,9 @@ func (c Column) toString(data []byte) string {
 }
 
 func (c *Column) addContent(datarow page.DataRow,
-	lobPages page.PageMapIds, textLOBPages page.PageMapIds) []byte {
+	lobPages page.PageMapIds, textLOBPages page.PageMapIds) ([]byte, error) {
 	if datarow.SystemTable != nil {
-		return utils.FindValueInStruct(c.Name, datarow.SystemTable)
+		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
 		return datarow.ProcessData(c.Order, c.Size, c.Offset, c.isStatic(),
 			c.VarLenOrder, lobPages, textLOBPages)
