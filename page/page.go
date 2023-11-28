@@ -276,7 +276,7 @@ func (page *Page) parseLOB(data []byte) {
 
 }
 
-func (page *Page) parseDATA(data []byte, offset int) {
+func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 	var dataRows DataRows
 	var carvedDataRows DataRows
 	var forwardingPointers ForwardingPointers
@@ -286,6 +286,7 @@ func (page *Page) parseDATA(data []byte, offset int) {
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
 		var carvedDataRow *DataRow = new(DataRow)
+		var dataRowSize int //actual allocated size of datarow
 
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
@@ -317,26 +318,32 @@ func (page *Page) parseDATA(data []byte, offset int) {
 			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
 			forwardingPointers = append(forwardingPointers, *forwardingPointer)
 		} else if GetRowType(data[slotoffset]) == "Primary Record" {
-			dataRowSize := dataRow.Parse(data[slotoffset:slotoffset+dataRowLen], int(slotoffset)+offset, page.Header.ObjectId)
-			var unallocated int
-			if dataRow.NumberOfVarLengthCols > 0 {
-				unallocated = int(dataRowLen) - int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
+			dataRowSize = dataRow.Parse(data[slotoffset:slotoffset+dataRowLen], int(slotoffset)+offset, page.Header.ObjectId)
 
-			} else {
-				unallocated = int(dataRowLen) - dataRowSize
-			}
-			// second condition for negative offsets in var cols offsets
-			if unallocated > 0 && unallocated < len(data) {
+			dataRows = append(dataRows, *dataRow)
+		}
+		//// this section is experimental
+		// last slot check for unallocated
+		if slotnum == len(page.Slots)-1 && carve {
+			//calculate size of unallocate cols
+			unallocatedDataRowSize := int(dataRowLen) - dataRowSize
+			for slotoffset < utils.SlotOffset(page.Header.FreeData) {
+				// second condition for negative offsets in var cols offsets
+				if unallocatedDataRowSize == 0 ||
+					int(slotoffset)+unallocatedDataRowSize > len(data) {
+					break
+				}
 				msg := fmt.Sprintf("unallocated space discovered at %d len %d \n",
-					offset+len(data)-unallocated, unallocated)
+					offset+len(data)-unallocatedDataRowSize, unallocatedDataRowSize)
 				mslogger.Mslogger.Warning(msg)
-				// this section is experimental
 
-				utils.Unmarshal(data[len(data)-unallocated:], carvedDataRow)
+				dataRowSize = carvedDataRow.Parse(data[slotoffset:slotoffset+
+					utils.SlotOffset(unallocatedDataRowSize)], int(slotoffset)+offset, page.Header.ObjectId)
+				slotoffset += utils.SlotOffset(dataRowSize)
+				unallocatedDataRowSize = int(dataRowLen) - dataRowSize
 				carvedDataRows = append(carvedDataRows, *carvedDataRow)
 
 			}
-			dataRows = append(dataRows, *dataRow)
 		}
 
 	}
@@ -463,7 +470,7 @@ func (page *Page) parseIndex(data []byte, offset int) {
 	page.IndexRows = indexRows
 }
 
-func (page *Page) Process(data []byte, offset int) {
+func (page *Page) Process(data []byte, offset int, carve bool) {
 	HEADERLEN := 96
 
 	var header Header
@@ -491,7 +498,7 @@ func (page *Page) Process(data []byte, offset int) {
 		case "SGAM":
 			page.parseSGAM(data)
 		case "DATA":
-			page.parseDATA(data, offset)
+			page.parseDATA(data, offset, carve)
 		case "LOB":
 			page.parseLOB(data)
 		case "TEXT":
