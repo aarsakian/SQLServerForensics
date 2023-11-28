@@ -172,7 +172,7 @@ func main() {
 		fmt.Printf("about to process database file %s \n", inputFile)
 		database := db.Database{Fname: inputFile}
 
-		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage)
+		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
 
 		if *pageType != "" {
 			database.FilterPagesByType(*pageType) //mutable
