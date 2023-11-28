@@ -342,6 +342,7 @@ func (page *Page) parseDATA(data []byte, offset int) {
 	}
 	page.ForwardingPointers = forwardingPointers
 	page.DataRows = dataRows
+	page.CarvedDataRows = carvedDataRows
 }
 
 func (page *Page) parseSGAM(data []byte) {
