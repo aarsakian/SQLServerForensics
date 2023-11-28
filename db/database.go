@@ -18,7 +18,7 @@ type Database struct {
 	Tables   []Table
 }
 
-func (db *Database) Process(selectedPage int, fromPage int, toPage int) int {
+func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
 	file, err := os.Open(db.Fname) //
 	if err != nil {
 		// handle the error here
@@ -64,7 +64,7 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int) int {
 		}
 		msg := fmt.Sprintf("Processing offset %d", offset)
 		mslogger.Mslogger.Info(msg)
-		page := db.ProcessPage(bs, offset)
+		page := db.ProcessPage(bs, offset, carve)
 		pages[page.Header.GetMetadataAllocUnitId()] = append(pages[page.Header.GetMetadataAllocUnitId()], page)
 
 		totalProcessedPages++
@@ -75,9 +75,9 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int) int {
 
 }
 
-func (db Database) ProcessPage(bs []byte, offset int) page.Page {
+func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
 	var page *page.Page = new(page.Page)
-	page.Process(bs, offset)
+	page.Process(bs, offset, carve)
 
 	return *page
 }
