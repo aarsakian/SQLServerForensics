@@ -421,6 +421,11 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			var temp uint16
 
 			name := structType.Elem().Field(i).Name
+			if idx+2 > len(data) {
+				msg := fmt.Sprintf("datarow available size exceed at %s. by %d", name, idx+2)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
+			}
 			if name == "NumberOfVarLengthCols" &&
 				!HasVarLengthCols(uint8(structValPtr.Elem().FieldByName("StatusA").Uint())) {
 
