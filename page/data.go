@@ -309,7 +309,10 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 	}
 
 	dataRow.ProcessVaryingCols(data, offset)
-	if dataRow.NumberOfVarLengthCols > 0 {
+	if dataRow.NumberOfVarLengthCols > 0 && int(dataRow.NumberOfVarLengthCols)-1 != len(dataRow.VarLengthColOffsets) {
+		mslogger.Mslogger.Warning("Mismatch in var len col parsing real differs with declared number of cols.")
+		return int(dataRow.VarLengthColOffsets[len(dataRow.VarLengthColOffsets)-1])
+	} else if dataRow.NumberOfVarLengthCols > 0 {
 		return int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
 	} else {
 		return dataRowSize
