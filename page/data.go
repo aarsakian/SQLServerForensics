@@ -223,21 +223,25 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 		if int(colsize) > len(dataRow.FixedLenCols) {
 			msg := fmt.Sprintf("Col Id %d Column size %d exceeded fixed len cols size %d",
 				colId, colsize, len(dataRow.FixedLenCols))
+
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
 		} else if int(startoffset) > len(dataRow.FixedLenCols)+fixedLenColsOffset {
 			msg := fmt.Sprintf("Col Id %d column start offset %d exceeded available area of fixed len cols by %d",
 				colId, startoffset, int(startoffset)-len(dataRow.FixedLenCols))
+
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
 		} else if int(startoffset)+int(colsize) > len(dataRow.FixedLenCols)+fixedLenColsOffset {
 			msg := fmt.Sprintf("Col Id %d End offset %d exceeded available area of fixed len cols by %d ?",
 				colId, int(startoffset)+int(colsize), int(startoffset)+int(colsize)-len(dataRow.FixedLenCols))
+
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
 		} else if startoffset < 4 {
 			msg := fmt.Sprintf("Col id %d start offset %d is less than 4 fixed len cols offset",
 				colId, startoffset)
+
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
 		} else {
