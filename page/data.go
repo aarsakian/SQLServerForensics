@@ -3,6 +3,7 @@ package page
 import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -136,9 +137,15 @@ func (dataRow DataRow) ShowData() {
 	if dataRow.SystemTable != nil {
 		dataRow.SystemTable.ShowData()
 	}
-	fmt.Printf("fixed len ends at %d len %x", 4+reflect.ValueOf(dataRow.FixedLenCols).Len(), dataRow.FixedLenCols)
+	msg := fmt.Sprintf("fixed len ends at %d len %x",
+		4+reflect.ValueOf(dataRow.FixedLenCols).Len(), dataRow.FixedLenCols)
+	mslogger.Mslogger.Info(msg)
+	fmt.Printf(msg + "\n")
 	if dataRow.VarLenCols == nil {
-		fmt.Printf("No Var Len cols found\n")
+		msg := "No Var Len cols found"
+		fmt.Printf(msg + "\n")
+		mslogger.Mslogger.Warning(msg)
+		return
 	}
 	for _, dataCol := range *dataRow.VarLenCols {
 		fmt.Printf(" %d  %d  %x ",
@@ -209,43 +216,50 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 }
 
 func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int16,
-	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds) (data []byte) {
+	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds) ([]byte, error) {
 
 	if static {
 		fixedLenColsOffset := 4 // include status flag nofcols
 		if int(colsize) > len(dataRow.FixedLenCols) {
-			mslogger.Mslogger.Error(fmt.Sprintf("Col Id %d Column size %d exceeded fixed len cols size %d",
-				colId, colsize, len(dataRow.FixedLenCols)))
-			return nil // bad practice ???
+			msg := fmt.Sprintf("Col Id %d Column size %d exceeded fixed len cols size %d",
+				colId, colsize, len(dataRow.FixedLenCols))
+			mslogger.Mslogger.Error(msg)
+			return nil, errors.New(msg)
 		} else if int(startoffset) > len(dataRow.FixedLenCols)+fixedLenColsOffset {
-			mslogger.Mslogger.Error(fmt.Sprintf("Col Id %d column start offset %d exceeded available area of fixed len cols by %d",
-				colId, startoffset, int(startoffset)-len(dataRow.FixedLenCols)))
-			return nil
+			msg := fmt.Sprintf("Col Id %d column start offset %d exceeded available area of fixed len cols by %d",
+				colId, startoffset, int(startoffset)-len(dataRow.FixedLenCols))
+			mslogger.Mslogger.Error(msg)
+			return nil, errors.New(msg)
 		} else if int(startoffset)+int(colsize) > len(dataRow.FixedLenCols)+fixedLenColsOffset {
-			mslogger.Mslogger.Error(fmt.Sprintf("Col Id %d End offset %d exceeded available area of fixed len cols by %d ?",
-				colId, int(startoffset)+int(colsize), int(startoffset)+int(colsize)-len(dataRow.FixedLenCols)))
-			return nil
+			msg := fmt.Sprintf("Col Id %d End offset %d exceeded available area of fixed len cols by %d ?",
+				colId, int(startoffset)+int(colsize), int(startoffset)+int(colsize)-len(dataRow.FixedLenCols))
+			mslogger.Mslogger.Error(msg)
+			return nil, errors.New(msg)
 		} else if startoffset < 4 {
-			mslogger.Mslogger.Error(fmt.Sprintf("Col id %d start offset %d is less than 4 fixed len cols offset",
-				colId, startoffset))
-			return nil
+			msg := fmt.Sprintf("Col id %d start offset %d is less than 4 fixed len cols offset",
+				colId, startoffset)
+			mslogger.Mslogger.Error(msg)
+			return nil, errors.New(msg)
 		} else {
-			return dataRow.FixedLenCols[startoffset-int16(fixedLenColsOffset) : startoffset+colsize-int16(fixedLenColsOffset)] //offset is from start of datarow
+			return dataRow.FixedLenCols[startoffset-int16(fixedLenColsOffset) : startoffset+colsize-int16(fixedLenColsOffset)], nil //offset is from start of datarow
 		}
 
 	} else {
 		if dataRow.NumberOfVarLengthCols == 0 || dataRow.NumberOfVarLengthCols <= valorder {
 			// should had bitmap set to 1 however it is not expiremental
-			return nil
+			msg := fmt.Sprintf("Col id %d start offset %d has not varying len cols or incorrect val order",
+				colId, startoffset)
+			mslogger.Mslogger.Error(msg)
+			return nil, errors.New(msg)
 		}
 		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
 		if rowId.FileId != 0 {
 
 			lobPage := lobPages[rowId.PageId]
 
-			return lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp)) // might change
+			return lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp)), nil // might change
 		} else {
-			return (*dataRow.VarLenCols)[valorder].content
+			return (*dataRow.VarLenCols)[valorder].content, nil
 		}
 
 	}
