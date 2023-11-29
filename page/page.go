@@ -336,7 +336,9 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 				msg := fmt.Sprintf("unallocated space discovered at %d len %d \n",
 					offset+len(data)-unallocatedDataRowSize, unallocatedDataRowSize)
 				mslogger.Mslogger.Warning(msg)
-
+				if GetRowType(data[slotoffset]) != "Primary Record" {
+					break
+				}
 				dataRowSize = carvedDataRow.Parse(data[slotoffset:slotoffset+
 					utils.SlotOffset(unallocatedDataRowSize)], int(slotoffset)+offset, page.Header.ObjectId)
 				slotoffset += utils.SlotOffset(dataRowSize)
