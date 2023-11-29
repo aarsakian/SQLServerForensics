@@ -160,7 +160,8 @@ func (table Table) GetRecords() utils.Records {
 	for _, row := range table.rows {
 		var record utils.Record
 		for _, c := range table.Schema {
-			record = append(record, c.toString(row[c.Name]))
+			colData := row[c.Name]
+			record = append(record, c.toString(colData.Content))
 
 		}
 		records = append(records, record)
@@ -178,9 +179,9 @@ func (table Table) GetImages() utils.Images {
 			if c.Type != "image" {
 				continue
 			}
-			content := row[c.Name]
+			colData := row[c.Name]
 
-			images = append(images, content)
+			images = append(images, colData.Content)
 		}
 	}
 	return images
@@ -204,7 +205,11 @@ func (table Table) printData(showtorow int, showrow int) {
 			continue
 		}
 		for _, c := range table.Schema {
-			c.Print(row[c.Name])
+			colData := row[c.Name]
+			if colData.Carved {
+				fmt.Printf("* ")
+			}
+			c.Print(colData.Content)
 
 		}
 		fmt.Printf("\n")
@@ -232,47 +237,46 @@ func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16
 func (table *Table) setContent(dataPages page.PageMapIds,
 	lobPages page.PageMapIds, textLobPages page.PageMapIds) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
-
-	var indexType string
+	var carved bool
+	rowid := 0
 	for pageId, page := range dataPages {
 		if page.HasForwardingPointers() {
 			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
 
 		}
 
-		indexType = page.GetIndexType()
-
-		for did, datarow := range page.DataRows {
-
-			table.ProcessRow(did, datarow, pageId, lobPages, textLobPages)
-
+		table.indexType = page.GetIndexType()
+		for _, datarow := range page.DataRows {
+			carved = false
+			table.ProcessRow(rowid, datarow, pageId, lobPages, textLobPages, carved)
+			rowid++
 		}
 
-		for did, datarow := range page.CarvedDataRows {
-
-			table.ProcessRow(did, datarow, pageId, lobPages, textLobPages)
+		for _, datarow := range page.CarvedDataRows {
+			rowid++
+			carved = true
+			table.ProcessRow(rowid, datarow, pageId, lobPages, textLobPages, carved)
 
 		}
 	}
-	table.indexType = indexType
 
 }
 
-func (table *Table) ProcessRow(did int, datarow page.DataRow, pageId uint32,
-	lobPages page.PageMapIds, textLobPages page.PageMapIds) {
+func (table *Table) ProcessRow(rowid int, datarow page.DataRow, pageId uint32,
+	lobPages page.PageMapIds, textLobPages page.PageMapIds, carved bool) {
 	m := make(ColMap)
 
 	nofCols := len(table.Schema)
 
 	if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 		msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
-			int(datarow.NumberOfCols), did, pageId, nofCols, table.Name)
+			int(datarow.NumberOfCols), rowid, pageId, nofCols, table.Name)
 		mslogger.Mslogger.Warning(msg)
 		return
 	}
 	if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
 		msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
-			pageId, did, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
+			pageId, rowid, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
 		mslogger.Mslogger.Warning(msg)
 		return
 	}
@@ -292,7 +296,7 @@ func (table *Table) ProcessRow(did int, datarow page.DataRow, pageId uint32,
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
 		colval, e := col.addContent(datarow, lobPages, textLobPages)
 		if e == nil {
-			m[col.Name] = colval
+			m[col.Name] = ColData{Content: colval, Carved: carved}
 		} else {
 			fmt.Printf("error %e", e)
 		}
