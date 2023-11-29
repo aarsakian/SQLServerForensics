@@ -326,6 +326,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		// last slot check for unallocated
 		if slotnum == len(page.Slots)-1 && carve {
 			//calculate size of unallocate cols
+			slotoffset += utils.SlotOffset(dataRowSize) // add last row size
 			unallocatedDataRowSize := int(dataRowLen) - dataRowSize
 			for slotoffset < utils.SlotOffset(page.Header.FreeData) {
 				// second condition for negative offsets in var cols offsets
