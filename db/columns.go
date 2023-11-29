@@ -8,7 +8,12 @@ import (
 	"fmt"
 )
 
-type ColMap map[string][]byte
+type ColData struct {
+	Content []byte
+	Carved  bool
+}
+
+type ColMap map[string]ColData
 
 type Column struct {
 	Name        string
