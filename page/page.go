@@ -279,11 +279,11 @@ func (page *Page) parseLOB(data []byte) {
 func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 	for slotnum, slotoffset := range page.Slots {
-		var dataRowLen utils.SlotOffset //allocated datarow size
+		var allocatedDataRowSize utils.SlotOffset
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
 
-		var dataRowSize int //actual  size of datarow
+		var actualDataRowSize int
 
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
@@ -306,28 +306,32 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		}
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
-			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
+			allocatedDataRowSize = page.Slots[slotnum+1] - slotoffset //find allocated legnth
 		} else { //last slot
-			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
+			allocatedDataRowSize = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
 
 		if GetRowType(data[slotoffset]) == "Forwarding Record" { // forward pointer header
-			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
+			utils.Unmarshal(data[slotoffset:slotoffset+allocatedDataRowSize],
+				forwardingPointer)
 			page.ForwardingPointers = append(page.ForwardingPointers, *forwardingPointer)
 
 		} else if GetRowType(data[slotoffset]) == "Primary Record" {
-			dataRowSize = dataRow.Parse(data[slotoffset:slotoffset+dataRowLen], int(slotoffset)+offset, page.Header.ObjectId)
+			actualDataRowSize = dataRow.Parse(data[slotoffset:slotoffset+allocatedDataRowSize],
+				int(slotoffset)+offset, page.Header.ObjectId)
 
 			page.DataRows = append(page.DataRows, *dataRow)
 		}
 		//// this section is experimental
-		// last slot check for unallocated
-		if slotnum == len(page.Slots)-1 && carve {
+		// found area that is unallocated?
+		unallocatedArea := allocatedDataRowSize - utils.SlotOffset(actualDataRowSize)
+		if unallocatedArea > 0 && carve {
 			//calculate size of unallocate cols
-			slotoffset += utils.SlotOffset(dataRowSize) // add last row size
+			slotoffset += utils.SlotOffset(actualDataRowSize) // add last row size
 			//carve only when there is unallocated space in datarow
-			if slotoffset < utils.SlotOffset(page.Header.FreeData) {
-				page.CarveDataRows(data[slotoffset:page.Header.FreeData], offset+int(slotoffset))
+			if slotoffset < utils.SlotOffset(page.Header.FreeData) &&
+				slotoffset+unallocatedArea <= utils.SlotOffset(page.Header.FreeData) {
+				page.CarveDataRows(data[slotoffset:slotoffset+unallocatedArea], offset+int(slotoffset))
 			}
 
 		}
