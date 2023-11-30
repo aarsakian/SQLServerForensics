@@ -279,11 +279,11 @@ func (page *Page) parseLOB(data []byte) {
 func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 	for slotnum, slotoffset := range page.Slots {
-		var dataRowLen utils.SlotOffset
+		var dataRowLen utils.SlotOffset //allocated datarow size
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
 
-		var dataRowSize int //actual allocated size of datarow
+		var dataRowSize int //actual  size of datarow
 
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
@@ -325,7 +325,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		if slotnum == len(page.Slots)-1 && carve {
 			//calculate size of unallocate cols
 			slotoffset += utils.SlotOffset(dataRowSize) // add last row size
-			//allocated size - real size
+			//carve only when there is unallocated space in datarow
 			if slotoffset < utils.SlotOffset(page.Header.FreeData) {
 				page.CarveDataRows(data[slotoffset:page.Header.FreeData], offset+int(slotoffset))
 			}
