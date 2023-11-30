@@ -277,15 +277,12 @@ func (page *Page) parseLOB(data []byte) {
 }
 
 func (page *Page) parseDATA(data []byte, offset int, carve bool) {
-	var dataRows DataRows
-	var carvedDataRows DataRows
-	var forwardingPointers ForwardingPointers
 
 	for slotnum, slotoffset := range page.Slots {
 		var dataRowLen utils.SlotOffset
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
-		var carvedDataRow *DataRow = new(DataRow)
+
 		var dataRowSize int //actual allocated size of datarow
 
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
@@ -316,43 +313,48 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 		if GetRowType(data[slotoffset]) == "Forwarding Record" { // forward pointer header
 			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
-			forwardingPointers = append(forwardingPointers, *forwardingPointer)
+			page.ForwardingPointers = append(page.ForwardingPointers, *forwardingPointer)
+
 		} else if GetRowType(data[slotoffset]) == "Primary Record" {
 			dataRowSize = dataRow.Parse(data[slotoffset:slotoffset+dataRowLen], int(slotoffset)+offset, page.Header.ObjectId)
 
-			dataRows = append(dataRows, *dataRow)
+			page.DataRows = append(page.DataRows, *dataRow)
 		}
 		//// this section is experimental
 		// last slot check for unallocated
 		if slotnum == len(page.Slots)-1 && carve {
 			//calculate size of unallocate cols
 			slotoffset += utils.SlotOffset(dataRowSize) // add last row size
-			unallocatedDataRowSize := int(dataRowLen) - dataRowSize
-			for slotoffset < utils.SlotOffset(page.Header.FreeData) {
-				// second condition for negative offsets in var cols offsets
-				if unallocatedDataRowSize == 0 ||
-					int(slotoffset)+unallocatedDataRowSize > len(data) {
-					break
-				}
-				msg := fmt.Sprintf("unallocated space discovered at %d len %d \n",
-					offset+len(data)-unallocatedDataRowSize, unallocatedDataRowSize)
-				mslogger.Mslogger.Warning(msg)
-				if GetRowType(data[slotoffset]) != "Primary Record" {
-					break
-				}
-				dataRowSize = carvedDataRow.Parse(data[slotoffset:slotoffset+
-					utils.SlotOffset(unallocatedDataRowSize)], int(slotoffset)+offset, page.Header.ObjectId)
-				slotoffset += utils.SlotOffset(dataRowSize)
-				unallocatedDataRowSize = int(dataRowLen) - dataRowSize
-				carvedDataRows = append(carvedDataRows, *carvedDataRow)
-
+			//allocated size - real size
+			if slotoffset < utils.SlotOffset(page.Header.FreeData) {
+				page.CarveDataRows(data[slotoffset:page.Header.FreeData], offset+int(slotoffset))
 			}
+
 		}
 
 	}
-	page.ForwardingPointers = forwardingPointers
-	page.DataRows = dataRows
-	page.CarvedDataRows = carvedDataRows
+
+}
+
+func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
+	var carvedDataRow *DataRow = new(DataRow)
+	slotoffset := 0
+	for slotoffset < len(unallocatedData) {
+		// second condition for negative offsets in var cols offsets
+
+		msg := fmt.Sprintf("unallocated space discovered at %d\n",
+			offset+len(unallocatedData))
+		mslogger.Mslogger.Warning(msg)
+		if GetRowType(unallocatedData[slotoffset]) != "Primary Record" {
+			break
+		}
+		dataRowSize := carvedDataRow.Parse(unallocatedData[slotoffset:],
+			int(slotoffset)+offset, page.Header.ObjectId)
+		slotoffset += dataRowSize
+
+		page.CarvedDataRows = append(page.CarvedDataRows, *carvedDataRow)
+
+	}
 }
 
 func (page *Page) parseSGAM(data []byte) {
