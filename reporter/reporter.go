@@ -61,7 +61,7 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 				page.ShowIndexRows()
 			}
 
-			if rp.ShowCarved {
+			if rp.ShowCarved && rp.ShowDataCols {
 				page.ShowCarvedDataRows()
 			}
 
