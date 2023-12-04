@@ -249,9 +249,9 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 		}
 
 	} else {
-		if dataRow.NumberOfVarLengthCols == 0 || dataRow.NumberOfVarLengthCols <= valorder {
+		if dataRow.NumberOfVarLengthCols <= valorder {
 			// should had bitmap set to 1 however it is not expiremental
-			msg := fmt.Sprintf("Col id %d start offset %d has not varying len cols or incorrect val order",
+			msg := fmt.Sprintf("Number of var len cols is less than the asked col %d col offset within datarow %d",
 				colId, startoffset)
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
