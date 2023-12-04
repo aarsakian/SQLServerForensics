@@ -229,7 +229,7 @@ func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16
 			table.Schema[column_id-1].Name, table.Name)
 		mslogger.Mslogger.Warning(msg)
 	} else {
-		table.Schema[column_id-1].Offset = offset
+		table.Schema[column_id-1].Offset = offset - 1
 	}
 
 }
@@ -297,8 +297,6 @@ func (table *Table) ProcessRow(rowid int, datarow page.DataRow, pageId uint32,
 		colval, e := col.addContent(datarow, lobPages, textLobPages)
 		if e == nil {
 			m[col.Name] = ColData{Content: colval, Carved: carved}
-		} else {
-			fmt.Printf("error %e", e)
 		}
 	}
 	table.rows = append(table.rows, m)
