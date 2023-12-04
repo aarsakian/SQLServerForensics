@@ -68,7 +68,7 @@ func (c Column) isStatic() bool {
 	if c.Type == "varchar" || c.Type == "nvarchar" ||
 		c.Type == "varbinary" || c.Type == "xml" || c.Type == "text" ||
 		c.Type == "ntext" || c.Type == "image" || c.Type == "hierarchyid" ||
-		c.Type == "float" || c.Type == "sql_variant" || c.Type == "sysname" {
+		c.Type == "sql_variant" || c.Type == "sysname" {
 		return false
 	} else {
 		return true
@@ -139,6 +139,8 @@ func (c Column) toString(data []byte) string {
 		return utils.MoneyToStr(data)
 	} else if c.Type == "date" {
 		return utils.DateToStr(data)
+	} else if c.Type == "flaot" {
+		return utils.FloatToStr(data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
