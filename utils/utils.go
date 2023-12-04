@@ -56,6 +56,16 @@ func isLeapYear(year uint) bool {
 
 }
 
+//1: the signed bit
+//2 to 12: the exponent, which is offset against a bias 2^1023
+//13 to 64: the significand (also known as the mantissa)
+//52 bits for the fraction use negative power to 2
+//finaly multiply with exponent
+
+func FloatToStr(data []byte) string {
+
+}
+
 func DateToStr(data []byte) string {
 	/*DATE is the byte-reversed number of days since the year 0001-01-01, stored as three bytes. */
 	var day uint
