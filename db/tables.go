@@ -229,7 +229,7 @@ func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16
 			table.Schema[column_id-1].Name, table.Name)
 		mslogger.Mslogger.Warning(msg)
 	} else {
-		table.Schema[column_id-1].Offset = offset - 1
+		table.Schema[column_id-1].Offset = offset
 	}
 
 }
