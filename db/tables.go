@@ -108,7 +108,7 @@ func (table Table) printTableInfo() {
 
 }
 
-func (table Table) printAllocationWithLinks(pages page.PagesMap) {
+func (table Table) printAllocationWithLinks() {
 	table.printTableInfo()
 
 	fmt.Print("Page Ids\n")
@@ -234,12 +234,15 @@ func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16
 
 }
 
-func (table *Table) setContent(dataPages page.PageMapIds,
-	lobPages page.PageMapIds, textLobPages page.PageMapIds) {
+func (table *Table) setContent(dataPages page.PagesPerId[uint32],
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 	var carved bool
 	rowid := 0
-	for pageId, page := range dataPages {
+	node := dataPages.GetHeadNode()
+	for node != nil {
+		page := node.Pages[0]
+		pageId := page.Header.PageId
 		if page.HasForwardingPointers() {
 			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
 
@@ -258,12 +261,13 @@ func (table *Table) setContent(dataPages page.PageMapIds,
 			table.ProcessRow(rowid, datarow, pageId, lobPages, textLobPages, carved)
 
 		}
+		node = node.Next
 	}
 
 }
 
 func (table *Table) ProcessRow(rowid int, datarow page.DataRow, pageId uint32,
-	lobPages page.PageMapIds, textLobPages page.PageMapIds, carved bool) {
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], carved bool) {
 	m := make(ColMap)
 
 	nofCols := len(table.Schema)
