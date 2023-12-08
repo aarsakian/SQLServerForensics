@@ -216,7 +216,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 }
 
 func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int16,
-	static bool, valorder uint16, lobPages PageMapIds, textLobPages PageMapIds) ([]byte, error) {
+	static bool, valorder uint16, lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]) ([]byte, error) {
 
 	if static {
 		fixedLenColsOffset := 4 // include status flag nofcols
@@ -259,7 +259,7 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
 		if rowId.FileId != 0 {
 
-			lobPage := lobPages[rowId.PageId]
+			lobPage := lobPages.GetPages(rowId.PageId)[0]
 
 			return lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp)), nil // might change
 		} else {
