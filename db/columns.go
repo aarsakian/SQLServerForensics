@@ -13,7 +13,7 @@ type ColData struct {
 	Carved  bool
 }
 
-type ColMap map[string]ColData
+type ColMap map[string]ColData //name->coldata
 
 type Column struct {
 	Name        string
@@ -139,7 +139,7 @@ func (c Column) toString(data []byte) string {
 		return utils.MoneyToStr(data)
 	} else if c.Type == "date" {
 		return utils.DateToStr(data)
-	} else if c.Type == "flaot" {
+	} else if c.Type == "float" {
 		return utils.FloatToStr(data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
@@ -148,7 +148,7 @@ func (c Column) toString(data []byte) string {
 }
 
 func (c *Column) addContent(datarow page.DataRow,
-	lobPages page.PageMapIds, textLOBPages page.PageMapIds) ([]byte, error) {
+	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32]) ([]byte, error) {
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
