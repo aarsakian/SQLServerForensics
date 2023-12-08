@@ -24,9 +24,75 @@ var SystemTablesFlags = map[string]uint8{
 
 type Pages []Page
 
-type PagesMap map[uint64]Pages //allocationunitid -> Pages
+func (p Pages) Len() int {
+	return len(p)
 
-type PageMapIds map[uint32]Page //pageId -> Page
+}
+
+func (p Pages) Less(i, j int) bool {
+	return p[i].Header.PageId < p[j].Header.PageId
+}
+
+func (p Pages) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+type PagesPerIdNodeList struct {
+	head *PagesPerIdNode
+}
+
+func (pagesPerIDNodeList *PagesPerIdNodeList) UpdateNext(pagesPerIDNode *PagesPerIdNode) {
+	node := pagesPerIDNodeList.head
+
+	for node.Next != nil {
+		node = node.Next
+
+	}
+	node.Next = pagesPerIDNode
+}
+
+type PageKey interface {
+	uint64 | uint32
+}
+
+type PagesPerIdNode struct {
+	Next  *PagesPerIdNode
+	Pages Pages
+}
+
+type PagesPerId[K PageKey] struct {
+	lookup map[K]*PagesPerIdNode
+	list   *PagesPerIdNodeList
+}
+
+func (pagesPerID PagesPerId[K]) GetHeadNode() *PagesPerIdNode {
+	return pagesPerID.list.head
+}
+
+func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
+	var pagesPerIDNode *PagesPerIdNode
+	pagesPerIDNode, ok := pagesPerID.lookup[allocUnitID]
+
+	if !ok { // new node must be created
+		pagesPerIDNode = new(PagesPerIdNode)
+		if pagesPerID.list == nil { // first addition
+			pagesPerID.lookup = map[K]*PagesPerIdNode{}
+			pagesPerID.list = &PagesPerIdNodeList{head: pagesPerIDNode}
+			pagesPerID.list.head = pagesPerIDNode
+		} else {
+			pagesPerID.list.UpdateNext(pagesPerIDNode)
+		}
+		pagesPerID.lookup[allocUnitID] = pagesPerIDNode
+		pagesPerIDNode.Pages = Pages{page}
+	} else {
+		pagesPerIDNode.Pages = append(pagesPerIDNode.Pages, page)
+	}
+
+}
+
+func (pagesPerID PagesPerId[K]) GetPages(allocUnitID K) Pages {
+	return pagesPerID.lookup[allocUnitID].Pages
+}
 
 type Page struct {
 	Header             Header
@@ -143,28 +209,72 @@ func (page Page) GetIndexType() string {
 	return page.Header.getIndexType()
 }
 
-func (pages Pages) FilterByTypeToMap(pageType string) PageMapIds {
-	return utils.FilterToMap(pages, func(page Page) (bool, uint32) {
-		return page.GetType() == pageType, page.Header.PageId
-	})
-}
-
-func (pagesMap PagesMap) FilterByType(pageType string) PagesMap {
-	return utils.FilterMap(pagesMap, func(page Page) bool {
+func (pages Pages) FilterByTypeToMap(pageType string) PagesPerId[uint32] {
+	newpagesPerID := PagesPerId[uint32]{}
+	pagesPerType := utils.Filter(pages, func(page Page) bool {
 		return page.GetType() == pageType
 	})
+	for _, page := range pagesPerType {
+		newpagesPerID.Add(page.Header.PageId, page)
+	}
+	return newpagesPerID
 }
 
-func (pagesMap PagesMap) FilterBySystemTablesToList(systemTable string) Pages {
-	return utils.FilterMapToList(pagesMap, func(page Page) bool {
-		return page.isSystemPage(systemTable)
-	})
+func (pagesPerID PagesPerId[K]) GetIDs() []K {
+	var unitIDs []K
+	for unitID := range pagesPerID.lookup {
+		unitIDs = append(unitIDs, unitID)
+
+	}
+	return unitIDs
+
+}
+func (pagesPerID PagesPerId[K]) FilterByType(pageType string) PagesPerId[K] {
+	newpagesPerID := PagesPerId[K]{}
+
+	for allocUnitId, pagesPerIDNode := range pagesPerID.lookup {
+		for _, page := range pagesPerIDNode.Pages {
+			if page.GetType() != pageType {
+				continue
+			}
+			newpagesPerID.Add(allocUnitId, page)
+		}
+
+	}
+	return newpagesPerID
+
 }
 
-func (pagesMap PagesMap) FilterBySystemTables(systemTable string) PagesMap {
-	return utils.FilterMap(pagesMap, func(page Page) bool {
-		return page.isSystemPage(systemTable)
-	})
+func (pagesPerID PagesPerId[K]) FilterBySystemTablesToList(systemTable string) Pages {
+	var pages Pages
+	pagesPerIDNode := pagesPerID.list.head
+
+	for pagesPerIDNode != nil {
+		pages = append(pages, utils.Filter(pagesPerIDNode.Pages, func(page Page) bool {
+			return page.isSystemPage(systemTable)
+		})...)
+
+		pagesPerIDNode = pagesPerIDNode.Next
+	}
+	return pages
+
+}
+
+func (pagesPerID PagesPerId[K]) FilterBySystemTables(systemTable string) PagesPerId[K] {
+
+	newpagesPerID := PagesPerId[K]{}
+
+	for allocUnitId, pagesPerIDNode := range pagesPerID.lookup {
+		for _, page := range pagesPerIDNode.Pages {
+			if !page.isSystemPage(systemTable) {
+				continue
+			}
+			newpagesPerID.Add(allocUnitId, page)
+		}
+
+	}
+	return newpagesPerID
+
 }
 
 func (page Page) isSystemPage(systemTable string) bool {
@@ -178,7 +288,7 @@ func (page Page) isSystemPage(systemTable string) bool {
 	}
 }
 
-func (page Page) GetLobData(lobPages PageMapIds, textLobPages PageMapIds, SlotNumber uint, textTimestamp uint) []byte {
+func (page Page) GetLobData(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32], SlotNumber uint, textTimestamp uint) []byte {
 
 	var dataParts [][]byte
 	for _, lob := range page.LOBS {
