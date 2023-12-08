@@ -2,6 +2,7 @@ package utils
 
 import (
 	mslogger "MSSQLParser/logger"
+
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
@@ -56,13 +57,62 @@ func isLeapYear(year uint) bool {
 
 }
 
-//1: the signed bit
-//2 to 12: the exponent, which is offset against a bias 2^1023
-//13 to 64: the significand (also known as the mantissa)
-//52 bits for the fraction use negative power to 2
-//finaly multiply with exponent
-
+// 1: the signed bit
+// 2 to 12: the exponent, which is offset against a bias 2^1023
+// 13 to 64: the significand (also known as the mantissa)
+// 52 bits for the fraction use negative power to 2
+// finaly multiply with exponent
 func FloatToStr(data []byte) string {
+
+	var bitrepresentation strings.Builder
+	for _, byteval := range Bytereverse(data[6:8]) {
+		bitrepresentation.WriteString(strconv.FormatUint(uint64(byteval), 2))
+	}
+
+	fullrepresentation := fillPrefixWithZeros(bitrepresentation.String(), 16)
+
+	intval, _ := strconv.ParseUint(fullrepresentation[1:12], 2, 16)
+	exponent := math.Pow(2, float64(intval-1023))
+
+	mantissaSum := 0.0
+	var mantissa strings.Builder
+	for pos, byteval := range Bytereverse(data[0:6]) {
+		if pos == 0 {
+			mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(byteval), 2), 8)[4:8])
+		}
+		mantissa.WriteString(strconv.FormatUint(uint64(byteval), 2))
+	}
+
+	for pos, bitval := range mantissa.String() {
+		mantissaSum += float64(bitval-48) * math.Pow(2, float64(-1*(pos+1)))
+
+	}
+	mantissaSum += 1
+	if data[7]&0x80 == 1 { //sing check
+		return strconv.FormatFloat(-1*exponent*mantissaSum, 'E', -1, 64)
+	} else {
+		return strconv.FormatFloat(exponent*mantissaSum, 'E', -1, 64)
+	}
+
+}
+
+func fillPrefixWithZeros(bitval string, targetLen int) string {
+	// add missing zeros
+
+	for len(bitval) < targetLen {
+		bitval = "0" + bitval
+	}
+	return bitval
+}
+
+func Bytereverse(barray []byte) []byte { //work with indexes
+	//  fmt.Println("before",barray)
+	for i, j := 0, len(barray)-1; i < j; i, j = i+1, j-1 {
+
+		barray[i], barray[j] = barray[j], barray[i]
+
+	}
+	return barray
 
 }
 
@@ -221,15 +271,6 @@ func ToUint64(data []byte) uint64 {
 	return uint64(temp)
 }
 
-type SlotOffset uint16
-
-type SortedSlotsOffset []SlotOffset
-
-func (s SortedSlotsOffset) Len() int {
-	return len(s)
-
-}
-
 func addMissingBits(bitval string, targetLen int, pos int) string {
 	// add missing zeros
 	var maxnofZeros int
@@ -284,12 +325,46 @@ func Hexify(bslice []byte) string {
 
 }
 
+type SlotOffset uint16
+
+type SortedSlotsOffset []SlotOffset
+
+func (s SortedSlotsOffset) Len() int {
+	return len(s)
+
+}
+
 func (s SortedSlotsOffset) Less(i, j int) bool {
 	return s[i] < s[j]
 }
 
 func (s SortedSlotsOffset) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
+}
+
+func CopyMapToSortedMap[L any, T ~[]L, K uint64](d map[K]T, s map[K]T) {
+
+	keys := Keys(s)
+	n := len(keys)
+	for {
+		swapped := false
+		for i := 1; i < n; i++ {
+
+			if keys[i] < keys[i-1] {
+				keys[i-1], keys[i] = keys[i], keys[i-1]
+				swapped = true
+			}
+
+		}
+		if !swapped {
+			break
+		}
+
+	}
+	for _, k := range keys {
+		d[k] = s[k]
+	}
+
 }
 
 func Reverse(bslice []byte) []byte {
