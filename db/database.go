@@ -3,7 +3,6 @@ package db
 import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
-	"MSSQLParser/utils"
 	"fmt"
 	"os"
 	"sort"
@@ -13,9 +12,9 @@ import (
 var PAGELEN = 8192
 
 type Database struct {
-	Fname    string
-	PagesMap page.PagesMap //allocationunitid -> Pages
-	Tables   []Table
+	Fname               string
+	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
+	Tables              []Table
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -37,7 +36,7 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bo
 
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 
-	pages := page.PagesMap{}
+	pages := page.PagesPerId[uint64]{}
 
 	fmt.Println("Processing pages...")
 	totalProcessedPages := 0
@@ -65,12 +64,13 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bo
 		msg := fmt.Sprintf("Processing offset %d", offset)
 		mslogger.Mslogger.Info(msg)
 		page := db.ProcessPage(bs, offset, carve)
-		pages[page.Header.GetMetadataAllocUnitId()] = append(pages[page.Header.GetMetadataAllocUnitId()], page)
+		pages.Add(page.Header.GetMetadataAllocUnitId(), page)
 
 		totalProcessedPages++
 
 	}
-	db.PagesMap = pages
+
+	db.PagesPerAllocUnitID = pages
 	return totalProcessedPages
 
 }
@@ -83,20 +83,20 @@ func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
 }
 
 func (db *Database) FilterBySystemTables(systemTables string) {
-	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTables)
+	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterBySystemTables(systemTables)
 }
 
 func (db *Database) FilterPagesByType(pageType string) {
-	db.PagesMap = db.PagesMap.FilterByType(pageType) //mutable
+	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterByType(pageType) //mutable
 }
 
 func (db *Database) FilterPagesBySystemTables(systemTable string) {
-	db.PagesMap = db.PagesMap.FilterBySystemTables(systemTable)
+	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterBySystemTables(systemTable)
 }
 
 func (db Database) createMap(tablename string) map[any]page.Result[string, string, uint64, uint, uint, uint, uint] {
 	results := map[any]page.Result[string, string, uint64, uint, uint, uint, uint]{}
-	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	systemPages := db.PagesPerAllocUnitID.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
 		for _, datarow := range systemPage.DataRows {
 			objectId, res := datarow.SystemTable.GetData()
@@ -114,7 +114,7 @@ func (db Database) GetName() string {
 
 func (db Database) createMapGeneric(tablename string) map[any]uint64 {
 	results := map[any]uint64{}
-	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	systemPages := db.PagesPerAllocUnitID.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
 
 		for _, datarow := range systemPage.DataRows {
@@ -130,7 +130,7 @@ func (db Database) createMapGeneric(tablename string) map[any]uint64 {
 
 func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 	results := map[any][]uint64{}
-	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	systemPages := db.PagesPerAllocUnitID.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
 
 		for _, datarow := range systemPage.DataRows {
@@ -145,7 +145,7 @@ func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 
 func (db Database) createColMapOffsets(tablename string) map[uint64][]page.Result[int32, int16, int64, int32, int32, int16, int32] {
 	results := map[uint64][]page.Result[int32, int16, int64, int32, int32, int16, int32]{}
-	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	systemPages := db.PagesPerAllocUnitID.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
 		if systemPage.GetType() != "DATA" {
 			continue
@@ -164,7 +164,7 @@ func (db Database) createColMapOffsets(tablename string) map[uint64][]page.Resul
 
 func (db Database) createMapListPartitions(tablename string) map[int32][]page.Result[uint64, uint32, uint8, uint16, uint16, uint16, uint32] {
 	results := map[int32][]page.Result[uint64, uint32, uint8, uint16, uint16, uint16, uint32]{}
-	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	systemPages := db.PagesPerAllocUnitID.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
 		if systemPage.GetType() != "DATA" {
 			continue
@@ -183,7 +183,7 @@ func (db Database) createMapListPartitions(tablename string) map[int32][]page.Re
 
 func (db Database) createMapList(tablename string) map[int32][]page.Result[string, string, int16, uint16, uint32, uint8, uint8] {
 	results := map[int32][]page.Result[string, string, int16, uint16, uint32, uint8, uint8]{}
-	systemPages := db.PagesMap.FilterBySystemTablesToList(tablename)
+	systemPages := db.PagesPerAllocUnitID.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
 
 		for _, datarow := range systemPage.DataRows {
@@ -222,7 +222,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 			table.printAllocation()
 		} else if showAllocation == "links" {
-			table.printAllocationWithLinks(db.PagesMap)
+			table.printAllocationWithLinks()
 		}
 		tableLocated = true
 
@@ -287,7 +287,7 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 			if ok {
 				for _, allocationUnitId := range allocationUnitIds {
 
-					table_alloc_pages = append(table_alloc_pages, db.PagesMap[allocationUnitId]...) // find the pages the table was allocated
+					table_alloc_pages = append(table_alloc_pages, db.PagesPerAllocUnitID.GetPages(allocationUnitId)...) // find the pages the table was allocated
 				}
 
 			}
@@ -303,14 +303,16 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 			}
 
 		}
+
+		sort.Sort(table_alloc_pages)
 		dataPages := table_alloc_pages.FilterByTypeToMap("DATA") // pageId -> Page
 		lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
 		textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
 		indexPages := table_alloc_pages.FilterByTypeToMap("Index")
 		iamPages := table_alloc_pages.FilterByTypeToMap("IAM")
 
-		table.PageIds = map[string][]uint32{"DATA": utils.Keys(dataPages), "LOB": utils.Keys(lobPages),
-			"Text": utils.Keys(textLobPages), "Index": utils.Keys(indexPages), "IAM": utils.Keys(iamPages)}
+		table.PageIds = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
+			"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
 		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
 		tables = append(tables, table)
