@@ -76,10 +76,9 @@ func FloatToStr(data []byte) string {
 
 	mantissaSum := 0.0
 	var mantissa strings.Builder
-	for pos, byteval := range Bytereverse(data[0:6]) {
-		if pos == 0 {
-			mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(byteval), 2), 8)[4:8])
-		}
+	mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(data[7]), 2), 8)[4:8])
+	for _, byteval := range Bytereverse(data[0:6]) {
+
 		mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(byteval), 2), 8))
 	}
 
