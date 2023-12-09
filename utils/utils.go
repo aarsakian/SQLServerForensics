@@ -66,12 +66,12 @@ func FloatToStr(data []byte) string {
 
 	var bitrepresentation strings.Builder
 	for _, byteval := range Bytereverse(data[6:8]) {
-		bitrepresentation.WriteString(strconv.FormatUint(uint64(byteval), 2))
+
+		bitrepresentation.WriteString(fillPrefixWithZeros(
+			strconv.FormatUint(uint64(byteval), 2), 8))
 	}
 
-	fullrepresentation := fillPrefixWithZeros(bitrepresentation.String(), 16)
-
-	intval, _ := strconv.ParseUint(fullrepresentation[1:12], 2, 16)
+	intval, _ := strconv.ParseUint(bitrepresentation.String()[1:12], 2, 16)
 	exponent := math.Pow(2, float64(intval-1023))
 
 	mantissaSum := 0.0
@@ -80,7 +80,7 @@ func FloatToStr(data []byte) string {
 		if pos == 0 {
 			mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(byteval), 2), 8)[4:8])
 		}
-		mantissa.WriteString(strconv.FormatUint(uint64(byteval), 2))
+		mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(byteval), 2), 8))
 	}
 
 	for pos, bitval := range mantissa.String() {
