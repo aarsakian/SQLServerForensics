@@ -75,7 +75,7 @@ func main() {
 	selectedTableRows := flag.Int("torow", -1, "show only the first number of rows (Default is all)")
 	selectedTableRow := flag.Int("row", -1, "Show only the selected row")
 	userTable := flag.String("usertable", "", "get system table info about user table")
-	export := flag.Bool("export", false, "export table")
+	exportPath := flag.String("export", "", "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 	logactive := flag.Bool("log", false, "log activity")
 	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
@@ -200,8 +200,8 @@ func main() {
 		reporter.ShowPageInfo(database, uint32(*selectedPage))
 		reporter.ShowTableInfo(database)
 
-		if *export {
-			exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage}
+		if *exportPath != "" {
+			exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage, Path: *exportPath}
 			exp.Export(database, *tableName, *tabletype, *selectedTableRow)
 		}
 	}
