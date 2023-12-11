@@ -21,6 +21,22 @@ type Table struct {
 	indexType         string
 }
 
+type ByRowId []ColMap
+
+/*func (byrowid ByRowId) Len() int {
+	return len(byrowid)
+
+}
+
+func (byrowid ByRowId) Less(i, j int) bool {
+	return byrowid[i] < byrowid[j]
+}
+
+func (byrowid ByRowId) Swap(i, j int) {
+
+	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
+}*/
+
 func (table Table) getHeader() utils.Record {
 	var record utils.Record
 	for _, c := range table.Schema {
@@ -152,13 +168,16 @@ func (table Table) printAllocation() {
 
 }
 
-func (table Table) GetRecords() utils.Records {
+func (table Table) GetRecords(selectedRow int) utils.Records {
 	var records utils.Records
 
 	records = append(records, table.getHeader())
 
-	for _, row := range table.rows {
+	for rownum, row := range table.rows {
 		var record utils.Record
+		if selectedRow != -1 && selectedRow != rownum {
+			continue
+		}
 		for _, c := range table.Schema {
 			colData := row[c.Name]
 			record = append(record, c.toString(colData.Content))
@@ -195,7 +214,11 @@ func (table Table) printHeader() {
 	fmt.Printf("\n")
 }
 
-func (table Table) printData(showtorow int, showrow int) {
+func (table Table) printData(showtorow int, showrow int, showcarved bool) {
+	if showcarved {
+
+		//sort.Sort(ByRowId(table.rows))
+	}
 	for idx, row := range table.rows {
 		if showtorow != -1 && idx > showtorow {
 			break
@@ -238,7 +261,7 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 	var carved bool
-	rowid := 0
+	rownum := 0
 	node := dataPages.GetHeadNode()
 	for node != nil {
 		page := node.Pages[0]
@@ -251,14 +274,14 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 		table.indexType = page.GetIndexType()
 		for _, datarow := range page.DataRows {
 			carved = false
-			table.ProcessRow(rowid, datarow, pageId, lobPages, textLobPages, carved)
-			rowid++
+			table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages, carved)
+			rownum++
 		}
 
 		for _, datarow := range page.CarvedDataRows {
-			rowid++
+			rownum++
 			carved = true
-			table.ProcessRow(rowid, datarow, pageId, lobPages, textLobPages, carved)
+			table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages, carved)
 
 		}
 		node = node.Next
@@ -266,7 +289,7 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 
 }
 
-func (table *Table) ProcessRow(rowid int, datarow page.DataRow, pageId uint32,
+func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], carved bool) {
 	m := make(ColMap)
 
@@ -274,13 +297,13 @@ func (table *Table) ProcessRow(rowid int, datarow page.DataRow, pageId uint32,
 
 	if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 		msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
-			int(datarow.NumberOfCols), rowid, pageId, nofCols, table.Name)
+			int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
 		mslogger.Mslogger.Warning(msg)
 		return
 	}
 	if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
 		msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
-			pageId, rowid, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
+			pageId, rownum, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
 		mslogger.Mslogger.Warning(msg)
 		return
 	}
