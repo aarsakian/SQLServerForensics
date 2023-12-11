@@ -91,7 +91,23 @@ func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
 }
 
 func (pagesPerID PagesPerId[K]) GetPages(allocUnitID K) Pages {
-	return pagesPerID.lookup[allocUnitID].Pages
+	node, ok := pagesPerID.lookup[allocUnitID]
+	if ok {
+		return node.Pages
+	} else {
+		return Pages{}
+	}
+
+}
+
+func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
+	node, ok := pagesPerID.lookup[allocUnitID]
+	if ok {
+		return node.Pages[0]
+	} else {
+		return Page{}
+	}
+
 }
 
 type Page struct {
