@@ -19,11 +19,11 @@ type Exporter struct {
 	Image  bool
 }
 
-func (exp Exporter) Export(database db.Database, tablename string, tabletype string) {
+func (exp Exporter) Export(database db.Database, tablename string, tabletype string, selectedTableRow int) {
 	var records utils.Records
 	var images utils.Images
 
-	err := os.Mkdir(database.GetName(), 0750)
+	err := os.MkdirAll(database.GetName(), 0750)
 
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
@@ -47,7 +47,7 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 			}
 		}
 
-		records = table.GetRecords()
+		records = table.GetRecords(selectedTableRow)
 
 		if exp.Image {
 			images = table.GetImages()
