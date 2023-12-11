@@ -20,8 +20,8 @@ type Reporter struct {
 	ShowTableAllocation string
 	ShowPageStats       bool
 	ShowIndex           bool
-	ShowTableRows       int
-	ShowTableRow        int
+	SelectedTableRows   int
+	SelectedTableRow    int
 	ShowCarved          bool
 	TableType           string
 }
@@ -79,7 +79,7 @@ func (rp Reporter) ShowTableInfo(database db.Database) {
 	if tablename != "" {
 
 		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
-			rp.TableType, rp.ShowTableRows, rp.ShowTableRow, rp.ShowCarved)
+			rp.TableType, rp.SelectedTableRows, rp.SelectedTableRow, rp.ShowCarved)
 
 	}
 }

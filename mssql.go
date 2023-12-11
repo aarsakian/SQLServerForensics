@@ -72,8 +72,8 @@ func main() {
 	showIndex := flag.Bool("showindex", false, "show index contents")
 	showTableAllocation := flag.String("showTableAllocation", "",
 		"show pages that the table has been allocated write 'simple' or 'links' to see the linked page structure")
-	showTableRows := flag.Int("torow", -1, "show only the first number of rows (Default is all)")
-	showTableRow := flag.Int("row", -1, "Show only the selected row")
+	selectedTableRows := flag.Int("torow", -1, "show only the first number of rows (Default is all)")
+	selectedTableRow := flag.Int("row", -1, "Show only the selected row")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	export := flag.Bool("export", false, "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
@@ -103,8 +103,8 @@ func main() {
 		ShowTableAllocation: *showTableAllocation,
 		ShowPageStats:       *showPageStats,
 		ShowIndex:           *showIndex,
-		ShowTableRows:       *showTableRows,
-		ShowTableRow:        *showTableRow,
+		SelectedTableRows:   *selectedTableRows,
+		SelectedTableRow:    *selectedTableRow,
 		ShowCarved:          *showcarved,
 		TableType:           *tabletype}
 
@@ -202,7 +202,7 @@ func main() {
 
 		if *export {
 			exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage}
-			exp.Export(database, *tableName, *tabletype)
+			exp.Export(database, *tableName, *tabletype, *selectedTableRow)
 		}
 	}
 
