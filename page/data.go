@@ -259,7 +259,7 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
 		if rowId.FileId != 0 {
 
-			lobPage := lobPages.GetPages(rowId.PageId)[0]
+			lobPage := lobPages.GetFirstPage(rowId.PageId)
 
 			return lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp)), nil // might change
 		} else {

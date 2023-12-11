@@ -84,7 +84,7 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 
 	if lob.Type == 2 {
 		for _, dataLob := range lob.Internal.DataPointers { //points to lob type 3
-			lobPage := lobPages.GetPages(dataLob.PageId)[0]
+			lobPage := lobPages.GetFirstPage(dataLob.PageId)
 			for _, lob := range lobPage.LOBS {
 				if lob.Id != uint64(textTimestamp) {
 					continue
@@ -106,7 +106,7 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 			lobPage = lobPages.GetPages(internalLob.PageId)[0]
 
 			if lobPage.Header.PageId == 0 { // lob Pages does not contains thiss page id
-				lobPage = textLobPages.GetPages(internalLob.PageId)[0]
+				lobPage = textLobPages.GetFirstPage(internalLob.PageId)
 			}
 
 			for _, lob := range lobPage.LOBS {
