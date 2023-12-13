@@ -274,13 +274,13 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 
 	dataRowSize, _ := utils.Unmarshal(data, dataRow)
 
-	if pageType == 0x29 { //syscolpars
+	if pageType == SystemTablesFlags["syscolpars"] {
 
 		var syscolpars *SysColpars = new(SysColpars)
 
 		dataRow.Process(syscolpars)
 
-	} else if pageType == 0x22 {
+	} else if pageType == SystemTablesFlags["sysschobjs"] {
 
 		var sysschobjs *Sysschobjs = new(Sysschobjs)
 
