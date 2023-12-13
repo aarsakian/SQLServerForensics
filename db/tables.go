@@ -23,6 +23,28 @@ type Table struct {
 
 type ByRowId []ColMap
 
+type ByColOrder []Column
+
+func (b ByColOrder) Less(i, j int) bool {
+
+	return b[i].Order < b[j].Order
+}
+
+func (b ByColOrder) Swap(i, j int) {
+
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b ByColOrder) Len() int {
+	return len(b)
+
+}
+
+func (table Table) sortByColOrder() {
+	// sort by col order
+	sort.Sort(ByColOrder(table.Schema))
+}
+
 /*func (byrowid ByRowId) Len() int {
 	return len(byrowid)
 
@@ -45,35 +67,15 @@ func (table Table) getHeader() utils.Record {
 	return record
 }
 
-func (table *Table) addColumn(name string, coltype string, size int16, order uint16, collationId uint32, prec uint8, scale uint8) {
-	col := Column{Name: name, Type: coltype, Size: size, Order: order, CollationId: collationId, Precision: prec, Scale: scale}
-	table.Schema = append(table.Schema, col)
+func (table *Table) addColumn(column Column) {
+
+	table.Schema = append(table.Schema, column)
 
 }
 
-func (table *Table) addColumns(results []page.Result[string, string, int16, uint16, uint32, uint8, uint8]) {
-
-	for _, res := range results {
-		table.addColumn(res.First, res.Second, res.Third, res.Fourth, res.Fifth, res.Sixth, res.Seventh)
-	}
-
-}
-
-func (table *Table) updateVarLenCols() {
+func (table *Table) setVarLenCols() {
 
 	vid := 0
-	//colorder := uint16(1)
-	// first arrange static
-
-	/*	for idx := range table.Schema {
-		if table.Schema[idx].isStatic() {
-			table.Schema[idx].Order = colorder
-			table.Schema[idx].VarLenOrder = 0
-			colorder++
-		}
-	}*/
-
-	//2nd pass for var len cols
 	for idx := range table.Schema {
 		if table.Schema[idx].isStatic() {
 			continue
@@ -81,8 +83,18 @@ func (table *Table) updateVarLenCols() {
 		table.Schema[idx].VarLenOrder = uint16(vid)
 
 		vid++
-
 	}
+}
+
+func (table *Table) addColumns(columns []page.Result[string, string, int16, uint16, uint32, uint8, uint8]) {
+
+	for _, col := range columns {
+		table.addColumn(Column{Name: col.First, Type: col.Second,
+			Size: col.Third, Order: col.Fourth, CollationId: col.Fifth,
+			Precision: col.Sixth, Scale: col.Seventh})
+	}
+	table.setVarLenCols()
+
 }
 
 func (table Table) printSchema() {
@@ -327,19 +339,4 @@ func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 		}
 	}
 	table.rows = append(table.rows, m)
-}
-
-func (t Table) Less(i, j int) bool {
-	c := t.Schema
-	return c[i].Order < c[j].Order
-}
-
-func (t Table) Swap(i, j int) {
-	c := t.Schema
-	c[i], c[j] = c[j], c[i]
-}
-
-func (t Table) Len() int {
-	return len(t.Schema)
-
 }
