@@ -18,9 +18,10 @@ var PageTypes = map[uint8]string{
 	16: "Differential Changed Map", 17: "Buck Change Map",
 }
 
-var SystemTablesFlags = map[string]uint8{
-	"syscolpars": 0x29, "sysrowsets": 0x05, "sysiscols": 0x37, "sysallocationunits": 0x07,
-	"sysschobjs": 0x22, "sysrscols": 0x03}
+var SystemTablesFlags = map[string]int32{
+	"syscolpars": 0x00000029, "sysrowsets": 0x00000005, "sysiscols": 0x00000037,
+	"sysallocationunits": 0x00000007,
+	"sysschobjs":         0x00000022, "sysrscols": 0x00000003}
 
 type Pages []Page
 
@@ -300,7 +301,7 @@ func (page Page) isSystemPage(systemTable string) bool {
 			page.Header.ObjectId == 0x05 || //sysrowsets, and
 			page.Header.ObjectId == 0x07 //sysallocationunits
 	} else {
-		return page.Header.ObjectId == int32(SystemTablesFlags[systemTable])
+		return page.Header.ObjectId == SystemTablesFlags[systemTable]
 	}
 }
 
