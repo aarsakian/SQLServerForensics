@@ -143,7 +143,7 @@ func (db Database) createMapListGeneric(tablename string) map[any][]uint64 {
 	return results
 }
 
-func (db Database) createColMapOffsets(tablename string) map[uint64][]page.Result[int32, int16, int64, int32, int32, int16, int32] {
+func (db Database) createColMapListOffsets(tablename string) map[uint64][]page.Result[int32, int16, int64, int32, int32, int16, int32] {
 	results := map[uint64][]page.Result[int32, int16, int64, int32, int32, int16, int32]{}
 	systemPages := db.PagesPerAllocUnitID.FilterBySystemTablesToList(tablename)
 	for _, systemPage := range systemPages {
@@ -215,7 +215,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		}
 		if showContent {
 			table.printHeader()
-			table.printData(showrows, showrow)
+			table.printData(showrows, showrow, showcarved)
 		}
 
 		if showAllocation == "simple" {
@@ -241,13 +241,13 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 	 using the partitionid locate the allocationunitid  from sysallocationunits
 
 	*/
-	tablesMap := db.createMap("sysschobjs")   // table information holds a map of object ids and table names
-	colsMap := db.createMapList("syscolpars") //table objectid = name , type, size, colorder
+	tablesMap := db.createMap("sysschobjs")   // table objectid = table info
+	colsMap := db.createMapList("syscolpars") //table objectid =[] name , type, size, colorder
 
-	colsMapOffsets := db.createColMapOffsets("sysrscols") //Rowsetid = colid ,offset
+	colsMapOffsets := db.createColMapListOffsets("sysrscols") //Rowsetid =  []colid ,offset
 
-	tablePartitionsMap := db.createMapListPartitions("sysrowsets")     //(table objectid) = (partitionId, index_id, ...)
-	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  OwnerId, page allocunitid
+	tablePartitionsMap := db.createMapListPartitions("sysrowsets")     //(table objectid) = [](partitionId, index_id, ...)
+	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  []OwnerId, page allocunitid
 
 	var tables []Table
 	for tobjectId, res := range tablesMap {
@@ -258,22 +258,18 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
-
-		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
-
 		table := Table{Name: tname, ObjectId: tobjectId.(int32), Type: res.Second, PageIds: map[string][]uint32{}}
-
 		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 		mslogger.Mslogger.Info(msg)
 
+		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
+
 		if ok {
-			//		fmt.Printf("Processing table %s with object id %d\n", tname, tobjectId)
-
 			table.addColumns(results)
-			table.updateVarLenCols()
-			// sort by col order
-			sort.Sort(table)
-
+			table.sortByColOrder()
+		} else {
+			msg := fmt.Sprintf("No columns located for table %s", table.Name)
+			mslogger.Mslogger.Warning(msg)
 		}
 
 		partitions := tablePartitionsMap[tobjectId.(int32)] // from sysrowsets idmajor => rowsetid
