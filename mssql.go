@@ -141,21 +141,26 @@ func main() {
 		for partitionId, records := range recordsPerPartition {
 
 			records = records.FilterByExtension("MDF")
-
-			if *location != "" && len(records) != 0 {
+			if len(records) == 0 {
+				continue
+			}
+			if *location != "" {
 
 				results := make(chan utils.AskedFile, len(records))
-				copyresults := make(chan utils.AskedFile, len(records))
-				wg := new(sync.WaitGroup)
-				wg.Add(3)
 
-				go exp.ExportData(wg, results, copyresults)               //consumer
+				wg := new(sync.WaitGroup)
+				wg.Add(2)
+
+				go exp.ExportData(wg, results)                            //consumer
 				go physicalDisk.Worker(wg, records, results, partitionId) //producer
-				go exp.HashFile(wg, copyresults)
 
 				wg.Wait()
+				exp.SetFilesToLogicalSize(records)
 
 			}
+
+			exp.HashFiles(records)
+
 			for _, record := range records {
 				fullpath := filepath.Join(exp.Location, record.GetFname())
 				inputfiles = append(inputfiles, fullpath)
