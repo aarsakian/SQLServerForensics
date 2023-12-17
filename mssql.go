@@ -81,7 +81,7 @@ func main() {
 	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
-
+	low := flag.Bool("low", false, "get low level access to MDF file and copy to temp folder")
 	flag.Parse()
 
 	now := time.Now()
@@ -157,20 +157,19 @@ func main() {
 				wg.Wait()
 				exp.SetFilesToLogicalSize(records)
 
-			}
+				for _, record := range records {
+					fullpath := filepath.Join(exp.Location, record.GetFname())
+					inputfiles = append(inputfiles, fullpath)
+				}
 
-			exp.HashFiles(records)
-
-			for _, record := range records {
-				fullpath := filepath.Join(exp.Location, record.GetFname())
-				inputfiles = append(inputfiles, fullpath)
 			}
 
 		}
 
 	}
+	if *low && *inputfile != "" {
 
-	if *inputfile != "" {
+	} else if *inputfile != "" {
 		inputfiles = append(inputfiles, *inputfile)
 	}
 	for _, inputFile := range inputfiles {
