@@ -21,7 +21,9 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bo
 	file, err := os.Open(db.Fname) //
 	if err != nil {
 		// handle the error here
-		fmt.Printf("err %s for reading the mdf file ", err)
+		fmt.Printf("err %s reading the mdf file. \n", err)
+		fmt.Printf("If you still want to read the mdf file using low level api use -low. This action will copy the file to the temp folder\n")
+		fmt.Printf("If you still want to read the mdf use -stopservice to stop sql server running! Please note that that uncommited data migh be lost.\n")
 		return -1
 	}
 
