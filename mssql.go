@@ -119,7 +119,7 @@ func main() {
 		defer servicer.StartService()
 	}
 
-	if *evidencefile != "" || *physicalDrive != -1 {
+	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
 
 		if *physicalDrive != -1 {
 
