@@ -18,15 +18,98 @@ var PageTypes = map[uint8]string{
 	16: "Differential Changed Map", 17: "Buck Change Map",
 }
 
-var SystemTablesFlags = map[string]uint8{
-	"syscolpars": 0x29, "sysrowsets": 0x05, "sysiscols": 0x37, "sysallocationunits": 0x07,
-	"sysschobjs": 0x22, "sysrscols": 0x03}
+var SystemTablesFlags = map[string]int32{
+	"syscolpars": 0x00000029, "sysrowsets": 0x00000005, "sysiscols": 0x00000037,
+	"sysallocationunits": 0x00000007,
+	"sysschobjs":         0x00000022, "sysrscols": 0x00000003}
 
 type Pages []Page
 
-type PagesMap map[uint64]Pages //allocationunitid -> Pages
+func (p Pages) Len() int {
+	return len(p)
 
-type PageMapIds map[uint32]Page //pageId -> Page
+}
+
+func (p Pages) Less(i, j int) bool {
+	return p[i].Header.PageId < p[j].Header.PageId
+}
+
+func (p Pages) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+type PagesPerIdNodeList struct {
+	head *PagesPerIdNode
+}
+
+func (pagesPerIDNodeList *PagesPerIdNodeList) UpdateNext(pagesPerIDNode *PagesPerIdNode) {
+	node := pagesPerIDNodeList.head
+
+	for node.Next != nil {
+		node = node.Next
+
+	}
+	node.Next = pagesPerIDNode
+}
+
+type PageKey interface {
+	uint64 | uint32
+}
+
+type PagesPerIdNode struct {
+	Next  *PagesPerIdNode
+	Pages Pages
+}
+
+type PagesPerId[K PageKey] struct {
+	lookup map[K]*PagesPerIdNode
+	list   *PagesPerIdNodeList
+}
+
+func (pagesPerID PagesPerId[K]) GetHeadNode() *PagesPerIdNode {
+	return pagesPerID.list.head
+}
+
+func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
+	var pagesPerIDNode *PagesPerIdNode
+	pagesPerIDNode, ok := pagesPerID.lookup[allocUnitID]
+
+	if !ok { // new node must be created
+		pagesPerIDNode = new(PagesPerIdNode)
+		if pagesPerID.list == nil { // first addition
+			pagesPerID.lookup = map[K]*PagesPerIdNode{}
+			pagesPerID.list = &PagesPerIdNodeList{head: pagesPerIDNode}
+			pagesPerID.list.head = pagesPerIDNode
+		} else {
+			pagesPerID.list.UpdateNext(pagesPerIDNode)
+		}
+		pagesPerID.lookup[allocUnitID] = pagesPerIDNode
+		pagesPerIDNode.Pages = Pages{page}
+	} else {
+		pagesPerIDNode.Pages = append(pagesPerIDNode.Pages, page)
+	}
+
+}
+
+func (pagesPerID PagesPerId[K]) GetPages(allocUnitID K) Pages {
+	node, ok := pagesPerID.lookup[allocUnitID]
+	if ok {
+		return node.Pages
+	} else {
+		return Pages{}
+	}
+
+}
+
+func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
+	node, ok := pagesPerID.lookup[allocUnitID]
+	if ok {
+		return node.Pages[0]
+	} else {
+		return Page{}
+	}
+
+}
 
 type Page struct {
 	Header             Header
@@ -143,28 +226,72 @@ func (page Page) GetIndexType() string {
 	return page.Header.getIndexType()
 }
 
-func (pages Pages) FilterByTypeToMap(pageType string) PageMapIds {
-	return utils.FilterToMap(pages, func(page Page) (bool, uint32) {
-		return page.GetType() == pageType, page.Header.PageId
-	})
-}
-
-func (pagesMap PagesMap) FilterByType(pageType string) PagesMap {
-	return utils.FilterMap(pagesMap, func(page Page) bool {
+func (pages Pages) FilterByTypeToMap(pageType string) PagesPerId[uint32] {
+	newpagesPerID := PagesPerId[uint32]{}
+	pagesPerType := utils.Filter(pages, func(page Page) bool {
 		return page.GetType() == pageType
 	})
+	for _, page := range pagesPerType {
+		newpagesPerID.Add(page.Header.PageId, page)
+	}
+	return newpagesPerID
 }
 
-func (pagesMap PagesMap) FilterBySystemTablesToList(systemTable string) Pages {
-	return utils.FilterMapToList(pagesMap, func(page Page) bool {
-		return page.isSystemPage(systemTable)
-	})
+func (pagesPerID PagesPerId[K]) GetIDs() []K {
+	var unitIDs []K
+	for unitID := range pagesPerID.lookup {
+		unitIDs = append(unitIDs, unitID)
+
+	}
+	return unitIDs
+
+}
+func (pagesPerID PagesPerId[K]) FilterByType(pageType string) PagesPerId[K] {
+	newpagesPerID := PagesPerId[K]{}
+
+	for allocUnitId, pagesPerIDNode := range pagesPerID.lookup {
+		for _, page := range pagesPerIDNode.Pages {
+			if page.GetType() != pageType {
+				continue
+			}
+			newpagesPerID.Add(allocUnitId, page)
+		}
+
+	}
+	return newpagesPerID
+
 }
 
-func (pagesMap PagesMap) FilterBySystemTables(systemTable string) PagesMap {
-	return utils.FilterMap(pagesMap, func(page Page) bool {
-		return page.isSystemPage(systemTable)
-	})
+func (pagesPerID PagesPerId[K]) FilterBySystemTablesToList(systemTable string) Pages {
+	var pages Pages
+	pagesPerIDNode := pagesPerID.list.head
+
+	for pagesPerIDNode != nil {
+		pages = append(pages, utils.Filter(pagesPerIDNode.Pages, func(page Page) bool {
+			return page.isSystemPage(systemTable)
+		})...)
+
+		pagesPerIDNode = pagesPerIDNode.Next
+	}
+	return pages
+
+}
+
+func (pagesPerID PagesPerId[K]) FilterBySystemTables(systemTable string) PagesPerId[K] {
+
+	newpagesPerID := PagesPerId[K]{}
+
+	for allocUnitId, pagesPerIDNode := range pagesPerID.lookup {
+		for _, page := range pagesPerIDNode.Pages {
+			if !page.isSystemPage(systemTable) {
+				continue
+			}
+			newpagesPerID.Add(allocUnitId, page)
+		}
+
+	}
+	return newpagesPerID
+
 }
 
 func (page Page) isSystemPage(systemTable string) bool {
@@ -174,11 +301,11 @@ func (page Page) isSystemPage(systemTable string) bool {
 			page.Header.ObjectId == 0x05 || //sysrowsets, and
 			page.Header.ObjectId == 0x07 //sysallocationunits
 	} else {
-		return page.Header.ObjectId == int32(SystemTablesFlags[systemTable])
+		return page.Header.ObjectId == SystemTablesFlags[systemTable]
 	}
 }
 
-func (page Page) GetLobData(lobPages PageMapIds, textLobPages PageMapIds, SlotNumber uint, textTimestamp uint) []byte {
+func (page Page) GetLobData(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32], SlotNumber uint, textTimestamp uint) []byte {
 
 	var dataParts [][]byte
 	for _, lob := range page.LOBS {
@@ -276,16 +403,14 @@ func (page *Page) parseLOB(data []byte) {
 
 }
 
-func (page *Page) parseDATA(data []byte, offset int) {
-	var dataRows DataRows
-	var carvedDataRows DataRows
-	var forwardingPointers ForwardingPointers
+func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 	for slotnum, slotoffset := range page.Slots {
-		var dataRowLen utils.SlotOffset
+		var allocatedDataRowSize utils.SlotOffset
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
-		var carvedDataRow *DataRow = new(DataRow)
+
+		var actualDataRowSize int
 
 		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
 		mslogger.Mslogger.Info(msg)
@@ -308,40 +433,59 @@ func (page *Page) parseDATA(data []byte, offset int) {
 		}
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
-			dataRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
+			allocatedDataRowSize = page.Slots[slotnum+1] - slotoffset //find allocated legnth
 		} else { //last slot
-			dataRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
+			allocatedDataRowSize = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
 
 		if GetRowType(data[slotoffset]) == "Forwarding Record" { // forward pointer header
-			utils.Unmarshal(data[slotoffset:slotoffset+dataRowLen], forwardingPointer)
-			forwardingPointers = append(forwardingPointers, *forwardingPointer)
+			utils.Unmarshal(data[slotoffset:slotoffset+allocatedDataRowSize],
+				forwardingPointer)
+			page.ForwardingPointers = append(page.ForwardingPointers, *forwardingPointer)
+
 		} else if GetRowType(data[slotoffset]) == "Primary Record" {
-			dataRowSize := dataRow.Parse(data[slotoffset:slotoffset+dataRowLen], int(slotoffset)+offset, page.Header.ObjectId)
-			var unallocated int
-			if dataRow.NumberOfVarLengthCols > 0 {
-				unallocated = int(dataRowLen) - int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
+			actualDataRowSize = dataRow.Parse(data[slotoffset:slotoffset+allocatedDataRowSize],
+				int(slotoffset)+offset, page.Header.ObjectId)
 
-			} else {
-				unallocated = int(dataRowLen) - dataRowSize
+			page.DataRows = append(page.DataRows, *dataRow)
+		}
+		//// this section is experimental
+		// found area that is unallocated?
+		unallocatedArea := allocatedDataRowSize - utils.SlotOffset(actualDataRowSize)
+		if unallocatedArea > 0 && carve {
+			//calculate size of unallocate cols
+			slotoffset += utils.SlotOffset(actualDataRowSize) // add last row size
+			//carve only when there is unallocated space in datarow
+			if slotoffset < utils.SlotOffset(page.Header.FreeData) &&
+				slotoffset+unallocatedArea <= utils.SlotOffset(page.Header.FreeData) {
+				page.CarveDataRows(data[slotoffset:slotoffset+unallocatedArea], offset+int(slotoffset))
 			}
-			// second condition for negative offsets in var cols offsets
-			if unallocated > 0 && unallocated < len(data) {
-				msg := fmt.Sprintf("unallocated space discovered at %d len %d \n",
-					offset+len(data)-unallocated, unallocated)
-				mslogger.Mslogger.Warning(msg)
-				// this section is experimental
 
-				utils.Unmarshal(data[len(data)-unallocated:], carvedDataRow)
-				carvedDataRows = append(carvedDataRows, *carvedDataRow)
-
-			}
-			dataRows = append(dataRows, *dataRow)
 		}
 
 	}
-	page.ForwardingPointers = forwardingPointers
-	page.DataRows = dataRows
+
+}
+
+func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
+	var carvedDataRow *DataRow = new(DataRow)
+	slotoffset := 0
+	for slotoffset < len(unallocatedData) {
+		// second condition for negative offsets in var cols offsets
+
+		msg := fmt.Sprintf("unallocated space discovered at %d\n",
+			offset+len(unallocatedData))
+		mslogger.Mslogger.Warning(msg)
+		if GetRowType(unallocatedData[slotoffset]) != "Primary Record" {
+			break
+		}
+		dataRowSize := carvedDataRow.Parse(unallocatedData[slotoffset:],
+			int(slotoffset)+offset, page.Header.ObjectId)
+		slotoffset += dataRowSize
+
+		page.CarvedDataRows = append(page.CarvedDataRows, *carvedDataRow)
+
+	}
 }
 
 func (page *Page) parseSGAM(data []byte) {
@@ -462,7 +606,7 @@ func (page *Page) parseIndex(data []byte, offset int) {
 	page.IndexRows = indexRows
 }
 
-func (page *Page) Process(data []byte, offset int) {
+func (page *Page) Process(data []byte, offset int, carve bool) {
 	HEADERLEN := 96
 
 	var header Header
@@ -490,7 +634,7 @@ func (page *Page) Process(data []byte, offset int) {
 		case "SGAM":
 			page.parseSGAM(data)
 		case "DATA":
-			page.parseDATA(data, offset)
+			page.parseDATA(data, offset, carve)
 		case "LOB":
 			page.parseLOB(data)
 		case "TEXT":

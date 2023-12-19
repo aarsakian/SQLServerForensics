@@ -20,15 +20,17 @@ type Reporter struct {
 	ShowTableAllocation string
 	ShowPageStats       bool
 	ShowIndex           bool
-	ShowTableRows       int
-	ShowTableRow        int
+	SelectedTableRows   int
+	SelectedTableRow    int
 	ShowCarved          bool
 	TableType           string
 }
 
 func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
-	for _, pages := range database.PagesMap {
-		for _, page := range pages {
+	node := database.PagesPerAllocUnitID.GetHeadNode()
+	for node != nil {
+
+		for _, page := range node.Pages {
 			allocMap := page.GetAllocationMaps()
 
 			if rp.ShowPFS && page.GetType() == "PFS" ||
@@ -61,11 +63,12 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 				page.ShowIndexRows()
 			}
 
-			if rp.ShowCarved {
+			if rp.ShowCarved && rp.ShowDataCols {
 				page.ShowCarvedDataRows()
 			}
 
 		}
+		node = node.Next
 
 	}
 
@@ -76,7 +79,7 @@ func (rp Reporter) ShowTableInfo(database db.Database) {
 	if tablename != "" {
 
 		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
-			rp.TableType, rp.ShowTableRows, rp.ShowTableRow, rp.ShowCarved)
+			rp.TableType, rp.SelectedTableRows, rp.SelectedTableRow, rp.ShowCarved)
 
 	}
 }

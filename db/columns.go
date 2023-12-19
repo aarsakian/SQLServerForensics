@@ -8,7 +8,12 @@ import (
 	"fmt"
 )
 
-type ColMap map[string][]byte
+type ColData struct {
+	Content []byte
+	Carved  bool
+}
+
+type ColMap map[string]ColData //name->coldata
 
 type Column struct {
 	Name        string
@@ -63,7 +68,7 @@ func (c Column) isStatic() bool {
 	if c.Type == "varchar" || c.Type == "nvarchar" ||
 		c.Type == "varbinary" || c.Type == "xml" || c.Type == "text" ||
 		c.Type == "ntext" || c.Type == "image" || c.Type == "hierarchyid" ||
-		c.Type == "float" || c.Type == "sql_variant" || c.Type == "sysname" {
+		c.Type == "sql_variant" || c.Type == "sysname" {
 		return false
 	} else {
 		return true
@@ -134,6 +139,8 @@ func (c Column) toString(data []byte) string {
 		return utils.MoneyToStr(data)
 	} else if c.Type == "date" {
 		return utils.DateToStr(data)
+	} else if c.Type == "float" {
+		return utils.FloatToStr(data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
@@ -141,9 +148,9 @@ func (c Column) toString(data []byte) string {
 }
 
 func (c *Column) addContent(datarow page.DataRow,
-	lobPages page.PageMapIds, textLOBPages page.PageMapIds) []byte {
+	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32]) ([]byte, error) {
 	if datarow.SystemTable != nil {
-		return utils.FindValueInStruct(c.Name, datarow.SystemTable)
+		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
 		return datarow.ProcessData(c.Order, c.Size, c.Offset, c.isStatic(),
 			c.VarLenOrder, lobPages, textLOBPages)

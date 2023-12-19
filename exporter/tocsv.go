@@ -7,17 +7,17 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 func writeCSV(records utils.Records, filename string, folder string) {
+	fpath := filepath.Join(folder, filename)
+	file, err := os.Create(fmt.Sprintf("%s.csv", fpath))
 
-	file, err := os.Create(fmt.Sprintf("%s.csv", path.Join(folder, filename)))
-	defer file.Close()
 	if err != nil {
 		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
 	}
-
+	defer file.Close()
 	w := csv.NewWriter(file)
 
 	w.WriteAll(records)
@@ -28,4 +28,9 @@ func writeCSV(records utils.Records, filename string, folder string) {
 	if err := w.Error(); err != nil {
 		log.Fatal(err)
 	}
+	//len(records) - header
+	msg := fmt.Sprintf("Exported %d rows to %s", len(records)-1, fpath)
+	mslogger.Mslogger.Info(msg)
+	fmt.Printf(msg + "\n")
+
 }

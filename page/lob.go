@@ -79,11 +79,12 @@ func (lob *LOB) ParseInternal(data []byte) {
 	lob.Internal = internal
 }
 
-func (lob LOB) walk(lobPages PageMapIds, textLobPages PageMapIds, dataParts [][]byte, textTimestamp uint, parentPageId uint32) [][]byte {
+func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32],
+	dataParts [][]byte, textTimestamp uint, parentPageId uint32) [][]byte {
 
 	if lob.Type == 2 {
 		for _, dataLob := range lob.Internal.DataPointers { //points to lob type 3
-			lobPage := lobPages[dataLob.PageId]
+			lobPage := lobPages.GetFirstPage(dataLob.PageId)
 			for _, lob := range lobPage.LOBS {
 				if lob.Id != uint64(textTimestamp) {
 					continue
@@ -102,10 +103,10 @@ func (lob LOB) walk(lobPages PageMapIds, textLobPages PageMapIds, dataParts [][]
 			}
 
 			var lobPage Page
-			lobPage = lobPages[internalLob.PageId]
+			lobPage = lobPages.GetPages(internalLob.PageId)[0]
 
 			if lobPage.Header.PageId == 0 { // lob Pages does not contains thiss page id
-				lobPage = textLobPages[internalLob.PageId]
+				lobPage = textLobPages.GetFirstPage(internalLob.PageId)
 			}
 
 			for _, lob := range lobPage.LOBS {
