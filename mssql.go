@@ -81,7 +81,7 @@ func main() {
 	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
-	low := flag.Bool("low", false, "get low level access to MDF file and copy to temp folder")
+	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	flag.Parse()
 
 	now := time.Now()
@@ -167,7 +167,51 @@ func main() {
 		}
 
 	}
-	if *low && *inputfile != "" {
+	if *low && *inputfile != "" && *location != "" {
+
+		hD = img.GetHandler("\\\\.\\PHYSICALDRIVE0", "physicalDrive")
+
+		physicalDisk = disk.Disk{Handler: hD}
+		physicalDisk.DiscoverPartitions()
+
+		physicalDisk.ProcessPartitions(*partitionNum, []int{}, -1, math.MaxUint32)
+		recordsPerPartition = physicalDisk.GetFileSystemMetadata(*partitionNum)
+
+		defer hD.CloseHandler()
+		exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1"}
+
+		dir, file := filepath.Split(*inputfile)
+		if filepath.IsAbs(dir) {
+			//remove C:\\ and last \\
+			dir = dir[3 : len(dir)-1]
+		}
+
+		for partitionId, records := range recordsPerPartition {
+
+			records = records.FilterByName(file)
+			records = records.FilterByPath(dir)
+
+			if *location != "" {
+
+				results := make(chan utils.AskedFile, len(records))
+
+				wg := new(sync.WaitGroup)
+				wg.Add(2)
+
+				go exp.ExportData(wg, results)                            //consumer
+				go physicalDisk.Worker(wg, records, results, partitionId) //producer
+
+				wg.Wait()
+				exp.SetFilesToLogicalSize(records)
+
+				for _, record := range records {
+					fullpath := filepath.Join(exp.Location, record.GetFname())
+					inputfiles = append(inputfiles, fullpath)
+				}
+
+			}
+
+		}
 
 	} else if *inputfile != "" {
 		inputfiles = append(inputfiles, *inputfile)
