@@ -26,6 +26,8 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
 	"MSSQLParser/servicer"
+	"MSSQLParser/utils"
+
 	"flag"
 	"fmt"
 	"math"
@@ -38,7 +40,7 @@ import (
 	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
 	"github.com/aarsakian/MFTExtractor/img"
 	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
-	"github.com/aarsakian/MFTExtractor/utils"
+	MFTUtils "github.com/aarsakian/MFTExtractor/utils"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
 )
 
@@ -82,6 +84,7 @@ func main() {
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
+	ldf := flag.Bool("ldf", false, "parse hardened (commited) transactions saved to the log")
 	flag.Parse()
 
 	now := time.Now()
@@ -112,7 +115,9 @@ func main() {
 
 	var physicalDisk disk.Disk
 	var recordsPerPartition map[int]MFT.Records
-	var inputfiles []string
+	var mdffiles []string
+	var ldffiles []string
+	var database db.Database
 
 	if *stopService {
 		servicer.StopService()
@@ -146,7 +151,7 @@ func main() {
 			}
 			if *location != "" {
 
-				results := make(chan utils.AskedFile, len(records))
+				results := make(chan MFTUtils.AskedFile, len(records))
 
 				wg := new(sync.WaitGroup)
 				wg.Add(2)
@@ -159,7 +164,7 @@ func main() {
 
 				for _, record := range records {
 					fullpath := filepath.Join(exp.Location, record.GetFname())
-					inputfiles = append(inputfiles, fullpath)
+					mdffiles = append(mdffiles, fullpath)
 				}
 
 			}
@@ -193,7 +198,7 @@ func main() {
 
 			if *location != "" {
 
-				results := make(chan utils.AskedFile, len(records))
+				results := make(chan MFTUtils.AskedFile, len(records))
 
 				wg := new(sync.WaitGroup)
 				wg.Add(2)
@@ -206,7 +211,7 @@ func main() {
 
 				for _, record := range records {
 					fullpath := filepath.Join(exp.Location, record.GetFname())
-					inputfiles = append(inputfiles, fullpath)
+					mdffiles = append(mdffiles, fullpath)
 				}
 
 			}
@@ -214,11 +219,26 @@ func main() {
 		}
 
 	} else if *inputfile != "" {
-		inputfiles = append(inputfiles, *inputfile)
+		mdffiles = append(mdffiles, *inputfile)
+
 	}
-	for _, inputFile := range inputfiles {
-		fmt.Printf("about to process database file %s \n", inputFile)
-		database := db.Database{Fname: inputFile}
+
+	if *ldf {
+		ldffile, e := utils.LocateLDFfile(*inputfile)
+		if e != nil {
+			mslogger.Mslogger.Error(e)
+		} else {
+			ldffiles = append(ldffiles, ldffile)
+		}
+
+	}
+	for idx, inputFile := range mdffiles {
+
+		if len(ldffiles) <= idx {
+			database = db.Database{Fname: inputFile}
+		} else {
+			database = db.Database{Fname: inputFile, Lname: ldffiles[idx]}
+		}
 
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
 
