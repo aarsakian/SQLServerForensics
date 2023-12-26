@@ -2,6 +2,8 @@ package utils
 
 import (
 	mslogger "MSSQLParser/logger"
+	"os"
+	"path/filepath"
 
 	"bytes"
 	"encoding/binary"
@@ -47,6 +49,26 @@ type Images [][]byte
 // 0x07 prefix time unit 100ns, 0x06 1 micro second intervals
 func DateTime2Tostr(data []byte) string {
 	return ""
+}
+
+func LocateLDFfile(mdffile string) (string, error) {
+	dir, fname := filepath.Split(mdffile)
+	fname = strings.Split(fname, ".")[0]
+
+	entries, e := os.ReadDir(dir)
+	if e != nil {
+		fmt.Printf("Error listing ldf folder%s", e)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) != ".ldf" {
+			continue
+		}
+		if strings.Contains(entry.Name(), fname) {
+			return entry.Name(), nil
+		}
+
+	}
+	return "", errors.New("LDF file not found")
 }
 
 func isLeapYear(year uint) bool {
