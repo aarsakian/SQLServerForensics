@@ -12,12 +12,23 @@ import (
 var PAGELEN = 8192
 
 type Database struct {
-	Fname               string
+	Fname               string                  // path to mdf file
+	Lname               string                  // path to ldf file
 	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables              []Table
+	LogPage             page.Page
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
+
+	totalProcessedPages := db.ProcessMDF(selectedPage, fromPage, toPage, carve)
+	db.ProcessLDF()
+	return totalProcessedPages
+
+}
+
+func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve bool) int {
+	fmt.Printf("about to process database file %s \n", db.Fname)
 	file, err := os.Open(db.Fname) //
 	if err != nil {
 		// handle the error here
@@ -71,9 +82,28 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bo
 		totalProcessedPages++
 
 	}
-
 	db.PagesPerAllocUnitID = pages
 	return totalProcessedPages
+}
+
+func (db *Database) ProcessLDF() {
+	fmt.Printf("about to process database log file %s \n", db.Lname)
+	file, err := os.Open(db.Lname) //
+	if err != nil {
+		// handle the error here
+		fmt.Printf("err %s reading the ldf file. \n", err)
+	}
+
+	offset := 0
+	carve := false
+	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
+	_, err = file.ReadAt(bs, int64(offset))
+	if err != nil {
+		fmt.Printf("error reading log page ---\n")
+		return
+	}
+
+	db.LogPage = db.ProcessPage(bs, offset, carve)
 
 }
 
