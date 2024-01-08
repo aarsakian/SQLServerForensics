@@ -1,6 +1,7 @@
 package LDF
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
 	"os"
@@ -120,18 +121,21 @@ func (vlfs VLFs) Process(file os.File) {
 		vlf.Header = vlfheader
 		offset += int64(vlf.Header.StartOffset)
 
-		bs = make([]byte, 72)
-		_, err = file.ReadAt(bs, offset)
-		if err != nil {
-			fmt.Printf("error reading log page ---\n")
-			return
-		}
-
 		for offset <= int64(vlf.Header.FileSize) {
-
+			//log block header
+			bs = make([]byte, 72)
+			_, err = file.ReadAt(bs, offset)
+			if err != nil {
+				fmt.Printf("error reading log page ---\n")
+				return
+			}
 			logBlock := new(LogBlock)
 			logBlock.ProcessHeader(bs)
-
+			if logBlock.Header.Size == 0 {
+				msg := fmt.Sprintf("LogBlock header size is zero exiting processing vlf at offset %d", offset)
+				mslogger.Mslogger.Warning(msg)
+				break
+			}
 			bs = make([]byte, logBlock.Header.Size)
 			_, err = file.ReadAt(bs, offset)
 			if err != nil {
