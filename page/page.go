@@ -606,6 +606,51 @@ func (page *Page) parseIndex(data []byte, offset int) {
 	page.IndexRows = indexRows
 }
 
+func (page *Page) parseFileHeader(data []byte) {
+	//Svar fileHeader *FileHeader
+	for slotnum, slotoffset := range page.Slots {
+		msg := fmt.Sprintf("%d file header row at %d", slotnum, int(slotoffset))
+		mslogger.Mslogger.Info(msg)
+
+		if slotoffset < 96 { //offset starts from 96
+			msg := fmt.Sprintf("slotoffset %d less than header size \n", slotoffset)
+			mslogger.Mslogger.Info(msg)
+			continue
+		}
+
+		var dataRow *DataRow = new(DataRow)
+		var allocatedDataRowSize utils.SlotOffset
+
+		if slotoffset == 0 {
+			msg := "slotoffset is zero  potential deleted datarow \n"
+			mslogger.Mslogger.Info(msg)
+			continue
+			//heuristics
+
+		} else if slotoffset < 96 { //offset starts from 96
+			msg := fmt.Sprintf("slotoffset %d cannot be less than 96 bytes \n", slotoffset)
+			mslogger.Mslogger.Info(msg)
+			continue
+		}
+
+		if page.Header.FreeData < uint16(slotoffset) {
+			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slotoffset)
+			mslogger.Mslogger.Warning(msg)
+			continue
+		}
+
+		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
+			allocatedDataRowSize = page.Slots[slotnum+1] - slotoffset //find allocated legnth
+		} else { //last slot
+			allocatedDataRowSize = utils.SlotOffset(page.Header.FreeData) - slotoffset
+		}
+
+		dataRow.Parse(data[slotoffset:slotoffset+allocatedDataRowSize],
+			int(slotoffset), page.Header.ObjectId)
+
+	}
+}
+
 func (page *Page) Process(data []byte, offset int, carve bool) {
 	HEADERLEN := 96
 
@@ -643,6 +688,8 @@ func (page *Page) Process(data []byte, offset int, carve bool) {
 			page.parseIndex(data, offset)
 		case "IAM":
 			page.parseIAM(data)
+		case "File Header":
+			page.parseFileHeader(data)
 		}
 
 	}
