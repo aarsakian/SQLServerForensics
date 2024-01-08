@@ -39,7 +39,7 @@ type VLF struct {
 }
 
 type LogBlock struct {
-	Header        *LOGBlockHeader
+	Header        *LogBlockHeader
 	Records       []Record
 	RecordOffsets RecordOffsets
 }
@@ -47,19 +47,24 @@ type LogBlock struct {
 /*VLF starts with a parity byte*/
 /*72 bytes*/
 type VLFHeader struct {
-	FSeqNo      uint32    //4-
-	FileSize    uint32    //16-
+	Unknown1    [4]byte
+	FSeqNo      uint32 //4-
+	Unknown2    [8]byte
+	FileSize    uint32 //16-
+	Unknown3    [4]byte
 	StartOffset uint32    //24- points to logblock header?
-	Status      uint16    //?
 	CreateLSN   utils.LSN //32-
+	Status      uint16    //?
 }
 
-//log block is integer multiple of 512 <60KB
-//The first block always has a block offset that points past the first 8 KB in the VLF
-type LOGBlockHeader struct {
-	nofSlots int       //0-2number of live log records
-	size     int       //2-4 in-use area within from the beginnign of the log blocks to the end of array of record offsets
-	firstLSN utils.LSN //
+// log block is integer multiple of 512 <60KB
+// The first block always has a block offset that points past the first 8 KB in the VLF
+type LogBlockHeader struct {
+	Unknown1 [2]byte
+	NofSlots uint16 //0-2number of live log records
+	Size     uint16 //2-4 in-use area within from the beginnign of the log blocks to the end of array of record offsets
+	Unknown2 [6]byte
+	FirstLSN utils.LSN //
 }
 
 //stored in reversed order It consists of 2-byte values that represent the
@@ -68,25 +73,25 @@ type LOGBlockHeader struct {
 type RecordOffsets []uint16
 type OriginalParityBytes []uint8
 
-//he corresponding log records will contain the data page number and the slot number of the data page they affect.
-//aligned at 4 byte boundary
-//Every transaction must have an LOP_BEGIN_XACT
-//and a record to close the xact, usually LOP_COMMIT_XACT.
+// he corresponding log records will contain the data page number and the slot number of the data page they affect.
+// aligned at 4 byte boundary
+// Every transaction must have an LOP_BEGIN_XACT
+// and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
-	length        uint16    //size of fixed length area
-	previousLSN   utils.LSN //
-	flag          uint16
-	transactionID uint64
-	operation     uint8 //what type of data is stored
-	context       uint8
+	Length        uint16    //size of fixed length area
+	PreviousLSN   utils.LSN //
+	Flag          uint16
+	TransactionID uint64
+	Operation     uint8 //what type of data is stored
+	Context       uint8
 }
 
 func (record Record) GetOperationType() string {
-	return OperationType[record.operation]
+	return OperationType[record.Operation]
 }
 
 func (record Record) GetContextType() string {
-	return ContextType[record.context]
+	return ContextType[record.Context]
 }
 
 func (vlfs VLFs) Process(file os.File) {
@@ -110,8 +115,9 @@ func (vlfs VLFs) Process(file os.File) {
 			fmt.Printf("error reading log page ---\n")
 			return
 		}
-
-		vlf.Header.Process(bs)
+		vlfheader := new(VLFHeader)
+		vlfheader.Process(bs)
+		vlf.Header = vlfheader
 		offset += int64(vlf.Header.StartOffset)
 
 		bs = make([]byte, 72)
@@ -126,7 +132,7 @@ func (vlfs VLFs) Process(file os.File) {
 			logBlock := new(LogBlock)
 			logBlock.ProcessHeader(bs)
 
-			bs = make([]byte, logBlock.Header.size)
+			bs = make([]byte, logBlock.Header.Size)
 			_, err = file.ReadAt(bs, offset)
 			if err != nil {
 				fmt.Printf("error reading log page at --- %d\n", offset)
@@ -135,7 +141,7 @@ func (vlfs VLFs) Process(file os.File) {
 			logBlock.ProcessRecords(bs)
 
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
-			offset += int64(logBlock.Header.size)
+			offset += int64(logBlock.Header.Size)
 		}
 		vlfs = append(vlfs, *vlf)
 		offset = int64(vlf.Header.FileSize) //needs check
@@ -143,29 +149,33 @@ func (vlfs VLFs) Process(file os.File) {
 
 }
 
-//LOP_INSERT_ROWS, LOP_DELETE_ROWS, and LOP_MODIFY_ROW
+//LOP_INSERT_ROWS, LOP_DELETE_ROWS, and LOP_MODIFY_RO  jjjjjjjjjW
 // LOP_BEGIN_XACT operations. This log record marks the beginning of a transaction
 // the only log record that contains the date and time when the transaction started,
 //user SID
 
 func (logBlock *LogBlock) ProcessRecords(bs []byte) {
-	recordOffsets := make(RecordOffsets, logBlock.Header.nofSlots)
+	recordOffsets := make(RecordOffsets, logBlock.Header.NofSlots)
 	for recordId := 0; recordId < len(recordOffsets); recordId++ {
 		recordOffsets[recordId] = utils.ToUint16(bs[len(bs)-2*(recordId+1) : len(bs)-2*recordId])
 	}
 	logBlock.Records = make([]Record, len(recordOffsets))
 
 	for idx, recordOffset := range recordOffsets {
-		utils.Unmarshal(bs[recordOffset:], logBlock.Records[idx])
+		record := new(Record)
+		utils.Unmarshal(bs[recordOffset:], record)
+		logBlock.Records[idx] = *record
 	}
 
 }
 
 func (logBlock *LogBlock) ProcessHeader(bs []byte) {
-	logBlock.Header.Process(bs)
+	logBlockHeader := new(LogBlockHeader)
+	logBlockHeader.Process(bs)
+	logBlock.Header = logBlockHeader
 }
 
-func (logBlockHeader *LOGBlockHeader) Process(bs []byte) {
+func (logBlockHeader *LogBlockHeader) Process(bs []byte) {
 	utils.Unmarshal(bs, logBlockHeader)
 }
 
