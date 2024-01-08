@@ -1,6 +1,7 @@
 package db
 
 import (
+	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"fmt"
@@ -17,6 +18,7 @@ type Database struct {
 	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables              []Table
 	LogPage             page.Page
+	VLFs                LDF.VLFs
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -89,11 +91,12 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 func (db *Database) ProcessLDF() {
 	fmt.Printf("about to process database log file %s \n", db.Lname)
 	file, err := os.Open(db.Lname) //
+
 	if err != nil {
 		// handle the error here
 		fmt.Printf("err %s reading the ldf file. \n", err)
 	}
-
+	defer file.Close()
 	offset := 0
 	carve := false
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
@@ -104,6 +107,8 @@ func (db *Database) ProcessLDF() {
 	}
 
 	db.LogPage = db.ProcessPage(bs, offset, carve)
+
+	db.VLFs.Process(*file)
 
 }
 
