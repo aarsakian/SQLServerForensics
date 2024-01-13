@@ -48,24 +48,28 @@ type LogBlock struct {
 /*VLF starts with a parity byte*/
 /*72 bytes*/
 type VLFHeader struct {
-	Unknown1    [4]byte
+	Unknown1    [1]byte
+	Parity      uint8 //2
+	Unknown3    [2]byte
 	FSeqNo      uint32 //4-
 	Unknown2    [8]byte
-	FileSize    uint32 //16-
-	Unknown3    [4]byte
-	StartOffset uint32    //24- points to logblock header?
+	FileSize    uint64    //16-24
+	StartOffset uint64    //24- points to logblock header?
 	CreateLSN   utils.LSN //32-
-	Status      uint16    //?
+	Status      uint8     //?
+
+	FileId       uint8
+	RecordUnitId uint8
 }
 
 // log block is integer multiple of 512 <60KB
 // The first block always has a block offset that points past the first 8 KB in the VLF
 type LogBlockHeader struct {
 	Unknown1 [2]byte
-	NofSlots uint16 //0-2number of live log records
-	Size     uint16 //2-4 in-use area within from the beginnign of the log blocks to the end of array of record offsets
+	NofSlots uint16 //2-4number of live log records
+	Size     uint16 //4-6 in-use area within from the beginnign of the log blocks to the end of array of record offsets
 	Unknown2 [6]byte
-	FirstLSN utils.LSN //
+	FirstLSN utils.LSN // 12-
 }
 
 //stored in reversed order It consists of 2-byte values that represent the
@@ -82,7 +86,7 @@ type Record struct {
 	Length        uint16    //size of fixed length area
 	PreviousLSN   utils.LSN //
 	Flag          uint16
-	TransactionID uint64
+	TransactionID utils.TransactionID
 	Operation     uint8 //what type of data is stored
 	Context       uint8
 }
@@ -119,12 +123,12 @@ func (vlfs VLFs) Process(file os.File) {
 		vlfheader := new(VLFHeader)
 		vlfheader.Process(bs)
 		vlf.Header = vlfheader
-		offset += int64(vlf.Header.StartOffset)
+		logBlockoffset := int64(8192)
 
-		for offset <= int64(vlf.Header.FileSize) {
+		for logBlockoffset <= int64(vlf.Header.FileSize) {
 			//log block header
 			bs = make([]byte, 72)
-			_, err = file.ReadAt(bs, offset)
+			_, err = file.ReadAt(bs, offset+logBlockoffset)
 			if err != nil {
 				fmt.Printf("error reading log page ---\n")
 				return
@@ -136,8 +140,10 @@ func (vlfs VLFs) Process(file os.File) {
 				mslogger.Mslogger.Warning(msg)
 				break
 			}
+
+			//logBlock size
 			bs = make([]byte, logBlock.Header.Size)
-			_, err = file.ReadAt(bs, offset)
+			_, err = file.ReadAt(bs, offset+logBlockoffset)
 			if err != nil {
 				fmt.Printf("error reading log page at --- %d\n", offset)
 				return
@@ -145,10 +151,16 @@ func (vlfs VLFs) Process(file os.File) {
 			logBlock.ProcessRecords(bs)
 
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
-			offset += int64(logBlock.Header.Size)
+			logBlockoffset += int64(logBlock.Header.Size)
 		}
 		vlfs = append(vlfs, *vlf)
-		offset = int64(vlf.Header.FileSize) //needs check
+
+		if int64(vlf.Header.FileSize) == 0 {
+			msg := fmt.Sprintf("VLF header size is zero exiting processing vlfs at offset %d", offset)
+			mslogger.Mslogger.Warning(msg)
+			break
+		}
+		offset += int64(vlf.Header.FileSize) //needs check
 	}
 
 }
