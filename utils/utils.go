@@ -37,6 +37,11 @@ type LSN struct {
 	P3 uint16
 }
 
+type TransactionID struct {
+	P1 uint16
+	P2 uint64
+}
+
 type Auid struct {
 	UniqueId uint16
 	ObjectId uint32
@@ -583,7 +588,11 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 				Unmarshal(data[idx:], &rowId)
 				field.Set(reflect.ValueOf(rowId))
 				idx += 8
-
+			} else if name == "TransactionID" {
+				var transID TransactionID
+				Unmarshal(data[idx:], &transID)
+				field.Set(reflect.ValueOf(transID))
+				idx += 8
 			}
 
 		case reflect.Array:
