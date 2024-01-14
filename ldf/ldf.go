@@ -124,6 +124,7 @@ func (vlfs VLFs) Process(file os.File) {
 		vlfheader := new(VLFHeader)
 		vlfheader.Process(bs)
 		vlf.Header = vlfheader
+		mslogger.Mslogger.Info(fmt.Sprintf("Located VLF at %d", offset))
 		logBlockoffset := int64(8192)
 
 		for logBlockoffset <= int64(vlf.Header.FileSize) {
@@ -136,6 +137,8 @@ func (vlfs VLFs) Process(file os.File) {
 			}
 			logBlock := new(LogBlock)
 			logBlock.ProcessHeader(bs)
+
+			mslogger.Mslogger.Info(fmt.Sprintf("Located log block at %d", offset+logBlockoffset))
 			if logBlock.Header.Size == 0 {
 				msg := fmt.Sprintf("LogBlock header size is zero exiting processing vlf at offset %d", offset)
 				mslogger.Mslogger.Warning(msg)
@@ -149,7 +152,7 @@ func (vlfs VLFs) Process(file os.File) {
 				fmt.Printf("error reading log page at --- %d\n", offset)
 				return
 			}
-			logBlock.ProcessRecords(bs)
+			logBlock.ProcessRecords(bs, offset+logBlockoffset)
 
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
 			logBlockoffset += int64(logBlock.Header.Size)
@@ -171,10 +174,11 @@ func (vlfs VLFs) Process(file os.File) {
 // the only log record that contains the date and time when the transaction started,
 //user SID
 
-func (logBlock *LogBlock) ProcessRecords(bs []byte) {
+func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 	recordOffsets := make(RecordOffsets, logBlock.Header.NofSlots)
 	for recordId := 0; recordId < len(recordOffsets); recordId++ {
 		recordOffsets[recordId] = utils.ToUint16(bs[len(bs)-2*(recordId+1) : len(bs)-2*recordId])
+
 	}
 	logBlock.Records = make([]Record, len(recordOffsets))
 
@@ -182,6 +186,9 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte) {
 		record := new(Record)
 		utils.Unmarshal(bs[recordOffset:], record)
 		logBlock.Records[idx] = *record
+
+		mslogger.Mslogger.Info(fmt.Sprintf("Located record at %d",
+			int64(recordOffset)+baseOffset))
 	}
 
 }
