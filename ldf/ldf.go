@@ -65,7 +65,7 @@ type VLFHeader struct {
 // log block is integer multiple of 512 <60KB
 // The first block always has a block offset that points past the first 8 KB in the VLF
 type LogBlockHeader struct {
-	Unknown1 [2]byte
+	Unknown1 uint16
 	NofSlots uint16 //2-4number of live log records
 	Size     uint16 //4-6 in-use area within from the beginnign of the log blocks to the end of array of record offsets
 	Unknown2 [6]byte
@@ -141,6 +141,10 @@ func (vlfs VLFs) Process(file os.File) {
 			mslogger.Mslogger.Info(fmt.Sprintf("Located log block at %d", offset+logBlockoffset))
 			if logBlock.Header.Size == 0 {
 				msg := fmt.Sprintf("LogBlock header size is zero exiting processing vlf at offset %d", offset)
+				mslogger.Mslogger.Warning(msg)
+				break
+			} else if logBlock.Header.Unknown1 != 80 { //
+				msg := fmt.Sprintf("LogBlock header invalid? at offset %d", offset+logBlockoffset)
 				mslogger.Mslogger.Warning(msg)
 				break
 			}
