@@ -50,7 +50,7 @@ type LogBlock struct {
 type VLFHeader struct {
 	Unknown1    [1]byte
 	Parity      uint8 //2
-	Unknown3    [2]byte
+	DatabaseID  uint16
 	FSeqNo      uint32 //4-
 	Unknown2    [8]byte
 	FileSize    uint64    //16-24
@@ -83,6 +83,7 @@ type OriginalParityBytes []uint8
 // Every transaction must have an LOP_BEGIN_XACT
 // and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
+	Unknown       [2]byte
 	Length        uint16    //size of fixed length area
 	PreviousLSN   utils.LSN //
 	Flag          uint16
