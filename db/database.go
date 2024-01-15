@@ -107,10 +107,9 @@ func (db *Database) ProcessLDF() {
 	}
 
 	db.LogPage = db.ProcessPage(bs, offset, carve)
-	vlfs := new(LDF.VLFs)
-	vlfs.Process(*file)
-	db.VLFs = vlfs
 
+	db.VLFs = new(LDF.VLFs)
+	db.VLFs.Process(*file)
 }
 
 func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
