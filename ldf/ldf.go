@@ -100,7 +100,14 @@ func (record Record) GetContextType() string {
 	return ContextType[record.Context]
 }
 
-func (vlfs VLFs) Process(file os.File) {
+func (record Record) ShowInfo() {
+	fmt.Printf("PreviousLSN %s flag %d transactionID %s operation %s context %s\n",
+		record.PreviousLSN.ToStr(), record.Flag, record.TransactionID.ToStr(),
+		OperationType[record.Operation],
+		ContextType[record.Context])
+}
+
+func (vlfs *VLFs) Process(file os.File) {
 
 	offset := int64(8192)
 
@@ -161,7 +168,7 @@ func (vlfs VLFs) Process(file os.File) {
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
 			logBlockoffset += int64(logBlock.Header.Size)
 		}
-		vlfs = append(vlfs, *vlf)
+		*vlfs = append(*vlfs, *vlf)
 
 		if int64(vlf.Header.FileSize) == 0 {
 			msg := fmt.Sprintf("VLF header size is zero exiting processing vlfs at offset %d", offset)
@@ -207,6 +214,33 @@ func (logBlockHeader *LogBlockHeader) Process(bs []byte) {
 	utils.Unmarshal(bs, logBlockHeader)
 }
 
+func (logBlockHeader LogBlockHeader) FirstToStr() string {
+	return logBlockHeader.FirstLSN.ToStr()
+}
+
+func (logBlock LogBlock) ShowInfo() {
+	fmt.Printf("Log Block Header\n")
+	fmt.Printf("Slots %d size %d FirstLSN %s\n",
+		logBlock.Header.NofSlots, logBlock.Header.Size, logBlock.Header.FirstToStr())
+	for _, record := range logBlock.Records {
+		record.ShowInfo()
+	}
+}
+
 func (vlfheader *VLFHeader) Process(bs []byte) {
 	utils.Unmarshal(bs, vlfheader)
+}
+
+func (vlfheader VLFHeader) CreateToStr() string {
+	return vlfheader.CreateLSN.ToStr()
+}
+
+func (vlf VLF) ShowInfo() {
+	fmt.Printf("VLF Header\n")
+	fmt.Printf("database_id %d begin_offset %d size %d sequence number %d parity %d create_lsn %s\n",
+		vlf.Header.DatabaseID, vlf.Header.StartOffset,
+		vlf.Header.FileSize, vlf.Header.FSeqNo, vlf.Header.Parity, vlf.Header.CreateToStr())
+	for _, logblock := range vlf.Blocks {
+		logblock.ShowInfo()
+	}
 }

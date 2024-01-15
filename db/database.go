@@ -18,7 +18,7 @@ type Database struct {
 	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables              []Table
 	LogPage             page.Page
-	VLFs                LDF.VLFs
+	VLFs                *LDF.VLFs
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -35,7 +35,7 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 	if err != nil {
 		// handle the error here
 		fmt.Printf("err %s reading the mdf file. \n", err)
-		fmt.Printf("If you still want to read the mdf file using low level api use -low. This action will copy the file to the temp folder\n")
+		fmt.Printf("If you still want to read the mdf file using low level API use -low. This action will copy the file to the temp folder\n")
 		fmt.Printf("If you still want to read the mdf use -stopservice to stop sql server running! Please note that that uncommited data migh be lost.\n")
 		return -1
 	}
@@ -107,8 +107,9 @@ func (db *Database) ProcessLDF() {
 	}
 
 	db.LogPage = db.ProcessPage(bs, offset, carve)
-
-	db.VLFs.Process(*file)
+	vlfs := new(LDF.VLFs)
+	vlfs.Process(*file)
+	db.VLFs = vlfs
 
 }
 
@@ -232,6 +233,12 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 
 	}
 	return results
+}
+
+func (db Database) ShowLDF() {
+	for _, vlf := range *db.VLFs {
+		vlf.ShowInfo()
+	}
 }
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,

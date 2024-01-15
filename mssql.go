@@ -72,6 +72,7 @@ func main() {
 	showSlots := flag.Bool("slots", false, "show page slots")
 	showPFS := flag.Bool("pfs", false, "show pfm page allocation")
 	showIndex := flag.Bool("showindex", false, "show index contents")
+	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
 	showTableAllocation := flag.String("showTableAllocation", "",
 		"show pages that the table has been allocated write 'simple' or 'links' to see the linked page structure")
 	selectedTableRows := flag.Int("torow", -1, "show only the first number of rows (Default is all)")
@@ -109,6 +110,7 @@ func main() {
 		SelectedTableRows:   *selectedTableRows,
 		SelectedTableRow:    *selectedTableRow,
 		ShowCarved:          *showcarved,
+		ShowLDF:             *showLDF,
 		TableType:           *tabletype}
 
 	var hD img.DiskReader
