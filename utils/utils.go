@@ -50,6 +50,20 @@ type Auid struct {
 
 type Images [][]byte
 
+func (lsn LSN) ToStr() string {
+
+	p1 := fillPrefixWithZeros(strconv.FormatUint(uint64(lsn.P1), 16), 8)
+	p2 := fillPrefixWithZeros(strconv.FormatUint(uint64(lsn.P2), 16), 8)
+	p3 := fillPrefixWithZeros(strconv.FormatUint(uint64(lsn.P3), 16), 4)
+	return fmt.Sprintf("%v:%v:%v", p1, p2, p3)
+}
+
+func (transactionID TransactionID) ToStr() string {
+	p1 := fillPrefixWithZeros(strconv.FormatUint(uint64(transactionID.P1), 16), 4)
+	p2 := fillPrefixWithZeros(strconv.FormatUint(uint64(transactionID.P2), 16), 8)
+	return fmt.Sprintf("%v:%v", p1, p2)
+}
+
 // Datetime2: 8 bytes rtl reading first 5 time unit intervals since midnight,last 3 (left) how many days have passed since 0001/01/01
 // 0x07 prefix time unit 100ns, 0x06 1 micro second intervals
 func DateTime2Tostr(data []byte) string {
