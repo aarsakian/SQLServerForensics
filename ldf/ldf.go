@@ -4,6 +4,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -31,6 +32,8 @@ number of the above 512-byte size), with a length of 4 bytes, and the block numb
 segment are numbered sequentially starting from 0. e.g. 0x001b2=434 => 8192+434*512
 (starting physical offset)
 2: The slot number where the log record is located, in the log offset array*/
+
+var LOGBLOCKMINSIZE int = 512
 
 type VLFs []VLF
 
@@ -65,11 +68,31 @@ type VLFHeader struct {
 // log block is integer multiple of 512 <60KB
 // The first block always has a block offset that points past the first 8 KB in the VLF
 type LogBlockHeader struct {
-	Unknown1 uint16
+	FlagBit  uint8
+	Unknown1 uint8
 	NofSlots uint16 //2-4number of live log records
 	Size     uint16 //4-6 in-use area within from the beginnign of the log blocks to the end of array of record offsets
 	Unknown2 [6]byte
 	FirstLSN utils.LSN // 12-
+}
+
+// The fifth bit indicates whether the block is the first block
+func (logblockheader LogBlockHeader) IsFirst() bool {
+	return logblockheader.FlagBit&0x10 == 0x10
+}
+
+// the fourth bit indicates whether it is the last block.
+func (logblockheader LogBlockHeader) IsLast() bool {
+	return logblockheader.FlagBit&0x08 == 0x08
+}
+
+func (logblockheadr LogBlockHeader) IsValid() bool {
+	return logblockheadr.FlagBit&0x40 == 0x40
+}
+
+func (logBlock LogBlock) GetSize() int64 {
+	nofBlocks := int64(math.Ceil(float64(logBlock.Header.Size) / float64(LOGBLOCKMINSIZE)))
+	return nofBlocks * int64(LOGBLOCKMINSIZE)
 }
 
 //stored in reversed order It consists of 2-byte values that represent the
@@ -101,8 +124,9 @@ func (record Record) GetContextType() string {
 }
 
 func (record Record) ShowInfo() {
-	fmt.Printf("PreviousLSN %s flag %d transactionID %s operation %s context %s\n",
-		record.PreviousLSN.ToStr(), record.Flag, record.TransactionID.ToStr(),
+	fmt.Printf("PreviousLSN %s Length %d flag %d transactionID %s operation %s context %s\n",
+		record.PreviousLSN.ToStr(), record.Length,
+		record.Flag, record.TransactionID.ToStr(),
 		OperationType[record.Operation],
 		ContextType[record.Context])
 }
@@ -145,17 +169,19 @@ func (vlfs *VLFs) Process(file os.File) {
 			logBlock := new(LogBlock)
 			logBlock.ProcessHeader(bs)
 
-			mslogger.Mslogger.Info(fmt.Sprintf("Located log block at %d", offset+logBlockoffset))
 			if logBlock.Header.Size == 0 {
-				msg := fmt.Sprintf("LogBlock header size is zero exiting processing vlf at offset %d", offset)
+				msg := fmt.Sprintf("LogBlock header size is zero at offset %d continuing", offset+logBlockoffset)
 				mslogger.Mslogger.Warning(msg)
-				break
-			} else if logBlock.Header.Unknown1 != 80 { //
-				msg := fmt.Sprintf("LogBlock header invalid? at offset %d", offset+logBlockoffset)
+				logBlockoffset += int64(LOGBLOCKMINSIZE)
+				continue
+			} else if !logBlock.Header.IsValid() {
+				msg := fmt.Sprintf("LogBlock header invalid at offset %d continuing", offset+logBlockoffset)
 				mslogger.Mslogger.Warning(msg)
-				break
+				logBlockoffset += int64(LOGBLOCKMINSIZE)
+				continue
 			}
-
+			mslogger.Mslogger.Info(fmt.Sprintf("Located log block at %d Nof Slots %d",
+				offset+logBlockoffset, logBlock.Header.NofSlots))
 			//logBlock size
 			bs = make([]byte, logBlock.Header.Size)
 			_, err = file.ReadAt(bs, offset+logBlockoffset)
@@ -166,7 +192,9 @@ func (vlfs *VLFs) Process(file os.File) {
 			logBlock.ProcessRecords(bs, offset+logBlockoffset)
 
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
-			logBlockoffset += int64(logBlock.Header.Size)
+
+			logBlockoffset += logBlock.GetSize()
+
 		}
 		*vlfs = append(*vlfs, *vlf)
 
