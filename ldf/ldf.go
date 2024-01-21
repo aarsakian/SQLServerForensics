@@ -87,7 +87,8 @@ func (logblockheader LogBlockHeader) IsLast() bool {
 }
 
 func (logblockheadr LogBlockHeader) IsValid() bool {
-	return logblockheadr.FlagBit&0x40 == 0x40
+	return logblockheadr.FlagBit == 0x40 || logblockheadr.FlagBit == 0x50 ||
+		logblockheadr.FlagBit == 0x58
 }
 
 func (logBlock LogBlock) GetSize() int64 {
