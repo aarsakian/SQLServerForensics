@@ -246,10 +246,6 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 	for idx, recordOffset := range recordOffsets {
 		record := new(Record)
 		utils.Unmarshal(bs[recordOffset:], record)
-		logBlock.Records[idx] = *record
-
-		mslogger.Mslogger.Info(fmt.Sprintf("Located record at %d",
-			int64(recordOffset)+baseOffset))
 
 		if OperationType[record.Operation] == "LOP_INSERT_ROWS" ||
 			OperationType[record.Operation] == "LOP_DELETE_ROWS" ||
@@ -258,6 +254,11 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 			utils.Unmarshal(bs[recordOffset+24:], lop_insert_delete_mod)
 			record.LOP_INSERT_DELETE_MOD = lop_insert_delete_mod
 		}
+		logBlock.Records[idx] = *record
+
+		mslogger.Mslogger.Info(fmt.Sprintf("Located record at %d",
+			int64(recordOffset)+baseOffset))
+
 	}
 
 }
