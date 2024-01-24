@@ -107,13 +107,14 @@ type OriginalParityBytes []uint8
 // Every transaction must have an LOP_BEGIN_XACT
 // and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
-	Unknown       [2]byte
-	Length        uint16    //size of fixed length area
-	PreviousLSN   utils.LSN //
-	Flag          uint16
-	TransactionID utils.TransactionID
-	Operation     uint8 //what type of data is stored
-	Context       uint8
+	Unknown               [2]byte
+	Length                uint16    //size of fixed length area
+	PreviousLSN           utils.LSN //
+	Flag                  uint16
+	TransactionID         utils.TransactionID
+	Operation             uint8 //what type of data is stored
+	Context               uint8
+	LOP_INSERT_DELETE_MOD *LOP_INSERT_DELETE_MOD
 }
 
 type LOP_INSERT_DELETE_MOD struct {
@@ -127,6 +128,10 @@ type LOP_INSERT_DELETE_MOD struct {
 	RowFlags             [2]byte
 	NumElements          uint16
 	RowLogContentOffsets []byte
+}
+
+func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
+	fmt.Printf("FileID:PageID:SlotID %s ", lop_insert_del_mod.RowId.ToStr())
 }
 
 func (record Record) GetOperationType() string {
@@ -143,6 +148,9 @@ func (record Record) ShowInfo() {
 		record.Flag, record.TransactionID.ToStr(),
 		OperationType[record.Operation],
 		ContextType[record.Context])
+	if record.LOP_INSERT_DELETE_MOD != nil {
+		record.LOP_INSERT_DELETE_MOD.ShowInfo()
+	}
 }
 
 func (vlfs *VLFs) Process(file os.File) {
@@ -248,6 +256,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 			OperationType[record.Operation] == "LOP_MODIFY_ROW" {
 			lop_insert_delete_mod := new(LOP_INSERT_DELETE_MOD)
 			utils.Unmarshal(bs[recordOffset+24:], lop_insert_delete_mod)
+			record.LOP_INSERT_DELETE_MOD = lop_insert_delete_mod
 		}
 	}
 
