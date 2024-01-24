@@ -116,6 +116,19 @@ type Record struct {
 	Context       uint8
 }
 
+type LOP_INSERT_DELETE_MOD struct {
+	RowId                utils.RowId
+	Unknown              [4]byte
+	PreviousPageLSN      utils.LSN
+	Unknown2             [2]byte
+	PartitionID          uint64
+	OffsetInRow          uint16 //starting position of the modified data within the data row
+	ModifySize           uint16
+	RowFlags             [2]byte
+	NumElements          uint16
+	RowLogContentOffsets []byte
+}
+
 func (record Record) GetOperationType() string {
 	return OperationType[record.Operation]
 }
@@ -229,6 +242,13 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 
 		mslogger.Mslogger.Info(fmt.Sprintf("Located record at %d",
 			int64(recordOffset)+baseOffset))
+
+		if OperationType[record.Operation] == "LOP_INSERT_ROWS" ||
+			OperationType[record.Operation] == "LOP_DELETE_ROWS" ||
+			OperationType[record.Operation] == "LOP_MODIFY_ROW" {
+			lop_insert_delete_mod := new(LOP_INSERT_DELETE_MOD)
+			utils.Unmarshal(bs[recordOffset+24:], lop_insert_delete_mod)
+		}
 	}
 
 }
