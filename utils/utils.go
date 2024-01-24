@@ -53,7 +53,7 @@ type Images [][]byte
 func (rowid RowId) ToStr() string {
 	fileID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.FileId), 10), 4)
 	pageID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.PageId), 10), 8)
-	slotID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.PageId), 10), 4)
+	slotID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.SlotNumber), 10), 4)
 	return fmt.Sprintf("%v:%v:%v", fileID, pageID, slotID)
 }
 
