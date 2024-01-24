@@ -591,7 +591,8 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			field.SetInt(temp)
 
 		case reflect.Struct:
-			name := structType.Elem().Field(i).Name
+			name := structType.Elem().Field(i).Type.Name()
+
 			if name == "LSN" {
 				var lsn LSN
 				Unmarshal(data[idx:idx+10], &lsn)
