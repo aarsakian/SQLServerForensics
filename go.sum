@@ -38,6 +38,10 @@ github.com/aarsakian/MFTExtractor v0.0.0-20231220202513-1662e9b891c6 h1:guQ6pWbi
 github.com/aarsakian/MFTExtractor v0.0.0-20231220202513-1662e9b891c6/go.mod h1:eVzCRsSFEuyyusm6ajK8dnpd8VL2CWx/zadPyNS2jQI=
 github.com/aarsakian/MFTExtractor v0.0.0-20240124190539-f985a66a95ee h1:+rsC3wUrWn3ydF5FYPPyc6rjghhIvZ0FjBfxaEdoA9M=
 github.com/aarsakian/MFTExtractor v0.0.0-20240124190539-f985a66a95ee/go.mod h1:eVzCRsSFEuyyusm6ajK8dnpd8VL2CWx/zadPyNS2jQI=
+github.com/aarsakian/MFTExtractor v0.0.0-20240127073210-ead458595dea h1:In6+kFCRhOQIXIcA7E2y/sq3L1rQXDHfsUKI0lO6XZw=
+github.com/aarsakian/MFTExtractor v0.0.0-20240127073210-ead458595dea/go.mod h1:eVzCRsSFEuyyusm6ajK8dnpd8VL2CWx/zadPyNS2jQI=
+github.com/aarsakian/MFTExtractor v0.0.0-20240127214728-671d96590ee8 h1:WbN5g5qg4lYVor+j3GlLGBDuEg9IaT5bY/eAAAe/VWg=
+github.com/aarsakian/MFTExtractor v0.0.0-20240127214728-671d96590ee8/go.mod h1:eVzCRsSFEuyyusm6ajK8dnpd8VL2CWx/zadPyNS2jQI=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125163925-d7953de7ce7a h1:G6ncNUUxPwSdpEaL5V7ORcUt970XkPkQOlLt3z/cpD4=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125163925-d7953de7ce7a/go.mod h1:a+SYNiPvKba0NMg3g9BXlLVZflohz06h4veLf0gyySY=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125200246-0c62ab001ed4 h1:/o/ulz5PtMlh1E9/t3e2qWsy8/EpfxRspE+kiEbCNvE=
