@@ -27,20 +27,17 @@ import (
 	"MSSQLParser/reporter"
 	"MSSQLParser/servicer"
 	"MSSQLParser/utils"
-
 	"flag"
 	"fmt"
 	"math"
+	"path"
 	"path/filepath"
-	"sync"
 	"time"
 
 	disk "github.com/aarsakian/MFTExtractor/Disk"
 	"github.com/aarsakian/MFTExtractor/FS/NTFS/MFT"
 	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
-	"github.com/aarsakian/MFTExtractor/img"
 	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
-	MFTUtils "github.com/aarsakian/MFTExtractor/utils"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
 )
 
@@ -113,107 +110,85 @@ func main() {
 		ShowLDF:             *showLDF,
 		TableType:           *tabletype}
 
-	var hD img.DiskReader
-
 	var physicalDisk disk.Disk
 	var recordsPerPartition map[int]MFT.Records
-	var mdffiles []string
-	var ldffiles []string
+	var mdffiles, ldffiles []string
+
+	var ldffile, mdffile, basepath string
 	var database db.Database
+
+	var e error
 
 	if *stopService {
 		servicer.StopService()
 		defer servicer.StartService()
 	}
 
-	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
-
-		if *physicalDrive != -1 {
-
-			hD = img.GetHandler(fmt.Sprintf("\\\\.\\PHYSICALDRIVE%d", *physicalDrive), "physicalDrive")
-		} else if *evidencefile != "" {
-			hD = img.GetHandler(*evidencefile, "ewf")
-
-		} else if *vmdkfile != "" {
-			hD = img.GetHandler(*vmdkfile, "vmdk")
+	if *inputfile != "" {
+		basepath, mdffile = filepath.Split(*inputfile)
+		if filepath.IsAbs(basepath) {
+			//remove C:\\ and last \\
+			basepath = basepath[3 : len(basepath)-1]
 		}
-		physicalDisk = disk.Disk{Handler: hD}
+
+		if *ldf {
+			ldffile, e = utils.LocateLDFfile(*inputfile)
+			if e != nil {
+				mslogger.Mslogger.Error(e)
+			}
+		}
+	}
+
+	exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1"}
+
+	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" ||
+		*low && *inputfile != "" {
+
+		if *evidencefile != "" {
+			physicalDisk = disk.InitiliazeEvidence(*evidencefile)
+		} else if *physicalDrive != -1 {
+			physicalDisk = disk.InitializePhysicalDisk(*physicalDrive)
+		} else if *low {
+			physicalDisk = disk.InitializePhysicalDisk(0)
+		} else if *vmdkfile != "" {
+			physicalDisk = disk.InitalizeVMDKDisk(*vmdkfile)
+		}
+
+		defer physicalDisk.Close()
 		physicalDisk.DiscoverPartitions()
 
 		physicalDisk.ProcessPartitions(*partitionNum, []int{}, -1, math.MaxUint32)
 		recordsPerPartition = physicalDisk.GetFileSystemMetadata(*partitionNum)
 
-		defer hD.CloseHandler()
-		exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1"}
 		for partitionId, records := range recordsPerPartition {
-
-			records = records.FilterByExtension("MDF")
 			if len(records) == 0 {
 				continue
 			}
-			if *location != "" {
 
-				results := make(chan MFTUtils.AskedFile, len(records))
+			if len(mdffile) != 0 && len(ldffile) != 0 {
 
-				wg := new(sync.WaitGroup)
-				wg.Add(2)
-
-				go exp.ExportData(wg, results)                            //consumer
-				go physicalDisk.Worker(wg, records, results, partitionId) //producer
-
-				wg.Wait()
-				exp.SetFilesToLogicalSize(records)
-
-				for _, record := range records {
-					fullpath := filepath.Join(exp.Location, record.GetFname())
-					mdffiles = append(mdffiles, fullpath)
-				}
-
+				records = records.FilterByNames([]string{mdffile, ldffile})
+			} else if len(mdffile) != 0 {
+				records = records.FilterByName(mdffile)
+			} else if *ldf {
+				records = records.FilterByExtensions([]string{"MDF", "LDF"})
+			} else {
+				records = records.FilterByExtensions([]string{"MDF"})
 			}
 
-		}
+			if len(basepath) != 0 {
+				records = records.FilterByPath(basepath)
+			}
 
-	}
-	if *low && *inputfile != "" && *location != "" {
+			exp.ExportRecords(records, physicalDisk, partitionId)
 
-		hD = img.GetHandler("\\\\.\\PHYSICALDRIVE0", "physicalDrive")
-
-		physicalDisk = disk.Disk{Handler: hD}
-		physicalDisk.DiscoverPartitions()
-
-		physicalDisk.ProcessPartitions(*partitionNum, []int{}, -1, math.MaxUint32)
-		recordsPerPartition = physicalDisk.GetFileSystemMetadata(*partitionNum)
-
-		defer hD.CloseHandler()
-		exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1"}
-
-		dir, file := filepath.Split(*inputfile)
-		if filepath.IsAbs(dir) {
-			//remove C:\\ and last \\
-			dir = dir[3 : len(dir)-1]
-		}
-
-		for partitionId, records := range recordsPerPartition {
-
-			records = records.FilterByName(file)
-			records = records.FilterByPath(dir)
-
-			if *location != "" {
-
-				results := make(chan MFTUtils.AskedFile, len(records))
-
-				wg := new(sync.WaitGroup)
-				wg.Add(2)
-
-				go exp.ExportData(wg, results)                            //consumer
-				go physicalDisk.Worker(wg, records, results, partitionId) //producer
-
-				wg.Wait()
-				exp.SetFilesToLogicalSize(records)
-
-				for _, record := range records {
-					fullpath := filepath.Join(exp.Location, record.GetFname())
+			for _, record := range records {
+				fullpath := filepath.Join(exp.Location, record.GetFname())
+				extension := path.Ext(fullpath)
+				if extension == ".mdf" {
 					mdffiles = append(mdffiles, fullpath)
+				} else if extension == ".ldf" {
+					ldffiles = append(ldffiles, fullpath)
 				}
 
 			}
@@ -222,26 +197,25 @@ func main() {
 
 	} else if *inputfile != "" {
 		mdffiles = append(mdffiles, *inputfile)
+		if *ldf {
+			ldffile, e := utils.LocateLDFfile(*inputfile)
+			if e != nil {
+				mslogger.Mslogger.Error(e)
+			} else {
+				ldffiles = append(ldffiles, ldffile)
+			}
 
-	}
-
-	if *ldf {
-		ldffile, e := utils.LocateLDFfile(*inputfile)
-		if e != nil {
-			mslogger.Mslogger.Error(e)
-		} else {
-			ldffiles = append(ldffiles, ldffile)
 		}
-
 	}
+
 	for idx, inputFile := range mdffiles {
 
-		if len(ldffiles) <= idx {
+		if len(ldffiles) != len(mdffiles) {
 			database = db.Database{Fname: inputFile}
 		} else {
 			database = db.Database{Fname: inputFile, Lname: ldffiles[idx]}
 		}
-
+		/*processing pages stage */
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
 
 		if *pageType != "" {
@@ -261,10 +235,10 @@ func main() {
 		fmt.Printf("Processed %d pages.\n", totalProcessedPages)
 		fmt.Println("Reconstructing tables...")
 
-		tables := database.GetTablesInformation(*tableName)
-		database.Tables = tables
+		/*retrieving schema and table contents */
+		database.GetTables(*tableName)
 
-		fmt.Printf("Reconstructed %d tables.\n", len(tables))
+		fmt.Printf("Reconstructed %d tables.\n", len(database.Tables))
 		fmt.Println("Reporting & exporting stage.")
 
 		reporter.ShowPageInfo(database, uint32(*selectedPage))
