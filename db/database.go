@@ -276,7 +276,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 }
 
-func (db Database) GetTablesInformation(tablename string) []Table {
+func (db *Database) GetTables(tablename string) {
 	/*
 	 get objectid for each table  sysschobjs
 	 for each table using its objectid retrieve its columns from syscolpars
@@ -292,7 +292,6 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 	tablePartitionsMap := db.createMapListPartitions("sysrowsets")     //(table objectid) = [](partitionId, index_id, ...)
 	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  []OwnerId, page allocunitid
 
-	var tables []Table
 	for tobjectId, res := range tablesMap {
 		tname := res.First
 
@@ -354,9 +353,7 @@ func (db Database) GetTablesInformation(tablename string) []Table {
 			"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
 		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
-		tables = append(tables, table)
+		db.Tables = append(db.Tables, table)
 	}
-
-	return tables
 
 }
