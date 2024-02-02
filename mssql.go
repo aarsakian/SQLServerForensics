@@ -198,12 +198,8 @@ func main() {
 	} else if *inputfile != "" {
 		mdffiles = append(mdffiles, *inputfile)
 		if *ldf {
-			ldffile, e := utils.LocateLDFfile(*inputfile)
-			if e != nil {
-				mslogger.Mslogger.Error(e)
-			} else {
-				ldffiles = append(ldffiles, ldffile)
-			}
+
+			ldffiles = append(ldffiles, ldffile)
 
 		}
 	}
