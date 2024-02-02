@@ -90,7 +90,7 @@ func LocateLDFfile(mdffile string) (string, error) {
 			continue
 		}
 		if strings.Contains(entry.Name(), fname) {
-			return entry.Name(), nil
+			return filepath.Join(dir, entry.Name()), nil
 		}
 
 	}
