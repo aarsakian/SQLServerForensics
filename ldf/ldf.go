@@ -108,25 +108,25 @@ type OriginalParityBytes []uint8
 // and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
 	Unknown               [2]byte
-	Length                uint16    //size of fixed length area
-	PreviousLSN           utils.LSN //
-	Flag                  uint16
-	TransactionID         utils.TransactionID
-	Operation             uint8 //what type of data is stored
-	Context               uint8
+	Length                uint16              //size of fixed length area 2-4
+	PreviousLSN           utils.LSN           //4-14
+	Flag                  uint16              //14-16
+	TransactionID         utils.TransactionID //16-22
+	Operation             uint8               //what type of data is stored 23
+	Context               uint8               //24
 	LOP_INSERT_DELETE_MOD *LOP_INSERT_DELETE_MOD
 }
 
 type LOP_INSERT_DELETE_MOD struct {
-	RowId                utils.RowId
-	Unknown              [4]byte
-	PreviousPageLSN      utils.LSN
-	Unknown2             [2]byte
-	PartitionID          uint64
-	OffsetInRow          uint16 //starting position of the modified data within the data row
-	ModifySize           uint16
-	RowFlags             [2]byte
-	NumElements          uint16
+	RowId                utils.RowId //0-8
+	Unknown              [4]byte     //8-12
+	PreviousPageLSN      utils.LSN   //12-22
+	Unknown2             [2]byte     //22-24
+	PartitionID          uint64      //24-30
+	OffsetInRow          uint16      //starting position of the modified data within the data row
+	ModifySize           uint16      //32-34
+	RowFlags             [2]byte     //34-36
+	NumElements          uint16      //36-38
 	RowLogContentOffsets []byte
 }
 
