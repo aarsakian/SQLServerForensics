@@ -39,7 +39,7 @@ type LSN struct {
 
 type TransactionID struct {
 	P1 uint16
-	P2 uint64
+	P2 uint32
 }
 
 type Auid struct {
@@ -614,7 +614,7 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 				var transID TransactionID
 				Unmarshal(data[idx:], &transID)
 				field.Set(reflect.ValueOf(transID))
-				idx += 8
+				idx += 6
 			}
 
 		case reflect.Array:
