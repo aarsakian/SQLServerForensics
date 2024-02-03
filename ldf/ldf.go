@@ -2,6 +2,7 @@ package LDF
 
 import (
 	mslogger "MSSQLParser/logger"
+	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
 	"math"
@@ -118,16 +119,17 @@ type Record struct {
 }
 
 type LOP_INSERT_DELETE_MOD struct {
-	RowId                utils.RowId //0-8
+	RowId                utils.RowId //0-8 locate the page
 	Unknown              [4]byte     //8-12
 	PreviousPageLSN      utils.LSN   //12-22
 	Unknown2             [2]byte     //22-24
-	PartitionID          uint64      //24-30
+	PartitionID          uint64      //24-32 locate the table
 	OffsetInRow          uint16      //starting position of the modified data within the data row
-	ModifySize           uint16      //32-34
-	RowFlags             [2]byte     //34-36
-	NumElements          uint16      //36-38
-	RowLogContentOffsets []byte
+	ModifySize           uint16      //34-36
+	RowFlags             [2]byte     //36-38
+	NumElements          uint16      //38-40
+	RowLogContentOffsets []int16
+	DataRows             page.DataRows
 }
 
 func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
@@ -250,10 +252,13 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 		if OperationType[record.Operation] == "LOP_INSERT_ROWS" ||
 			OperationType[record.Operation] == "LOP_DELETE_ROWS" ||
 			OperationType[record.Operation] == "LOP_MODIFY_ROW" {
+
 			lop_insert_delete_mod := new(LOP_INSERT_DELETE_MOD)
-			utils.Unmarshal(bs[recordOffset+24:], lop_insert_delete_mod)
+			lop_insert_delete_mod.Process(bs[recordOffset+24:])
 			record.LOP_INSERT_DELETE_MOD = lop_insert_delete_mod
+
 		}
+
 		logBlock.Records[idx] = *record
 
 		mslogger.Mslogger.Info(fmt.Sprintf("Located record at %d",
@@ -261,6 +266,30 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 
 	}
 
+}
+
+func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
+
+	utils.Unmarshal(bs, lop_insert_delete_mod)
+
+	bsoffset := 40 + 2*lop_insert_delete_mod.NumElements
+	for _, rowlogcontentoffset := range lop_insert_delete_mod.RowLogContentOffsets {
+		datarow := new(page.DataRow)
+		if rowlogcontentoffset == 0 { //exp to check
+			bsoffset += 1
+			continue
+		}
+		if int(bsoffset+uint16(rowlogcontentoffset)) >= len(bs) {
+			mslogger.Mslogger.Info(fmt.Sprintf("exceeded log block size by %d block size %d",
+				bsoffset+uint16(rowlogcontentoffset), len(bs)))
+			break
+		}
+		utils.Unmarshal(bs[bsoffset:bsoffset+uint16(rowlogcontentoffset)], datarow)
+		lop_insert_delete_mod.DataRows = append(lop_insert_delete_mod.DataRows, *datarow)
+
+		bsoffset += uint16(rowlogcontentoffset)
+
+	}
 }
 
 func (logBlock *LogBlock) ProcessHeader(bs []byte) {
