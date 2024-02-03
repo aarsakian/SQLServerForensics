@@ -694,6 +694,22 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 					idx += 2
 				}
 				field.Set(reflect.ValueOf(arr))
+			} else if name == "RowLogContentOffsets" {
+				var temp int16
+				var arr []int16
+				nofCols := structValPtr.Elem().FieldByName("NumElements").Uint()
+				for colId := 0; colId < int(nofCols); colId++ {
+					if idx+2 > len(data) {
+						msg := fmt.Sprintf("Log len col offset calculation exceeds length of data by %d!\n",
+							idx+2-len(data))
+						mslogger.Mslogger.Error(msg)
+						return idx + 2, errors.New("Log Length col offset calculation exceeds length of data")
+					}
+					binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+					arr = append(arr, temp)
+					idx += 2
+				}
+				field.Set(reflect.ValueOf(arr))
 			}
 		}
 
