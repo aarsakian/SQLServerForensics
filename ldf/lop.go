@@ -7,6 +7,22 @@ import (
 	"fmt"
 )
 
+type LOP_BEGIN struct {
+	SPID                      uint16
+	Unknown                   [2]byte
+	BeginlogStatus            uint32
+	Unknown2                  [8]byte
+	BeginTime                 [8]byte //DateTime
+	XactID                    uint32
+	Unknown3                  [10]byte
+	OldestActiveTransactionID utils.TransactionID
+	Unknown4                  [10]byte
+	TransactionNameLen        uint16
+	Unknown5                  [4]byte
+	TransactionName           string
+	TransactionSID            uint32
+}
+
 type LOP_INSERT_DELETE_MOD struct {
 	RowId                utils.RowId //0-8 locate the page
 	Unknown              [4]byte     //8-12
@@ -47,4 +63,8 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
 		bsoffset += uint16(rowlogcontentoffset)
 
 	}
+}
+
+func (lop_begin *LOP_BEGIN) Process(bs []byte) {
+	utils.Unmarshal(bs, lop_begin)
 }

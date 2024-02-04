@@ -115,6 +115,7 @@ type Record struct {
 	Operation             uint8               //what type of data is stored 23
 	Context               uint8               //24
 	LOP_INSERT_DELETE_MOD *LOP_INSERT_DELETE_MOD
+	LOP_BEGIN             *LOP_BEGIN
 }
 
 func (record Record) GetOperationType() string {
@@ -238,6 +239,10 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 			lop_insert_delete_mod.Process(bs[recordOffset+24:])
 			record.LOP_INSERT_DELETE_MOD = lop_insert_delete_mod
 
+		} else if OperationType[record.Operation] == "LOP_BEGIN_XACT" {
+			lop_begin_xact := new(LOP_BEGIN)
+			lop_begin_xact.Process(bs[recordOffset+24:])
+			record.LOP_BEGIN = lop_begin_xact
 		}
 
 		logBlock.Records[idx] = *record
