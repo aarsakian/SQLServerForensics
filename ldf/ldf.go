@@ -107,15 +107,16 @@ type OriginalParityBytes []uint8
 // Every transaction must have an LOP_BEGIN_XACT
 // and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
-	Unknown               [2]byte
-	Length                uint16              //size of fixed length area 2-4
-	PreviousLSN           utils.LSN           //4-14
-	Flag                  uint16              //14-16
-	TransactionID         utils.TransactionID //16-22
-	Operation             uint8               //what type of data is stored 23
-	Context               uint8               //24
-	LOP_INSERT_DELETE_MOD *LOP_INSERT_DELETE_MOD
-	LOP_BEGIN             *LOP_BEGIN
+	Unknown           [2]byte
+	Length            uint16              //size of fixed length area 2-4
+	PreviousLSN       utils.LSN           //4-14
+	Flag              uint16              //14-16
+	TransactionID     utils.TransactionID //16-22
+	Operation         uint8               //what type of data is stored 23
+	Context           uint8               //24
+	Lop_Insert_Delete *LOP_INSERT_DELETE_MOD
+	Lop_Begin         *LOP_BEGIN
+	Lop_Commit        *LOP_COMMIT
 }
 
 func (record Record) GetOperationType() string {
@@ -132,8 +133,8 @@ func (record Record) ShowInfo() {
 		record.Flag, record.TransactionID.ToStr(),
 		OperationType[record.Operation],
 		ContextType[record.Context])
-	if record.LOP_INSERT_DELETE_MOD != nil {
-		record.LOP_INSERT_DELETE_MOD.ShowInfo()
+	if record.Lop_Insert_Delete != nil {
+		record.Lop_Insert_Delete.ShowInfo()
 	}
 }
 
@@ -237,12 +238,16 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 
 			lop_insert_delete_mod := new(LOP_INSERT_DELETE_MOD)
 			lop_insert_delete_mod.Process(bs[recordOffset+24:])
-			record.LOP_INSERT_DELETE_MOD = lop_insert_delete_mod
+			record.Lop_Insert_Delete = lop_insert_delete_mod
 
 		} else if OperationType[record.Operation] == "LOP_BEGIN_XACT" {
 			lop_begin_xact := new(LOP_BEGIN)
 			lop_begin_xact.Process(bs[recordOffset+24:])
-			record.LOP_BEGIN = lop_begin_xact
+			record.Lop_Begin = lop_begin_xact
+		} else if OperationType[record.Operation] == "LOP_COMMIT_XACT" {
+			lop_commit := new(LOP_COMMIT)
+			lop_commit.Process(bs[recordOffset+24:])
+			record.Lop_Commit = lop_commit
 		}
 
 		logBlock.Records[idx] = *record

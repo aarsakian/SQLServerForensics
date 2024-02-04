@@ -23,6 +23,13 @@ type LOP_BEGIN struct {
 	TransactionSID            uint32
 }
 
+type LOP_COMMIT struct {
+	EndTime          [8]byte //DateTime
+	TransactionBegin utils.LSN
+	Unknown          [22]byte
+	XactID           uint32
+}
+
 type LOP_INSERT_DELETE_MOD struct {
 	RowId                utils.RowId //0-8 locate the page
 	Unknown              [4]byte     //8-12
@@ -67,4 +74,10 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
 
 func (lop_begin *LOP_BEGIN) Process(bs []byte) {
 	utils.Unmarshal(bs, lop_begin)
+	lop_begin.TransactionName = utils.DecodeUTF16(bs[62 : 62+lop_begin.TransactionNameLen])
+}
+
+func (lop_commit *LOP_COMMIT) Process(bs []byte) {
+	utils.Unmarshal(bs, lop_commit)
+
 }
