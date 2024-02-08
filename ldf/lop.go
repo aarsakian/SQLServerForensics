@@ -45,7 +45,8 @@ type LOP_INSERT_DELETE_MOD struct {
 }
 
 func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
-	fmt.Printf("FileID:PageID:SlotID %s ", lop_insert_del_mod.RowId.ToStr())
+	fmt.Printf("FileID:PageID:SlotID %s Prev Page LSN %s\n",
+		lop_insert_del_mod.RowId.ToStr(), lop_insert_del_mod.PreviousPageLSN.ToStr())
 }
 
 func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
@@ -74,10 +75,21 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
 
 func (lop_begin *LOP_BEGIN) Process(bs []byte) {
 	utils.Unmarshal(bs, lop_begin)
-	lop_begin.TransactionName = utils.DecodeUTF16(bs[62 : 62+lop_begin.TransactionNameLen])
+	lop_begin.TransactionName = utils.DecodeUTF16(bs[60 : 60+lop_begin.TransactionNameLen])
+}
+
+func (lop_begin *LOP_BEGIN) ShowInfo() {
+	fmt.Printf("BegTime %s Xact ID %d Trans Name %s Trans SID %d\n",
+		utils.DateTimeTostr(lop_begin.BeginTime[:]),
+		lop_begin.XactID, lop_begin.TransactionName, lop_begin.TransactionSID)
 }
 
 func (lop_commit *LOP_COMMIT) Process(bs []byte) {
 	utils.Unmarshal(bs, lop_commit)
 
+}
+
+func (lop_commit LOP_COMMIT) ShowInfo() {
+	fmt.Printf("EndTime %s Trans Begin %s XactID %d\n", utils.DateTimeTostr(lop_commit.EndTime[:]),
+		lop_commit.TransactionBegin.ToStr(), lop_commit.XactID)
 }
