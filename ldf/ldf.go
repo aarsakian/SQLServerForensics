@@ -127,15 +127,26 @@ func (record Record) GetContextType() string {
 	return ContextType[record.Context]
 }
 
-func (record Record) ShowInfo() {
-	fmt.Printf("PreviousLSN %s Length %d flag %d transactionID %s operation %s context %s\n",
-		record.PreviousLSN.ToStr(), record.Length,
-		record.Flag, record.TransactionID.ToStr(),
-		OperationType[record.Operation],
-		ContextType[record.Context])
-	if record.Lop_Insert_Delete != nil {
-		record.Lop_Insert_Delete.ShowInfo()
+func (record Record) ShowLOPInfo(filterloptype string) {
+	if filterloptype == "" {
+		fmt.Printf("PreviousLSN %s Length %d flag %d transactionID %s operation %s context %s\n",
+			record.PreviousLSN.ToStr(), record.Length,
+			record.Flag, record.TransactionID.ToStr(),
+			OperationType[record.Operation],
+			ContextType[record.Context])
 	}
+
+	if record.Lop_Insert_Delete != nil &&
+		(filterloptype == "insert" || filterloptype == "") {
+		record.Lop_Insert_Delete.ShowInfo()
+	} else if record.Lop_Begin != nil &&
+		(filterloptype == "begin" || filterloptype == "") {
+		record.Lop_Begin.ShowInfo()
+	} else if record.Lop_Commit != nil &&
+		(filterloptype == "commit" || filterloptype == "") {
+		record.Lop_Commit.ShowInfo()
+	}
+
 }
 
 func (vlfs *VLFs) Process(file os.File) {
@@ -273,12 +284,14 @@ func (logBlockHeader LogBlockHeader) FirstToStr() string {
 	return logBlockHeader.FirstLSN.ToStr()
 }
 
-func (logBlock LogBlock) ShowInfo() {
-	fmt.Printf("Log Block Header\n")
-	fmt.Printf("Slots %d size %d FirstLSN %s\n",
-		logBlock.Header.NofSlots, logBlock.Header.Size, logBlock.Header.FirstToStr())
+func (logBlock LogBlock) ShowInfo(filterloptype string) {
+	if filterloptype == "" {
+		fmt.Printf("Log Block Header Slots %d size %d FirstLSN %s\n",
+			logBlock.Header.NofSlots, logBlock.Header.Size, logBlock.Header.FirstToStr())
+	}
+
 	for _, record := range logBlock.Records {
-		record.ShowInfo()
+		record.ShowLOPInfo(filterloptype)
 	}
 }
 
@@ -290,12 +303,12 @@ func (vlfheader VLFHeader) CreateToStr() string {
 	return vlfheader.CreateLSN.ToStr()
 }
 
-func (vlf VLF) ShowInfo() {
+func (vlf VLF) ShowInfo(filterloptype string) {
 	fmt.Printf("VLF Header\n")
 	fmt.Printf("database_id %d begin_offset %d size %d sequence number %d parity %d create_lsn %s\n",
 		vlf.Header.DatabaseID, vlf.Header.StartOffset,
 		vlf.Header.FileSize, vlf.Header.FSeqNo, vlf.Header.Parity, vlf.Header.CreateToStr())
 	for _, logblock := range vlf.Blocks {
-		logblock.ShowInfo()
+		logblock.ShowInfo(filterloptype)
 	}
 }
