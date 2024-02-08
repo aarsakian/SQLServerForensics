@@ -66,6 +66,10 @@ type PagesPerId[K PageKey] struct {
 	list   *PagesPerIdNodeList
 }
 
+func (pagesPerID PagesPerId[K]) IsEmpty() bool {
+	return pagesPerID.list == nil
+}
+
 func (pagesPerID PagesPerId[K]) GetHeadNode() *PagesPerIdNode {
 	return pagesPerID.list.head
 }
