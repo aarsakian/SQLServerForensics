@@ -83,6 +83,8 @@ func main() {
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	ldf := flag.Bool("ldf", false, "parse hardened (commited) transactions saved to the log")
+	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit")
+
 	flag.Parse()
 
 	now := time.Now()
@@ -239,6 +241,7 @@ func main() {
 
 		reporter.ShowPageInfo(database, uint32(*selectedPage))
 		reporter.ShowTableInfo(database)
+		reporter.ShowLDFInfo(database, *filterlop)
 
 		if *exportPath != "" {
 			exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage, Path: *exportPath}

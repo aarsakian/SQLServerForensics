@@ -73,11 +73,6 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 
 	}
 
-	if rp.ShowLDF {
-		database.ShowLDF()
-
-	}
-
 }
 
 func (rp Reporter) ShowTableInfo(database db.Database) {
@@ -86,6 +81,13 @@ func (rp Reporter) ShowTableInfo(database db.Database) {
 
 		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
 			rp.TableType, rp.SelectedTableRows, rp.SelectedTableRow, rp.ShowCarved)
+
+	}
+}
+
+func (rp Reporter) ShowLDFInfo(database db.Database, filterlop string) {
+	if rp.ShowLDF {
+		database.ShowLDF(filterlop)
 
 	}
 }
