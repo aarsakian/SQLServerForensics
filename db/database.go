@@ -24,7 +24,10 @@ type Database struct {
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
 
 	totalProcessedPages := db.ProcessMDF(selectedPage, fromPage, toPage, carve)
-	db.ProcessLDF()
+	if db.Lname != "" {
+		db.ProcessLDF()
+	}
+
 	return totalProcessedPages
 
 }
@@ -234,9 +237,9 @@ func (db Database) createMapList(tablename string) map[int32][]page.Result[strin
 	return results
 }
 
-func (db Database) ShowLDF() {
+func (db Database) ShowLDF(filterloptype string) {
 	for _, vlf := range *db.VLFs {
-		vlf.ShowInfo()
+		vlf.ShowInfo(filterloptype)
 	}
 }
 
@@ -351,7 +354,15 @@ func (db *Database) GetTables(tablename string) {
 
 		table.PageIds = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
 			"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
-		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
+
+		if dataPages.IsEmpty() {
+			msg := fmt.Sprintf("No pages located for table %s", table.Name)
+			mslogger.Mslogger.Warning(msg)
+
+		} else {
+			table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
+
+		}
 
 		db.Tables = append(db.Tables, table)
 	}
