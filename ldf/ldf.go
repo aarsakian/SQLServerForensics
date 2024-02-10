@@ -48,6 +48,8 @@ type LogBlock struct {
 	RecordOffsets RecordOffsets
 }
 
+type RecordOffsets []uint16
+
 /*VLF starts with a parity byte*/
 /*72 bytes*/
 type VLFHeader struct {
@@ -94,59 +96,6 @@ func (logblockheadr LogBlockHeader) IsValid() bool {
 func (logBlock LogBlock) GetSize() int64 {
 	nofBlocks := int64(math.Ceil(float64(logBlock.Header.Size) / float64(LOGBLOCKMINSIZE)))
 	return nofBlocks * int64(LOGBLOCKMINSIZE)
-}
-
-//stored in reversed order It consists of 2-byte values that represent the
-//start position of each record. stored at the end of the allocated block
-
-type RecordOffsets []uint16
-type OriginalParityBytes []uint8
-
-// he corresponding log records will contain the data page number and the slot number of the data page they affect.
-// aligned at 4 byte boundary
-// Every transaction must have an LOP_BEGIN_XACT
-// and a record to close the xact, usually LOP_COMMIT_XACT.
-type Record struct {
-	Unknown           [2]byte
-	Length            uint16              //size of fixed length area 2-4
-	PreviousLSN       utils.LSN           //4-14
-	Flag              uint16              //14-16
-	TransactionID     utils.TransactionID //16-22
-	Operation         uint8               //what type of data is stored 23
-	Context           uint8               //24
-	Lop_Insert_Delete *LOP_INSERT_DELETE_MOD
-	Lop_Begin         *LOP_BEGIN
-	Lop_Commit        *LOP_COMMIT
-}
-
-func (record Record) GetOperationType() string {
-	return OperationType[record.Operation]
-}
-
-func (record Record) GetContextType() string {
-	return ContextType[record.Context]
-}
-
-func (record Record) ShowLOPInfo(filterloptype string) {
-	if filterloptype == "" {
-		fmt.Printf("PreviousLSN %s Length %d flag %d transactionID %s operation %s context %s\n",
-			record.PreviousLSN.ToStr(), record.Length,
-			record.Flag, record.TransactionID.ToStr(),
-			OperationType[record.Operation],
-			ContextType[record.Context])
-	}
-
-	if record.Lop_Insert_Delete != nil &&
-		(filterloptype == "insert" || filterloptype == "") {
-		record.Lop_Insert_Delete.ShowInfo()
-	} else if record.Lop_Begin != nil &&
-		(filterloptype == "begin" || filterloptype == "") {
-		record.Lop_Begin.ShowInfo()
-	} else if record.Lop_Commit != nil &&
-		(filterloptype == "commit" || filterloptype == "") {
-		record.Lop_Commit.ShowInfo()
-	}
-
 }
 
 func (vlfs *VLFs) Process(file os.File) {
