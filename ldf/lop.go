@@ -45,8 +45,9 @@ type LOP_INSERT_DELETE_MOD struct {
 }
 
 func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
-	fmt.Printf("FileID:PageID:SlotID %s Prev Page LSN %s\n",
-		lop_insert_del_mod.RowId.ToStr(), lop_insert_del_mod.PreviousPageLSN.ToStr())
+	fmt.Printf("FileID:PageID:SlotID %s Prev Page LSN %s Partition ID %d\n",
+		lop_insert_del_mod.RowId.ToStr(), lop_insert_del_mod.PreviousPageLSN.ToStr(),
+		lop_insert_del_mod.PartitionID)
 }
 
 func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
