@@ -8,8 +8,7 @@ import (
 	"os"
 )
 
-/*
-hen a page is modified in the buffer cache, it isn't immediately written back to disk;
+/*if a page is modified in the buffer cache, it isn't immediately written back to disk;
  instead, the page is marked as dirty
 checkpoint writes the current in-memory modified pages (known as dirty pages)
  and transaction log information from memory to disk
