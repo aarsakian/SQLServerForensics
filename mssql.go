@@ -119,25 +119,21 @@ func main() {
 	var ldffile, mdffile, basepath string
 	var database db.Database
 
-	var e error
-
 	if *stopService {
 		servicer.StopService()
 		defer servicer.StartService()
 	}
 
 	if *inputfile != "" {
-		basepath, mdffile = filepath.Split(*inputfile)
-		if filepath.IsAbs(basepath) {
-			//remove C:\\ and last \\
-			basepath = basepath[3 : len(basepath)-1]
-		}
+		basepath, mdffile = utils.SplitPath(*inputfile)
 
 		if *ldf {
-			ldffile, e = utils.LocateLDFfile(*inputfile)
+			ldffilepath, e := utils.LocateLDFfile(*inputfile)
 			if e != nil {
 				mslogger.Mslogger.Error(e)
 			}
+			_, ldffile = utils.SplitPath(ldffilepath)
+
 		}
 	}
 

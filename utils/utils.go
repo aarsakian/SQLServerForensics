@@ -483,6 +483,15 @@ func Keys[M ~map[K]V, K comparable, V any](m M) []K {
 	return keys
 }
 
+func SplitPath(inputfile string) (string, string) {
+	basepath, filename := filepath.Split(inputfile)
+	if filepath.IsAbs(basepath) {
+		//remove C:\\ and last \\
+		basepath = basepath[3 : len(basepath)-1]
+	}
+	return basepath, filename
+}
+
 func HasVarLengthCols(flag uint8) bool {
 	return flag&32 == 32
 }
