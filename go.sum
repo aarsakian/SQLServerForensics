@@ -42,6 +42,8 @@ github.com/aarsakian/MFTExtractor v0.0.0-20240127073210-ead458595dea h1:In6+kFCR
 github.com/aarsakian/MFTExtractor v0.0.0-20240127073210-ead458595dea/go.mod h1:eVzCRsSFEuyyusm6ajK8dnpd8VL2CWx/zadPyNS2jQI=
 github.com/aarsakian/MFTExtractor v0.0.0-20240127214728-671d96590ee8 h1:WbN5g5qg4lYVor+j3GlLGBDuEg9IaT5bY/eAAAe/VWg=
 github.com/aarsakian/MFTExtractor v0.0.0-20240127214728-671d96590ee8/go.mod h1:eVzCRsSFEuyyusm6ajK8dnpd8VL2CWx/zadPyNS2jQI=
+github.com/aarsakian/MFTExtractor v0.0.0-20240213163609-ad496763515a h1:oGS8AMCooAOYnE2SVlPuun3DTyhvqOOaT/7Zpm1VSRo=
+github.com/aarsakian/MFTExtractor v0.0.0-20240213163609-ad496763515a/go.mod h1:eVzCRsSFEuyyusm6ajK8dnpd8VL2CWx/zadPyNS2jQI=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125163925-d7953de7ce7a h1:G6ncNUUxPwSdpEaL5V7ORcUt970XkPkQOlLt3z/cpD4=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125163925-d7953de7ce7a/go.mod h1:a+SYNiPvKba0NMg3g9BXlLVZflohz06h4veLf0gyySY=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125200246-0c62ab001ed4 h1:/o/ulz5PtMlh1E9/t3e2qWsy8/EpfxRspE+kiEbCNvE=
@@ -75,6 +77,8 @@ golang.org/x/sys v0.15.0 h1:h48lPFYpsTvQJZF4EKyI4aLHaev3CxivZmv7yZig9pc=
 golang.org/x/sys v0.15.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/sys v0.16.0 h1:xWw16ngr6ZMtmxDyKyIgsE93KNKz5HKmMa3b8ALHidU=
 golang.org/x/sys v0.16.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/sys v0.17.0 h1:25cE3gD+tdBA7lp7QfhuV+rJiE9YXTcS3VG1SqssI/Y=
+golang.org/x/sys v0.17.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
 golang.org/x/term v0.5.0/go.mod h1:jMB1sMXY+tzblOD4FWmEbocvup2/aLOaQEp7JmGp78k=

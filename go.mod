@@ -3,8 +3,8 @@ module MSSQLParser
 go 1.18
 
 require (
-	github.com/aarsakian/MFTExtractor v0.0.0-20240127214728-671d96590ee8
-	golang.org/x/sys v0.16.0
+	github.com/aarsakian/MFTExtractor v0.0.0-20240213163609-ad496763515a
+	golang.org/x/sys v0.17.0
 )
 
 require (
