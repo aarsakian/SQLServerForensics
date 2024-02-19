@@ -37,7 +37,7 @@ func (record Record) GetContextType() string {
 
 func (record Record) ShowLOPInfo(filterloptype string) {
 	if filterloptype == "any" {
-		fmt.Printf("PreviousLSN %s transactionID %s %s %s ",
+		fmt.Printf("PreviousLSN %s transactionID %s %s %s \n",
 			record.PreviousLSN.ToStr(), record.TransactionID.ToStr(),
 			OperationType[record.Operation],
 			ContextType[record.Context])
