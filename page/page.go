@@ -149,12 +149,12 @@ type Header struct {
 	FreeData       uint16    //30-32 offset from the start of the page to the first byte after the last record
 	PageId         uint32    //32-36
 	FragId         uint32    //36-40
-	LSN            utils.LSN //40-50
-	XactReserved   uint16    //50-52
+	LSN            utils.LSN //40-50  LSN of the last log record that affected the page.
+	XactReserved   uint16    //50-52 	Number of bytes reserved by the most recently started transaction
 	XdeslDPart2    uint32    //52-54
 	XdeslIDPart1   uint16    //54-58
 	GhostRecCnt    uint16    //58-60
-	TornBits       int32     //60-64
+	TornBits       int32     //60-64 bit string 1 bit -> sector
 	Reserved       [32]byte  //64-96
 }
 
