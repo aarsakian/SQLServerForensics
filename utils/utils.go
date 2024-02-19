@@ -34,7 +34,7 @@ type RowId struct {
 type LSN struct {
 	P1 uint32
 	P2 uint32
-	P3 uint16
+	P3 uint16 // record id within log block
 }
 
 type TransactionID struct {
@@ -74,6 +74,11 @@ func (transactionID TransactionID) ToStr() string {
 // Datetime2: 8 bytes rtl reading first 5 time unit intervals since midnight,last 3 (left) how many days have passed since 0001/01/01
 // 0x07 prefix time unit 100ns, 0x06 1 micro second intervals
 func DateTime2Tostr(data []byte) string {
+	return ""
+}
+
+// 1 byte for precision 1 byte for scale
+func NumericToStr(data []byte) string {
 	return ""
 }
 
