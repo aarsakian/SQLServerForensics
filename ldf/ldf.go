@@ -30,7 +30,16 @@ the oldest LSN of the oldest active transaction or the last CHECKPOINT
 number of the above 512-byte size), with a length of 4 bytes, and the block numbers in each log
 segment are numbered sequentially starting from 0. e.g. 0x001b2=434 => 8192+434*512
 (starting physical offset)
-2: The slot number where the log record is located, in the log offset array*/
+2: The slot number where the log record is located, in the log offset array
+in the SIMPLE recovery model, the active part of transaction log starts with VLF, which contains
+the oldest LSN of the oldest active transaction
+the last CHECKPOINT
+the FULL or BULK LOGGED recovery models, the active part of transaction log starts with
+VLF, which contains the oldest of the following:
+LSN of the last log backup
+LSN of the oldest active transaction
+LSN of the process that reads transaction log records
+*/
 
 var LOGBLOCKMINSIZE int = 512
 
@@ -55,11 +64,11 @@ type VLFHeader struct {
 	Unknown1    [1]byte
 	Parity      uint8 //2
 	DatabaseID  uint16
-	FSeqNo      uint32 //4-
+	FSeqNo      uint32 //4- keeps track of the vlf order
 	Unknown2    [8]byte
 	FileSize    uint64    //16-24
 	StartOffset uint64    //24- points to logblock header?
-	CreateLSN   utils.LSN //32-
+	CreateLSN   utils.LSN //32- value at the time the VLF was added to the transaction log.
 	Status      uint8     //?
 
 	FileId       uint8
@@ -190,7 +199,8 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 	for idx, recordOffset := range recordOffsets {
 		record := new(Record)
 		utils.Unmarshal(bs[recordOffset:], record)
-
+		//LOP_BEGIN_CKPT = start of checkpoint
+		//LOP_END_CKPT = end of checkpoint
 		if OperationType[record.Operation] == "LOP_INSERT_ROWS" ||
 			OperationType[record.Operation] == "LOP_DELETE_ROWS" ||
 			OperationType[record.Operation] == "LOP_MODIFY_ROW" {
