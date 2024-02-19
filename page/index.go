@@ -2,6 +2,11 @@ package page
 
 import "fmt"
 
+//clustered index root -> intermediate level rowid( child fileId+child PageId) +key value and so on
+//intermediate level one row for each leaf size =key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
+
+//non clustered key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
+//root->childpageID leaf level have value of 0
 type IndexRows []IndexRow
 
 type IndexRow struct {
@@ -29,6 +34,18 @@ func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 		baseOffset = varLenColOffset
 	}
 	indexRow.VarLenCols = &datacols
+}
+
+func (indexRow IndexRow) IsPrimary() bool {
+	return indexRow.StatusA == 0
+}
+
+func (indexRow IndexRow) IsIndexRecord() bool {
+	return indexRow.StatusA&3 == 3
+}
+
+func (indexRow IndexRow) IsGhostRecord() bool {
+	return indexRow.StatusA&5 == 5
 }
 
 func (indexRow IndexRow) ShowData() {
