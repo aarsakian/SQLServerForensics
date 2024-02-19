@@ -280,56 +280,66 @@ func (syscolpars *SysColpars) SetName(name []byte) {
 }
 
 func (syscolpars SysColpars) GetType() string {
-	if syscolpars.Xtype == 0x7f {
-		return "bigint"
-	} else if syscolpars.Xtype == 0xAD {
-		return "binary"
-	} else if syscolpars.Xtype == 0x6A {
-		return "decimal"
-	} else if syscolpars.Xtype == 0xAF {
-		return "char"
-	} else if syscolpars.Xtype == 0x3D {
-		return "datetime"
-	} else if syscolpars.Xtype == 0x3A {
-		return "smalldatetime"
-	} else if syscolpars.Xtype == 0x28 {
-		return "date"
-	} else if syscolpars.Xtype == 0x38 {
-		return "int"
-	} else if syscolpars.Xtype == 0x3E {
-		return "float"
-	} else if syscolpars.Xtype == 0xEF {
-		return "nchar"
-	} else if syscolpars.Xtype == 0x06 {
-		return "numeric"
+	if syscolpars.Xtype == 0x22 {
+		return "image"
 	} else if syscolpars.Xtype == 0x23 {
 		return "text"
-	} else if syscolpars.Xtype == 0xBD {
-		return "timestamp"
+	} else if syscolpars.Xtype == 0x24 {
+		return "uniqueidentifier"
+	} else if syscolpars.Xtype == 0x28 {
+		return "date"
+	} else if syscolpars.Xtype == 0x20 {
+		return "time"
+	} else if syscolpars.Xtype == 0x2A {
+		return "datetime2"
+	} else if syscolpars.Xtype == 0x2B {
+		return "datetimeoffset"
 	} else if syscolpars.Xtype == 0x30 {
 		return "tinyint"
 	} else if syscolpars.Xtype == 0x34 {
 		return "smallint"
+	} else if syscolpars.Xtype == 0x38 {
+		return "int"
+	} else if syscolpars.Xtype == 0x3A {
+		return "smalldatetime"
+	} else if syscolpars.Xtype == 0x3B {
+		return "real"
 	} else if syscolpars.Xtype == 0x3c {
 		return "money"
-	} else if syscolpars.Xtype == 0xA7 {
-		return "varchar"
-	} else if syscolpars.Xtype == 0x2A {
-		return "datetime2"
-	} else if syscolpars.Xtype == 0xE7 {
-		return "nvarchar"
-	} else if syscolpars.Xtype == 0xA5 {
-		return "varbinary"
+	} else if syscolpars.Xtype == 0x3D {
+		return "datetime"
+	} else if syscolpars.Xtype == 0x3E {
+		return "float"
 	} else if syscolpars.Xtype == 0x62 {
 		return "sql_variant"
+	} else if syscolpars.Xtype == 0x63 {
+		return "ntext"
 	} else if syscolpars.Xtype == 0x68 {
 		return "bit"
-	} else if syscolpars.Xtype == 0x2B {
-		return "datetimeoffset"
-	} else if syscolpars.Xtype == 0x22 {
-		return "image"
-	} else if syscolpars.Xtype == 0x24 {
-		return "uniqueidentifier"
+	} else if syscolpars.Xtype == 0x6A {
+		return "decimal"
+	} else if syscolpars.Xtype == 0x06 {
+		return "numeric"
+	} else if syscolpars.Xtype == 0x7A {
+		return "smallmoney"
+	} else if syscolpars.Xtype == 0x7f {
+		return "bigint"
+	} else if syscolpars.Xtype == 0xA5 {
+		return "varbinary"
+	} else if syscolpars.Xtype == 0xA7 {
+		return "varchar"
+	} else if syscolpars.Xtype == 0xAD {
+		return "binary"
+	} else if syscolpars.Xtype == 0xAF {
+		return "char"
+	} else if syscolpars.Xtype == 0xBD {
+		return "timestamp"
+	} else if syscolpars.Xtype == 0xE7 {
+		return "nvarchar"
+	} else if syscolpars.Xtype == 0xEF {
+		return "nchar"
+	} else if syscolpars.Xtype == 0xF1 {
+		return "xml"
 	} else {
 		msg := fmt.Sprintf("Type Not found 0x%x ", syscolpars.Xtype)
 		mslogger.Mslogger.Warning(msg)
