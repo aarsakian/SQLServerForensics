@@ -43,7 +43,7 @@ import (
 
 func main() {
 
-	inputfile := flag.String("db", "", "absolute path to the MDF file")
+	dbfile := flag.String("db", "", "absolute path to the MDF file")
 	physicalDrive := flag.Int("physicaldrive", -1,
 		"select the physical disk number to look for MDF file (requires admin rights!)")
 	evidencefile := flag.String("evidence", "", "path to image file")
@@ -124,23 +124,10 @@ func main() {
 		defer servicer.StartService()
 	}
 
-	if *inputfile != "" {
-		basepath, mdffile = utils.SplitPath(*inputfile)
-
-		if *ldf {
-			ldffilepath, e := utils.LocateLDFfile(*inputfile)
-			if e != nil {
-				mslogger.Mslogger.Error(e)
-			}
-			_, ldffile = utils.SplitPath(ldffilepath)
-
-		}
-	}
-
 	exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1"}
 
 	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" ||
-		*low && *inputfile != "" {
+		*low && *dbfile != "" {
 
 		if *evidencefile != "" {
 			physicalDisk = disk.InitiliazeEvidence(*evidencefile)
@@ -163,19 +150,31 @@ func main() {
 				continue
 			}
 
-			if len(mdffile) != 0 && len(ldffile) != 0 {
+			if *dbfile != "" && *ldf {
+				basepath, mdffile = utils.SplitPath(*dbfile)
+
+				ldffilepath, e := utils.LocateLDFfile(*dbfile)
+				if e != nil {
+					mslogger.Mslogger.Error(e)
+				}
+				_, ldffile = utils.SplitPath(ldffilepath)
 
 				records = records.FilterByNames([]string{mdffile, ldffile})
-			} else if len(mdffile) != 0 {
+
+			} else if *dbfile != "" {
+				basepath, mdffile = utils.SplitPath(*dbfile)
 				records = records.FilterByName(mdffile)
-			} else if *ldf {
+
+			}
+
+			if len(basepath) > 0 {
+				records = records.FilterByPath(basepath)
+			}
+
+			if *ldf {
 				records = records.FilterByExtensions([]string{"MDF", "LDF"})
 			} else {
 				records = records.FilterByExtensions([]string{"MDF"})
-			}
-
-			if len(basepath) != 0 {
-				records = records.FilterByPath(basepath)
 			}
 
 			exp.ExportRecords(records, physicalDisk, partitionId)
@@ -193,12 +192,14 @@ func main() {
 
 		}
 
-	} else if *inputfile != "" {
-		mdffiles = append(mdffiles, *inputfile)
+	} else if *dbfile != "" {
+		mdffiles = append(mdffiles, *dbfile)
 		if *ldf {
-
-			ldffiles = append(ldffiles, ldffile)
-
+			ldffilepath, e := utils.LocateLDFfile(*dbfile)
+			if e != nil {
+				mslogger.Mslogger.Error(e)
+			}
+			ldffiles = append(ldffiles, ldffilepath)
 		}
 	}
 
