@@ -1,6 +1,7 @@
 package page
 
 import (
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 )
 
@@ -103,7 +104,15 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 			}
 
 			var lobPage Page
-			lobPage = lobPages.GetPages(internalLob.PageId)[0]
+
+			internalLobPages := lobPages.GetPages(internalLob.PageId)
+			if len(internalLobPages) == 0 {
+				msg := "Lob does not have pages."
+				mslogger.Mslogger.Warning(msg)
+				continue
+			} else {
+				lobPage = internalLobPages[0]
+			}
 
 			if lobPage.Header.PageId == 0 { // lob Pages does not contains thiss page id
 				lobPage = textLobPages.GetFirstPage(internalLob.PageId)
