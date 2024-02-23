@@ -536,6 +536,16 @@ func FindValueInStruct(colName string, v interface{}) []byte {
 	return buf.Bytes()
 }
 
+func checkBounds(name string, diffSize int) error {
+	if diffSize > 0 {
+		msg := fmt.Sprintf("datarow available size exceed at %s by %d", name, diffSize)
+		mslogger.Mslogger.Error(msg)
+		return errors.New(msg)
+	} else {
+		return nil
+	}
+}
+
 func Unmarshal(data []byte, v interface{}) (int, error) {
 	idx := 0
 	structValPtr := reflect.ValueOf(v)
@@ -550,28 +560,40 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			return idx, errors.New("data exhausted no remaining data to parse")
 		}
 		field := structValPtr.Elem().Field(i) //StructField type
+		name := structType.Elem().Field(i).Name
 		switch field.Kind() {
 		case reflect.String:
 
 		case reflect.Uint8:
 			var temp uint8
+
+			err := checkBounds(name, idx+1-len(data))
+			if err != nil {
+				return idx, err
+			}
+
 			binary.Read(bytes.NewBuffer(data[idx:idx+1]), binary.LittleEndian, &temp)
 			field.SetUint(uint64(temp))
 			idx += 1
 		case reflect.Int16:
 			var temp int16
+
+			err := checkBounds(name, idx+2-len(data))
+			if err != nil {
+				return idx, err
+			}
+
 			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
 			field.SetInt(int64(temp))
 			idx += 2
 		case reflect.Uint16:
 			var temp uint16
 
-			name := structType.Elem().Field(i).Name
-			if idx+2 > len(data) {
-				msg := fmt.Sprintf("datarow available size exceed at %s. by %d", name, idx+2)
-				mslogger.Mslogger.Error(msg)
-				return idx, errors.New(msg)
+			err := checkBounds(name, idx+2-len(data))
+			if err != nil {
+				return idx, err
 			}
+
 			if name == "NumberOfVarLengthCols" &&
 				!HasVarLengthCols(uint8(structValPtr.Elem().FieldByName("StatusA").Uint())) {
 
@@ -584,12 +606,23 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			idx += 2
 		case reflect.Int32:
 			var temp int32
+
+			err := checkBounds(name, idx+4-len(data))
+			if err != nil {
+				return idx, err
+			}
+
 			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
 			field.SetInt(int64(temp))
 			idx += 4
 
 		case reflect.Uint32:
 			var temp uint32
+
+			err := checkBounds(name, idx+4-len(data))
+			if err != nil {
+				return idx, err
+			}
 
 			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
 			field.SetUint(uint64(temp))
@@ -598,6 +631,11 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 		case reflect.Uint64:
 			var temp uint64
 
+			err := checkBounds(name, idx+8-len(data))
+			if err != nil {
+				return idx, err
+			}
+
 			binary.Read(bytes.NewBuffer(data[idx:idx+8]), binary.LittleEndian, &temp)
 			idx += 8
 
@@ -605,6 +643,11 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 
 		case reflect.Int64:
 			var temp int64
+
+			err := checkBounds(name, idx+8-len(data))
+			if err != nil {
+				return idx, err
+			}
 
 			binary.Read(bytes.NewBuffer(data[idx:idx+8]), binary.LittleEndian, &temp)
 			idx += 8
