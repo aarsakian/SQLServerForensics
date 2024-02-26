@@ -32,6 +32,7 @@ import (
 	"math"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	disk "github.com/aarsakian/MFTExtractor/Disk"
@@ -145,26 +146,24 @@ func main() {
 		physicalDisk.ProcessPartitions(*partitionNum, []int{}, -1, math.MaxUint32)
 		recordsPerPartition = physicalDisk.GetFileSystemMetadata(*partitionNum)
 
+		if *dbfile != "" {
+			basepath, mdffile = utils.SplitPath(*dbfile)
+
+			if *ldf {
+				ldffile = strings.Split(mdffile, ".")[0] + "_log.ldf"
+			}
+
+		}
+
 		for partitionId, records := range recordsPerPartition {
 			if len(records) == 0 {
 				continue
 			}
 
-			if *dbfile != "" && *ldf {
-				basepath, mdffile = utils.SplitPath(*dbfile)
-
-				ldffilepath, e := utils.LocateLDFfile(*dbfile)
-				if e != nil {
-					mslogger.Mslogger.Error(e)
-				}
-				_, ldffile = utils.SplitPath(ldffilepath)
-
+			if *ldf {
 				records = records.FilterByNames([]string{mdffile, ldffile})
-
-			} else if *dbfile != "" {
-				basepath, mdffile = utils.SplitPath(*dbfile)
+			} else {
 				records = records.FilterByName(mdffile)
-
 			}
 
 			if len(basepath) > 0 {
