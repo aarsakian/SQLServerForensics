@@ -30,6 +30,19 @@ type LOP_COMMIT struct {
 	XactID           uint32
 }
 
+type LOP_BEGIN_CKPT struct {
+	BeginTime      [8]byte
+	Unknown        [10]byte
+	BeginDBVersion uint16
+	MaxDESID       utils.TransactionID
+}
+
+type LOP_END_CKPT struct {
+	EndTime   [8]byte
+	MinLSN    utils.LSN
+	EndDBVers uint16
+}
+
 type LOP_INSERT_DELETE_MOD struct {
 	RowId                utils.RowId //0-8 locate the page
 	Unknown              [4]byte     //8-12
@@ -42,6 +55,14 @@ type LOP_INSERT_DELETE_MOD struct {
 	NumElements          uint16      //38-40
 	RowLogContentOffsets []int16
 	DataRows             page.DataRows
+}
+
+func (lop_begin_ckpt *LOP_BEGIN_CKPT) Process(bs []byte) {
+	utils.Unmarshal(bs, lop_begin_ckpt)
+}
+
+func (lop_end_ckpt *LOP_END_CKPT) Process(bs []byte) {
+	utils.Unmarshal(bs, lop_end_ckpt)
 }
 
 func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {

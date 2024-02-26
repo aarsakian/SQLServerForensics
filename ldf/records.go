@@ -25,6 +25,8 @@ type Record struct {
 	Lop_Insert_Delete *LOP_INSERT_DELETE_MOD
 	Lop_Begin         *LOP_BEGIN
 	Lop_Commit        *LOP_COMMIT
+	Lop_Begin_CKPT    *LOP_BEGIN_CKPT
+	Lop_End_CKPT      *LOP_END_CKPT
 }
 
 func (record Record) GetOperationType() string {

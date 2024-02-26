@@ -217,6 +217,14 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 			lop_commit := new(LOP_COMMIT)
 			lop_commit.Process(bs[recordOffset+24:])
 			record.Lop_Commit = lop_commit
+		} else if OperationType[record.Operation] == "LOP_BEGIN_CKPT" {
+			lop_begin_ckpt := new(LOP_BEGIN_CKPT)
+			lop_begin_ckpt.Process(bs[recordOffset+24:])
+			record.Lop_Begin_CKPT = lop_begin_ckpt
+		} else if OperationType[record.Operation] == "LOP_END_CKPT" {
+			lop_end_ckpt := new(LOP_END_CKPT)
+			lop_end_ckpt.Process(bs[recordOffset+24:])
+			record.Lop_End_CKPT = lop_end_ckpt
 		}
 
 		logBlock.Records[idx] = *record
