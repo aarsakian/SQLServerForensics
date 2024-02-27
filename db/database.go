@@ -4,6 +4,7 @@ import (
 	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
+	"MSSQLParser/utils"
 	"fmt"
 	"os"
 	"sort"
@@ -19,6 +20,11 @@ type Database struct {
 	Tables              []Table
 	LogPage             page.Page
 	VLFs                *LDF.VLFs
+}
+
+type LOGManager struct {
+	VLFs          *LDF.VLFs
+	ActiveRecords LDF.Records
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -366,5 +372,45 @@ func (db *Database) GetTables(tablename string) {
 
 		db.Tables = append(db.Tables, table)
 	}
+
+}
+
+func (manager LOGManager) DetermineMinLSN(records LDF.Records) utils.LSN {
+	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
+	latestDate := utils.DateTimeToObj(lop_end_records[0].Lop_End_CKPT.EndTime[:])
+	recordId := 0
+	for idx, record := range lop_end_records {
+		if idx == 0 {
+			continue
+		}
+		newDate := utils.DateTimeToObj(record.Lop_End_CKPT.EndTime[:])
+		if newDate.After(latestDate) {
+			recordId = idx
+			latestDate = newDate
+		}
+	}
+	return lop_end_records[recordId].Lop_End_CKPT.MinLSN
+}
+
+func (manager LOGManager) FindPageChanges(pages page.Pages) {
+
+}
+
+func (manager *LOGManager) DetermineActiveLogRecords() {
+	var records LDF.Records
+	for _, vlf := range *manager.VLFs {
+		if vlf.Header.Status != 0 {
+			continue
+		}
+		for _, block := range vlf.Blocks {
+			for _, record := range block.Records {
+				records = append(records, record)
+			}
+
+		}
+	}
+
+	minLSN := manager.DetermineMinLSN(records)
+	manager.ActiveRecords = records.FilterByGreaterLSN(minLSN)
 
 }
