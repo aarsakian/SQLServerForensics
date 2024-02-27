@@ -211,9 +211,14 @@ func main() {
 		}
 		/*processing pages stage */
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
+
+		LDFManager := db.LOGManager{VLFs: database.VLFs}
+		LDFManager.DetermineActiveLogRecords()
+
 		if totalProcessedPages <= 0 {
 			return
 		}
+
 		if *pageType != "" {
 			database.FilterPagesByType(*pageType) //mutable
 
