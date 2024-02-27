@@ -10,6 +10,8 @@ import (
 
 type OriginalParityBytes []uint8
 
+type Records []Record
+
 // he corresponding log records will contain the data page number and the slot number of the data page they affect.
 // aligned at 4 byte boundary
 // Every transaction must have an LOP_BEGIN_XACT
@@ -37,6 +39,10 @@ func (record Record) GetContextType() string {
 	return ContextType[record.Context]
 }
 
+func (record Record) HasGreaterLSN(lsn utils.LSN) bool {
+	return record.PreviousLSN.IsGreater(lsn)
+}
+
 func (record Record) ShowLOPInfo(filterloptype string) {
 	if filterloptype == "any" {
 		fmt.Printf("PreviousLSN %s transactionID %s %s %s \n",
@@ -56,4 +62,16 @@ func (record Record) ShowLOPInfo(filterloptype string) {
 		record.Lop_Commit.ShowInfo()
 	}
 
+}
+
+func (records Records) FilterByOperation(operationType string) Records {
+	return utils.Filter(records, func(record Record) bool {
+		return record.GetOperationType() == operationType
+	})
+}
+
+func (records Records) FilterByGreaterLSN(lsn utils.LSN) Records {
+	return utils.Filter(records, func(record Record) bool {
+		return record.HasGreaterLSN(lsn)
+	})
 }
