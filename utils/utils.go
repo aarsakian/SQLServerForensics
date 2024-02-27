@@ -4,6 +4,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"os"
 	"path/filepath"
+	"time"
 
 	"bytes"
 	"encoding/binary"
@@ -18,9 +19,9 @@ import (
 	"unicode/utf8"
 )
 
-var LeapYear = map[uint]uint{1: 1, 2: 31, 3: 60, 4: 91, 5: 121, 6: 152, 7: 182, 8: 213, 9: 244, 10: 274, 11: 305, 12: 335}
+var LeapYear = map[int]int{1: 1, 2: 31, 3: 60, 4: 91, 5: 121, 6: 152, 7: 182, 8: 213, 9: 244, 10: 274, 11: 305, 12: 335}
 
-var Year = map[uint]uint{1: 1, 2: 31, 3: 59, 4: 90, 5: 120, 6: 151, 7: 181, 8: 212, 9: 243, 10: 273, 11: 304, 12: 334}
+var Year = map[int]int{1: 1, 2: 31, 3: 59, 4: 90, 5: 120, 6: 151, 7: 181, 8: 212, 9: 243, 10: 273, 11: 304, 12: 334}
 
 type Record []string
 type Records [][]string
@@ -49,6 +50,18 @@ type Auid struct {
 }
 
 type Images [][]byte
+
+func (lsn LSN) IsGreater(smallerLSN LSN) bool {
+	if lsn.P1 > smallerLSN.P1 {
+		return true
+	} else if lsn.P2 > smallerLSN.P2 {
+		return true
+	} else if lsn.P3 > smallerLSN.P3 {
+		return true
+	} else {
+		return false
+	}
+}
 
 func (rowid RowId) ToStr() string {
 	fileID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.FileId), 10), 4)
@@ -170,8 +183,8 @@ func Bytereverse(barray []byte) []byte { //work with indexes
 
 func DateToStr(data []byte) string {
 	/*DATE is the byte-reversed number of days since the year 0001-01-01, stored as three bytes. */
-	var day uint
-	var month uint
+	var day int
+	var month int
 	var b bytes.Buffer
 	b.Grow(4)
 
@@ -180,13 +193,13 @@ func DateToStr(data []byte) string {
 	daysSince0001 := ToInt32(b.Bytes())
 	years := int(math.Floor(float64(daysSince0001) / float64(365.24)))
 	nofLeapYears := years/4 - years/100 + years/400
-	daysInTheYear := uint(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+	daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
 	years = years + 1
 	if isLeapYear(uint(years + 1)) {
-		month = uint(float64(daysInTheYear)/30.41667 + 1)
+		month = int(float64(daysInTheYear)/30.41667 + 1)
 		day = daysInTheYear - LeapYear[month] + 1
 	} else {
-		month = uint(float64(daysInTheYear)/30.5 + 1)
+		month = int(float64(daysInTheYear)/30.5 + 1)
 		day = daysInTheYear - Year[month] + 1
 	}
 	return fmt.Sprintf("%d-%d-%d", day, month, years)
@@ -199,29 +212,39 @@ the date) being the number of days before or after the base date of January 1, 1
 (for the time) being the number of clock ticks after midnight, with each tick representing 3.33 milliseconds, or 1/300 of a second.
 */
 func DateTimeTostr(data []byte) string {
+	day, month, years, hours, minutes, seconds, msecs := parseDateTime(data)
+	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d.%03d", day, month, years, hours, minutes, seconds, msecs)
+}
 
-	var day uint
-	var month uint
+func DateTimeToObj(data []byte) time.Time {
+	day, month, years, hours, minutes, seconds, msecs := parseDateTime(data)
+	return time.Date(years, time.Month(month), day, hours, minutes, seconds, msecs, time.UTC)
+}
+
+func parseDateTime(data []byte) (int, int, int, int, int, int, int) {
+
+	var day int
+	var month int
 	daysSince1900 := ToInt32(data[4:8])
 	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
 
 	nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
-	daysInTheYear := uint(daysSince1900-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+	daysInTheYear := int(daysSince1900-(years-nofLeapYears)*365-nofLeapYears*366) + 1
 
 	if isLeapYear(uint(years + 1900)) {
-		month = uint(float64(daysInTheYear)/30.41667 + 1)
+		month = int(float64(daysInTheYear)/30.41667 + 1)
 		day = daysInTheYear - LeapYear[month]
 	} else {
-		month = uint(float64(daysInTheYear)/30.5 + 1)
+		month = int(float64(daysInTheYear)/30.5 + 1)
 		day = daysInTheYear - Year[month]
 	}
 
 	timePart := ToUint32(data[0:4])
-	hours := uint(math.Floor(float64((timePart / (300 * 60 * 60)) % 24)))
-	minutes := uint(math.Floor(float64((timePart / (300 * 60)) % 60)))
-	seconds := uint(math.Floor(float64((timePart / 300) % 60)))
+	hours := int(float64((timePart / (300 * 60 * 60)) % 24))
+	minutes := int(float64((timePart / (300 * 60)) % 60))
+	seconds := int(float64((timePart / 300) % 60))
 	_, msecs := math.Modf(float64(timePart) / 300)
-	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d.%03d", day, month, years+1900, hours, minutes, seconds, uint(1000*msecs))
+	return day, month, years + 1900, hours, minutes, seconds, int(1000 * msecs)
 }
 
 func MoneyToStr(data []byte) string {
