@@ -212,8 +212,7 @@ func main() {
 		/*processing pages stage */
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
 
-		LDFManager := db.LOGManager{VLFs: database.VLFs}
-		LDFManager.DetermineActiveLogRecords()
+		database.DetermineActiveLogRecords()
 
 		if totalProcessedPages <= 0 {
 			return
@@ -238,6 +237,8 @@ func main() {
 
 		/*retrieving schema and table contents */
 		database.GetTables(*tableName)
+
+		database.GetTableDirtyPages()
 
 		fmt.Printf("Reconstructed %d tables.\n", len(database.Tables))
 		fmt.Println("Reporting & exporting stage.")
