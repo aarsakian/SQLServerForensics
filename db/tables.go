@@ -17,7 +17,7 @@ type Table struct {
 	AllocationUnitIds []uint64
 	Schema            []Column
 	VarLenCols        []int
-	PageIds           map[string][]uint32
+	PageIDsPerType    map[string][]uint32 //pageType ->pageID
 	indexType         string
 }
 
@@ -141,7 +141,7 @@ func (table Table) printAllocationWithLinks() {
 
 	fmt.Print("Page Ids\n")
 
-	for pageType, pagesType := range table.PageIds {
+	for pageType, pagesType := range table.PageIDsPerType {
 		sort.Slice(pagesType, func(i, j int) bool {
 			return pagesType[i] < pagesType[j]
 		})
@@ -163,7 +163,7 @@ func (table Table) printAllocation() {
 
 	fmt.Print("Page Ids\n")
 
-	for pageType, pagesType := range table.PageIds {
+	for pageType, pagesType := range table.PageIDsPerType {
 		sort.Slice(pagesType, func(i, j int) bool {
 			return pagesType[i] < pagesType[j]
 		})
