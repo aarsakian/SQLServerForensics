@@ -20,11 +20,7 @@ type Database struct {
 	Tables              []Table
 	LogPage             page.Page
 	VLFs                *LDF.VLFs
-}
-
-type LOGManager struct {
-	VLFs          *LDF.VLFs
-	ActiveRecords LDF.Records
+	ActiveRecords       LDF.Records
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -285,6 +281,32 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 }
 
+func (db *Database) GetTableDirtyPages() page.Pages {
+	var allocatedPages page.Pages
+	var dirtyPages page.Pages
+	for _, table := range db.Tables {
+
+		for _, allocUnitID := range table.AllocationUnitIds {
+			allocatedPages = db.PagesPerAllocUnitID.GetPages(allocUnitID)
+		}
+
+		for _, record := range db.ActiveRecords {
+			if record.Lop_Insert_Delete == nil {
+				continue
+			}
+			for _, page := range allocatedPages {
+				if page.Header.LSN.IsGreater(record.Lop_Insert_Delete.PreviousPageLSN) {
+					continue
+				}
+				dirtyPages = append(dirtyPages, page)
+			}
+
+		}
+
+	}
+	return dirtyPages
+}
+
 func (db *Database) GetTables(tablename string) {
 	/*
 	 get objectid for each table  sysschobjs
@@ -309,7 +331,8 @@ func (db *Database) GetTables(tablename string) {
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
-		table := Table{Name: tname, ObjectId: tobjectId.(int32), Type: res.Second, PageIds: map[string][]uint32{}}
+		table := Table{Name: tname, ObjectId: tobjectId.(int32), Type: res.Second,
+			PageIDsPerType: map[string][]uint32{}}
 		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 		mslogger.Mslogger.Info(msg)
 
@@ -358,7 +381,7 @@ func (db *Database) GetTables(tablename string) {
 		indexPages := table_alloc_pages.FilterByTypeToMap("Index")
 		iamPages := table_alloc_pages.FilterByTypeToMap("IAM")
 
-		table.PageIds = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
+		table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
 			"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
 
 		if dataPages.IsEmpty() {
@@ -375,7 +398,7 @@ func (db *Database) GetTables(tablename string) {
 
 }
 
-func (manager LOGManager) DetermineMinLSN(records LDF.Records) utils.LSN {
+func (db Database) DetermineMinLSN(records LDF.Records) utils.LSN {
 	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
 	latestDate := utils.DateTimeToObj(lop_end_records[0].Lop_End_CKPT.EndTime[:])
 	recordId := 0
@@ -392,13 +415,12 @@ func (manager LOGManager) DetermineMinLSN(records LDF.Records) utils.LSN {
 	return lop_end_records[recordId].Lop_End_CKPT.MinLSN
 }
 
-func (manager LOGManager) FindPageChanges(pages page.Pages) {
-
+func (db Database) FindPageChanges() {
 }
 
-func (manager *LOGManager) DetermineActiveLogRecords() {
+func (db *Database) DetermineActiveLogRecords() {
 	var records LDF.Records
-	for _, vlf := range *manager.VLFs {
+	for _, vlf := range *db.VLFs {
 		if vlf.Header.Status != 0 {
 			continue
 		}
@@ -410,7 +432,7 @@ func (manager *LOGManager) DetermineActiveLogRecords() {
 		}
 	}
 
-	minLSN := manager.DetermineMinLSN(records)
-	manager.ActiveRecords = records.FilterByGreaterLSN(minLSN)
+	minLSN := db.DetermineMinLSN(records)
+	db.ActiveRecords = records.FilterByGreaterLSN(minLSN)
 
 }
