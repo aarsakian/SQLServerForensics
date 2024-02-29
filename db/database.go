@@ -295,7 +295,9 @@ func (db *Database) GetTableDirtyPages() page.Pages {
 				continue
 			}
 			for _, page := range allocatedPages {
-				if page.Header.LSN.IsGreater(record.Lop_Insert_Delete.PreviousPageLSN) {
+
+				if page.Header.PageId != record.Lop_Insert_Delete.RowId.PageId ||
+					page.Header.LSN.IsGreater(record.Lop_Insert_Delete.PreviousPageLSN) {
 					continue
 				}
 				dirtyPages = append(dirtyPages, page)
