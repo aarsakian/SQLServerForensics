@@ -53,7 +53,7 @@ type LOP_INSERT_DELETE_MOD struct {
 	ModifySize           uint16      //34-36
 	RowFlags             [2]byte     //36-38
 	NumElements          uint16      //38-40
-	RowLogContentOffsets []int16
+	RowLogContentOffsets []uint16
 	DataRows             page.DataRows
 }
 
@@ -72,25 +72,31 @@ func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
 }
 
 func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
-
+	var bsoffset uint16
 	utils.Unmarshal(bs, lop_insert_delete_mod)
 
-	bsoffset := 40 + 2*lop_insert_delete_mod.NumElements
+	if lop_insert_delete_mod.NumElements*2%4 != 0 {
+		bsoffset = 40 + 2*(lop_insert_delete_mod.NumElements) + (4 - lop_insert_delete_mod.NumElements*2%4)
+	} else {
+		bsoffset = 40 + 2*(lop_insert_delete_mod.NumElements)
+	}
+
 	for _, rowlogcontentoffset := range lop_insert_delete_mod.RowLogContentOffsets {
 		datarow := new(page.DataRow)
 		if rowlogcontentoffset == 0 { //exp to check
-			bsoffset += 1
+			bsoffset += 1 //move to next row log content
 			continue
 		}
-		if int(bsoffset+uint16(rowlogcontentoffset)) >= len(bs) {
+		if int(bsoffset+rowlogcontentoffset) >= len(bs) ||
+			int(rowlogcontentoffset) >= len(bs) {
 			mslogger.Mslogger.Info(fmt.Sprintf("exceeded log block size by %d block size %d",
-				bsoffset+uint16(rowlogcontentoffset), len(bs)))
+				bsoffset+rowlogcontentoffset, len(bs)))
 			break
 		}
-		utils.Unmarshal(bs[bsoffset:bsoffset+uint16(rowlogcontentoffset)], datarow)
+		utils.Unmarshal(bs[bsoffset:bsoffset+rowlogcontentoffset], datarow)
 		lop_insert_delete_mod.DataRows = append(lop_insert_delete_mod.DataRows, *datarow)
 
-		bsoffset += uint16(rowlogcontentoffset)
+		bsoffset += rowlogcontentoffset + 4 - (rowlogcontentoffset % 4)
 
 	}
 }
