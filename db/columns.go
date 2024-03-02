@@ -9,8 +9,9 @@ import (
 )
 
 type ColData struct {
-	Content []byte
-	Carved  bool
+	Content      []byte
+	Carved       bool
+	HasLogChange bool
 }
 
 type ColMap map[string]ColData //name->coldata
