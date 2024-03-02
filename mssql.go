@@ -238,14 +238,14 @@ func main() {
 		/*retrieving schema and table contents */
 		database.GetTables(*tableName)
 
-		database.GetTableDirtyPages()
+		database.AddTablesChangesHistory()
 
 		fmt.Printf("Reconstructed %d tables.\n", len(database.Tables))
 		fmt.Println("Reporting & exporting stage.")
 
 		reporter.ShowPageInfo(database, uint32(*selectedPage))
-		reporter.ShowTableInfo(database)
 		reporter.ShowLDFInfo(database, *filterlop)
+		reporter.ShowTableInfo(database)
 
 		if *exportPath != "" {
 			exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage, Path: *exportPath}
