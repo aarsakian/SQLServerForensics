@@ -5,15 +5,22 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"bytes"
 	"fmt"
 	"sort"
 )
+
+type Row struct {
+	ColMap          ColMap
+	Carved          bool
+	LoggedOperation string
+}
 
 type Table struct {
 	Name              string
 	ObjectId          int32
 	Type              string
-	rows              []ColMap
+	rows              []Row
 	PartitionIds      []uint64
 	AllocationUnitIds []uint64
 	Schema            []Column
@@ -63,29 +70,45 @@ func (byrowid ByRowId) Swap(i, j int) {
 func (table *Table) AddHistoryChanges(lop_insert_delete_mod LDF.LOP_INSERT_DELETE_MOD,
 	operationType string) {
 
-	if operationType == "LOP_INSERT_ROW" {
+	if operationType == "LOP_DELETE_ROW" {
+		affectedRow := table.rows[lop_insert_delete_mod.RowId.SlotNumber]
+		affectedRow.LoggedOperation = "Deleted"
+		table.rows[lop_insert_delete_mod.RowId.SlotNumber] = affectedRow
 
-	} else if operationType == "LOP_DELETE_ROW" {
+	} else if operationType == "LOP_INSERT_ROW" {
 
 		lobPages := page.PagesPerId[uint32]{}
 		textLobPages := page.PagesPerId[uint32]{}
-		m := make(ColMap)
+		colmap := make(ColMap)
 		for _, col := range table.Schema {
+
 			colval, e := col.addContent(*lop_insert_delete_mod.DataRow, lobPages, textLobPages)
 			if e == nil {
-				m[col.Name] = ColData{Content: colval, Carved: false, HasLogChange: true}
+				colmap[col.Name] = ColData{Content: colval}
 			}
 
 		}
-		table.rows = append(table.rows, m)
+		table.rows = append(table.rows, Row{ColMap: colmap, Carved: false, LoggedOperation: "added"})
 
 	} else if operationType == "LOP_MODIFY_ROW" {
 		affectedRow := table.rows[lop_insert_delete_mod.RowId.SlotNumber]
+		affectedRow.LoggedOperation = "Modified"
 
 		for _, c := range table.Schema {
-			if int16(lop_insert_delete_mod.OffsetInRow) == c.Offset {
-				colData := affectedRow[c.Name]
-				colData.HasLogChange = true
+			if c.Offset >= int16(lop_insert_delete_mod.OffsetInRow) {
+				var newcontent bytes.Buffer
+				newcontent.Grow(int(c.Size))
+
+				colData := affectedRow.ColMap[c.Name]
+				//new data from startoffset -> startoffset + modifysize
+				startOffset := int16(lop_insert_delete_mod.OffsetInRow) - c.Offset
+
+				newcontent.Write(colData.Content[:startOffset]) //unchanged content
+				newcontent.Write(lop_insert_delete_mod.RowLogContents[0])
+				newcontent.Write(colData.Content[startOffset+int16(lop_insert_delete_mod.ModifySize):])
+
+				colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
+				affectedRow.ColMap[c.Name] = colData
 				table.rows[lop_insert_delete_mod.RowId.SlotNumber] = affectedRow
 				break
 			}
@@ -227,7 +250,7 @@ func (table Table) GetRecords(selectedRow int) utils.Records {
 			continue
 		}
 		for _, c := range table.Schema {
-			colData := row[c.Name]
+			colData := row.ColMap[c.Name]
 			record = append(record, c.toString(colData.Content))
 
 		}
@@ -246,7 +269,7 @@ func (table Table) GetImages() utils.Images {
 			if c.Type != "image" {
 				continue
 			}
-			colData := row[c.Name]
+			colData := row.ColMap[c.Name]
 
 			images = append(images, colData.Content)
 		}
@@ -272,12 +295,21 @@ func (table Table) printData(showtorow int, showrow int, showcarved bool, showld
 		if showrow != -1 && idx != showrow {
 			continue
 		}
+		if showldf && row.LoggedOperation != "" {
+			fmt.Printf("%s ", row.LoggedOperation)
+		}
 		for _, c := range table.Schema {
-			colData := row[c.Name]
-			if showcarved && colData.Carved {
+
+			colData := row.ColMap[c.Name]
+			if showcarved && row.Carved {
 				fmt.Printf("* ")
-			} else if showldf && colData.HasLogChange {
+			} else if showldf && row.LoggedOperation != "" {
 				fmt.Printf("** ")
+
+				if colData.LoggedColData != nil {
+					fmt.Printf(" -> ")
+					c.Print(colData.LoggedColData.Content)
+				}
 			}
 			c.Print(colData.Content)
 
@@ -338,8 +370,8 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 
 func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], carved bool) {
-	m := make(ColMap)
 
+	colmap := make(ColMap)
 	nofCols := len(table.Schema)
 
 	if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
@@ -370,8 +402,8 @@ func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
 		colval, e := col.addContent(datarow, lobPages, textLobPages)
 		if e == nil {
-			m[col.Name] = ColData{Content: colval, Carved: carved, HasLogChange: false}
+			colmap[col.Name] = ColData{Content: colval}
 		}
 	}
-	table.rows = append(table.rows, m)
+	table.rows = append(table.rows, Row{ColMap: colmap, Carved: carved})
 }
