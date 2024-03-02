@@ -246,7 +246,8 @@ func (db Database) ShowLDF(filterloptype string) {
 }
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
-	showAllocation string, tabletype string, showrows int, showrow int, showcarved bool) {
+	showAllocation string, tabletype string, showrows int,
+	showrow int, showcarved bool, showldf bool) {
 	tableLocated := false
 	for _, table := range db.Tables {
 
@@ -263,7 +264,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		}
 		if showContent {
 			table.printHeader()
-			table.printData(showrows, showrow, showcarved)
+			table.printData(showrows, showrow, showcarved, showldf)
 		}
 
 		if showAllocation == "simple" {
@@ -281,12 +282,12 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 
 }
 
-func (db *Database) GetTableDirtyPages() page.Pages {
+func (db *Database) AddTablesChangesHistory() {
 	var allocatedPages page.Pages
-	var dirtyPages page.Pages
-	for _, table := range db.Tables {
 
-		for _, allocUnitID := range table.AllocationUnitIds {
+	for idx := range db.Tables {
+
+		for _, allocUnitID := range db.Tables[idx].AllocationUnitIds {
 			allocatedPages = db.PagesPerAllocUnitID.GetPages(allocUnitID)
 		}
 
@@ -296,17 +297,17 @@ func (db *Database) GetTableDirtyPages() page.Pages {
 			}
 			for _, page := range allocatedPages {
 
-				if page.Header.PageId != record.Lop_Insert_Delete.RowId.PageId ||
-					page.Header.LSN.IsGreater(record.Lop_Insert_Delete.PreviousPageLSN) {
+				if page.Header.PageId != record.Lop_Insert_Delete.RowId.PageId {
 					continue
 				}
-				dirtyPages = append(dirtyPages, page)
+
+				db.Tables[idx].AddHistoryChanges(*record.Lop_Insert_Delete, record.GetOperationType())
 			}
 
 		}
 
 	}
-	return dirtyPages
+
 }
 
 func (db *Database) GetTables(tablename string) {
