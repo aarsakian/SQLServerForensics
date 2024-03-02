@@ -1,6 +1,7 @@
 package db
 
 import (
+	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
@@ -58,6 +59,41 @@ func (byrowid ByRowId) Swap(i, j int) {
 
 	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
 }*/
+
+func (table *Table) AddHistoryChanges(lop_insert_delete_mod LDF.LOP_INSERT_DELETE_MOD,
+	operationType string) {
+
+	if operationType == "LOP_INSERT_ROW" {
+
+	} else if operationType == "LOP_DELETE_ROW" {
+
+		lobPages := page.PagesPerId[uint32]{}
+		textLobPages := page.PagesPerId[uint32]{}
+		m := make(ColMap)
+		for _, col := range table.Schema {
+			colval, e := col.addContent(*lop_insert_delete_mod.DataRow, lobPages, textLobPages)
+			if e == nil {
+				m[col.Name] = ColData{Content: colval, Carved: false, HasLogChange: true}
+			}
+
+		}
+		table.rows = append(table.rows, m)
+
+	} else if operationType == "LOP_MODIFY_ROW" {
+		affectedRow := table.rows[lop_insert_delete_mod.RowId.SlotNumber]
+
+		for _, c := range table.Schema {
+			if int16(lop_insert_delete_mod.OffsetInRow) == c.Offset {
+				colData := affectedRow[c.Name]
+				colData.HasLogChange = true
+				table.rows[lop_insert_delete_mod.RowId.SlotNumber] = affectedRow
+				break
+			}
+
+		}
+
+	}
+}
 
 func (table Table) getHeader() utils.Record {
 	var record utils.Record
@@ -226,11 +262,8 @@ func (table Table) printHeader() {
 	fmt.Printf("\n")
 }
 
-func (table Table) printData(showtorow int, showrow int, showcarved bool) {
-	if showcarved {
+func (table Table) printData(showtorow int, showrow int, showcarved bool, showldf bool) {
 
-		//sort.Sort(ByRowId(table.rows))
-	}
 	for idx, row := range table.rows {
 		if showtorow != -1 && idx > showtorow {
 			break
@@ -241,8 +274,10 @@ func (table Table) printData(showtorow int, showrow int, showcarved bool) {
 		}
 		for _, c := range table.Schema {
 			colData := row[c.Name]
-			if colData.Carved {
+			if showcarved && colData.Carved {
 				fmt.Printf("* ")
+			} else if showldf && colData.HasLogChange {
+				fmt.Printf("** ")
 			}
 			c.Print(colData.Content)
 
@@ -335,7 +370,7 @@ func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
 		colval, e := col.addContent(datarow, lobPages, textLobPages)
 		if e == nil {
-			m[col.Name] = ColData{Content: colval, Carved: carved}
+			m[col.Name] = ColData{Content: colval, Carved: carved, HasLogChange: false}
 		}
 	}
 	table.rows = append(table.rows, m)
