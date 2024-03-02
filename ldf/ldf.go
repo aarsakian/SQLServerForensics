@@ -201,8 +201,8 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 		utils.Unmarshal(bs[recordOffset:], record)
 		//LOP_BEGIN_CKPT = start of checkpoint
 		//LOP_END_CKPT = end of checkpoint
-		if OperationType[record.Operation] == "LOP_INSERT_ROWS" ||
-			OperationType[record.Operation] == "LOP_DELETE_ROWS" ||
+		if OperationType[record.Operation] == "LOP_INSERT_ROW" ||
+			OperationType[record.Operation] == "LOP_DELETE_ROW" ||
 			OperationType[record.Operation] == "LOP_MODIFY_ROW" {
 
 			lop_insert_delete_mod := new(LOP_INSERT_DELETE_MOD)
@@ -229,7 +229,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 
 		logBlock.Records[idx] = *record
 
-		mslogger.Mslogger.Info(fmt.Sprintf("Located record at %d",
+		mslogger.Mslogger.Info(fmt.Sprintf("Located %s at %d", OperationType[record.Operation],
 			int64(recordOffset)+baseOffset))
 
 	}
