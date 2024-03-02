@@ -195,12 +195,12 @@ func DateToStr(data []byte) string {
 	nofLeapYears := years/4 - years/100 + years/400
 	daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
 	years = years + 1
-	if isLeapYear(uint(years + 1)) {
+	if isLeapYear(uint(years)) {
 		month = int(float64(daysInTheYear)/30.41667 + 1)
-		day = daysInTheYear - LeapYear[month] + 1
+		day = daysInTheYear - LeapYear[month]
 	} else {
-		month = int(float64(daysInTheYear)/30.5 + 1)
-		day = daysInTheYear - Year[month] + 1
+		month = int(math.Round(float64(daysInTheYear)/30.5 + 1))
+		day = daysInTheYear - Year[month]
 	}
 	return fmt.Sprintf("%d-%d-%d", day, month, years)
 
