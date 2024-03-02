@@ -80,7 +80,7 @@ func (rp Reporter) ShowTableInfo(database db.Database) {
 	if tablename != "" {
 
 		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
-			rp.TableType, rp.SelectedTableRows, rp.SelectedTableRow, rp.ShowCarved)
+			rp.TableType, rp.SelectedTableRows, rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF)
 
 	}
 }
