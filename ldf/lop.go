@@ -54,7 +54,8 @@ type LOP_INSERT_DELETE_MOD struct {
 	RowFlags             [2]byte     //36-38
 	NumElements          uint16      //38-40
 	RowLogContentOffsets []uint16
-	DataRows             page.DataRows
+	DataRow              *page.DataRow
+	RowLogContents       [][]byte // other rowlog contents except DataRow
 }
 
 func (lop_begin_ckpt *LOP_BEGIN_CKPT) Process(bs []byte) {
@@ -72,17 +73,22 @@ func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
 }
 
 func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
-	var bsoffset uint16
+
 	utils.Unmarshal(bs, lop_insert_delete_mod)
 
+	lop_insert_delete_mod.ProcessRowContents(bs[40:])
+
+}
+
+func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte) {
+
+	bsoffset := 2 * lop_insert_delete_mod.NumElements
 	if lop_insert_delete_mod.NumElements*2%4 != 0 {
-		bsoffset = 40 + 2*(lop_insert_delete_mod.NumElements) + (4 - lop_insert_delete_mod.NumElements*2%4)
-	} else {
-		bsoffset = 40 + 2*(lop_insert_delete_mod.NumElements)
+		bsoffset += (4 - lop_insert_delete_mod.NumElements*2%4)
 	}
 
 	for _, rowlogcontentoffset := range lop_insert_delete_mod.RowLogContentOffsets {
-		datarow := new(page.DataRow)
+
 		if rowlogcontentoffset == 0 { //exp to check
 			bsoffset += 1 //move to next row log content
 			continue
@@ -93,8 +99,15 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
 				bsoffset+rowlogcontentoffset, len(bs)))
 			break
 		}
-		utils.Unmarshal(bs[bsoffset:bsoffset+rowlogcontentoffset], datarow)
-		lop_insert_delete_mod.DataRows = append(lop_insert_delete_mod.DataRows, *datarow)
+		if bs[bsoffset] == 0x10 {
+			datarow := new(page.DataRow)
+			utils.Unmarshal(bs[bsoffset:bsoffset+rowlogcontentoffset], datarow)
+			lop_insert_delete_mod.DataRow = datarow
+		} else {
+			rowlogcontents := make([]byte, len(bs[bsoffset:bsoffset+rowlogcontentoffset]))
+			copy(rowlogcontents, bs[bsoffset:bsoffset+rowlogcontentoffset])
+			lop_insert_delete_mod.RowLogContents = append(lop_insert_delete_mod.RowLogContents, rowlogcontents)
+		}
 
 		bsoffset += rowlogcontentoffset + 4 - (rowlogcontentoffset % 4)
 
