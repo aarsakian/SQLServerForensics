@@ -190,15 +190,31 @@ func (vlfs *VLFs) Process(file os.File) {
 
 func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 	recordOffsets := make(RecordOffsets, logBlock.Header.NofSlots)
+
+	LSN_to_Record := make(map[utils.LSN]*Record)
+
 	for recordId := 0; recordId < len(recordOffsets); recordId++ {
 		recordOffsets[recordId] = utils.ToUint16(bs[len(bs)-2*(recordId+1) : len(bs)-2*recordId])
 
 	}
 	logBlock.Records = make([]Record, len(recordOffsets))
 
+	currentLSN := logBlock.Header.FirstLSN
+
 	for idx, recordOffset := range recordOffsets {
 		record := new(Record)
 		utils.Unmarshal(bs[recordOffset:], record)
+		LSN_to_Record[currentLSN] = record
+
+		record.CurrentLSN = currentLSN
+
+		prevRecord := LSN_to_Record[record.PreviousLSN]
+		if prevRecord != nil {
+			record.PreviousRecord = prevRecord
+			prevRecord.NextRecord = record
+		}
+
+		currentLSN.Increment()
 		//LOP_BEGIN_CKPT = start of checkpoint
 		//LOP_END_CKPT = end of checkpoint
 		if OperationType[record.Operation] == "LOP_INSERT_ROW" ||
