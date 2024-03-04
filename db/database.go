@@ -301,7 +301,7 @@ func (db *Database) AddTablesChangesHistory() {
 					continue
 				}
 
-				db.Tables[idx].AddHistoryChanges(*record.Lop_Insert_Delete, record.GetOperationType())
+				db.Tables[idx].AddHistoryChanges(record)
 			}
 
 		}
