@@ -74,7 +74,7 @@ func (table *Table) AddHistoryChanges(record LDF.Record) {
 		affectedRow.LoggedOperation = "Deleted at "
 
 		affectedRow.LoggedOperation += record.GetBeginCommitDate()
-		affectedRow.LoggedOperation += fmt.Sprintf(" ended at %s", record.GetEndCommitDate())
+		affectedRow.LoggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
 		table.rows[record.Lop_Insert_Delete.RowId.SlotNumber] = affectedRow
 
@@ -95,7 +95,7 @@ func (table *Table) AddHistoryChanges(record LDF.Record) {
 
 		loggedOperation := "Inserted at "
 		loggedOperation += record.GetBeginCommitDate()
-		loggedOperation += fmt.Sprintf(" ended at %s", record.GetEndCommitDate())
+		loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
 		table.rows = append(table.rows, Row{ColMap: colmap, Carved: false,
 			LoggedOperation: loggedOperation})
@@ -105,7 +105,7 @@ func (table *Table) AddHistoryChanges(record LDF.Record) {
 		affectedRow.LoggedOperation = "Modified at "
 
 		affectedRow.LoggedOperation += record.GetBeginCommitDate()
-		affectedRow.LoggedOperation += fmt.Sprintf(" ended at %s", record.GetEndCommitDate())
+		affectedRow.LoggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
 		for _, c := range table.Schema {
 			if c.Offset >= int16(record.Lop_Insert_Delete.OffsetInRow) {
