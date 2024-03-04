@@ -17,9 +17,10 @@ type Records []Record
 // Every transaction must have an LOP_BEGIN_XACT
 // and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
+	CurrentLSN        utils.LSN
 	Unknown           [2]byte
 	Length            uint16              //size of fixed length area 2-4
-	PreviousLSN       utils.LSN           //4-14
+	PreviousLSN       utils.LSN           //4-14 VLF:LOG BLOCK:LOG RECORD
 	Flag              uint16              //14-16
 	TransactionID     utils.TransactionID //16-22
 	Operation         uint8               //what type of data is stored 23
@@ -29,6 +30,8 @@ type Record struct {
 	Lop_Commit        *LOP_COMMIT
 	Lop_Begin_CKPT    *LOP_BEGIN_CKPT
 	Lop_End_CKPT      *LOP_END_CKPT
+	PreviousRecord    *Record
+	NextRecord        *Record
 }
 
 func (record Record) GetOperationType() string {
@@ -43,9 +46,34 @@ func (record Record) HasGreaterLSN(lsn utils.LSN) bool {
 	return record.PreviousLSN.IsGreater(lsn)
 }
 
+func (record Record) GetBeginCommitDate() string {
+
+	prevRecord := record.PreviousRecord
+	for prevRecord != nil {
+		if prevRecord.Lop_Begin != nil && prevRecord.TransactionID == record.TransactionID {
+			return utils.DateTimeTostr(prevRecord.Lop_Begin.BeginTime[:])
+
+		}
+	}
+	return "NA"
+}
+
+func (record Record) GetEndCommitDate() string {
+
+	nextRecord := record.NextRecord
+	for nextRecord != nil {
+		if nextRecord.Lop_Begin != nil && nextRecord.TransactionID == record.TransactionID {
+			return utils.DateToStr(nextRecord.Lop_Begin.BeginTime[:])
+
+		}
+	}
+	return "NA"
+}
+
 func (record Record) ShowLOPInfo(filterloptype string) {
 	if filterloptype == "any" {
-		fmt.Printf("PreviousLSN %s transactionID %s %s %s \n",
+		fmt.Printf("Current LSN %s Previous LSN %s transID %s %s %s \n",
+			record.CurrentLSN.ToStr(),
 			record.PreviousLSN.ToStr(), record.TransactionID.ToStr(),
 			OperationType[record.Operation],
 			ContextType[record.Context])
