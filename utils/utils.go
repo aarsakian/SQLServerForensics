@@ -63,6 +63,10 @@ func (lsn LSN) IsGreater(smallerLSN LSN) bool {
 	}
 }
 
+func (lsn *LSN) Increment() {
+	lsn.P3 += 1
+}
+
 func (rowid RowId) ToStr() string {
 	fileID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.FileId), 10), 4)
 	pageID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.PageId), 10), 8)
@@ -678,19 +682,22 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			field.SetInt(temp)
 
 		case reflect.Struct:
-			name := structType.Elem().Field(i).Type.Name()
-
-			if name == "LSN" {
+			nameType := structType.Elem().Field(i).Type.Name()
+			name := structType.Elem().Field(i).Name
+			if name == "CurrentLSN" {
+				continue
+			}
+			if nameType == "LSN" {
 				var lsn LSN
 				Unmarshal(data[idx:idx+10], &lsn)
 				field.Set(reflect.ValueOf(lsn))
 				idx += 10
-			} else if name == "RowId" {
+			} else if nameType == "RowId" {
 				var rowId RowId
 				Unmarshal(data[idx:], &rowId)
 				field.Set(reflect.ValueOf(rowId))
 				idx += 8
-			} else if name == "TransactionID" {
+			} else if nameType == "TransactionID" {
 				var transID TransactionID
 				Unmarshal(data[idx:], &transID)
 				field.Set(reflect.ValueOf(transID))
