@@ -62,8 +62,8 @@ func (record Record) GetEndCommitDate() string {
 
 	nextRecord := record.NextRecord
 	for nextRecord != nil {
-		if nextRecord.Lop_Begin != nil && nextRecord.TransactionID == record.TransactionID {
-			return utils.DateToStr(nextRecord.Lop_Begin.BeginTime[:])
+		if nextRecord.Lop_Commit != nil && nextRecord.TransactionID == record.TransactionID {
+			return utils.DateTimeTostr(nextRecord.Lop_Commit.EndTime[:])
 
 		}
 	}
