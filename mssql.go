@@ -211,8 +211,9 @@ func main() {
 		}
 		/*processing pages stage */
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
-
-		database.DetermineActiveLogRecords()
+		if len(ldffiles) != 0 {
+			database.LocateRecords()
+		}
 
 		if totalProcessedPages <= 0 {
 			return
