@@ -54,9 +54,9 @@ type Images [][]byte
 func (lsn LSN) IsGreater(smallerLSN LSN) bool {
 	if lsn.P1 > smallerLSN.P1 {
 		return true
-	} else if lsn.P2 > smallerLSN.P2 {
+	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 > smallerLSN.P2 {
 		return true
-	} else if lsn.P3 > smallerLSN.P3 {
+	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 == smallerLSN.P2 && lsn.P3 > smallerLSN.P3 {
 		return true
 	} else {
 		return false

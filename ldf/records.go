@@ -35,6 +35,23 @@ type Record struct {
 	NextRecord        *Record
 }
 
+type ByGreaterLSN []Record
+
+func (b ByGreaterLSN) Less(i, j int) bool {
+
+	return !b[i].CurrentLSN.IsGreater(b[j].CurrentLSN)
+}
+
+func (b ByGreaterLSN) Swap(i, j int) {
+
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b ByGreaterLSN) Len() int {
+	return len(b)
+
+}
+
 func (record Record) GetOperationType() string {
 	return OperationType[record.Operation]
 }
