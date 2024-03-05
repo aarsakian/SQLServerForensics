@@ -67,68 +67,83 @@ func (byrowid ByRowId) Swap(i, j int) {
 	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
 }*/
 
-func (table *Table) AddHistoryChanges(record LDF.Record) {
+func (table *Table) AddRow(record LDF.Record) {
 
-	if record.GetOperationType() == "LOP_DELETE_ROW" {
-		affectedRow := table.rows[record.Lop_Insert_Delete.RowId.SlotNumber]
-		affectedRow.LoggedOperation = "Deleted at "
+	lobPages := page.PagesPerId[uint32]{}
+	textLobPages := page.PagesPerId[uint32]{}
+	colmap := make(ColMap)
 
-		affectedRow.LoggedOperation += record.GetBeginCommitDate()
-		affectedRow.LoggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+	for _, col := range table.Schema {
 
-		table.rows[record.Lop_Insert_Delete.RowId.SlotNumber] = affectedRow
-
-	} else if record.GetOperationType() == "LOP_INSERT_ROW" {
-
-		lobPages := page.PagesPerId[uint32]{}
-		textLobPages := page.PagesPerId[uint32]{}
-		colmap := make(ColMap)
-
-		for _, col := range table.Schema {
-
-			colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages)
-			if e == nil {
-				colmap[col.Name] = ColData{Content: colval}
-			}
-
-		}
-
-		loggedOperation := "Inserted at "
-		loggedOperation += record.GetBeginCommitDate()
-		loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
-
-		table.rows = append(table.rows, Row{ColMap: colmap, Carved: false,
-			LoggedOperation: loggedOperation})
-
-	} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
-		affectedRow := table.rows[record.Lop_Insert_Delete.RowId.SlotNumber]
-		affectedRow.LoggedOperation = "Modified at "
-
-		affectedRow.LoggedOperation += record.GetBeginCommitDate()
-		affectedRow.LoggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
-
-		for _, c := range table.Schema {
-			if c.Offset >= int16(record.Lop_Insert_Delete.OffsetInRow) {
-				var newcontent bytes.Buffer
-				newcontent.Grow(int(c.Size))
-
-				colData := affectedRow.ColMap[c.Name]
-				//new data from startoffset -> startoffset + modifysize
-				startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.Offset
-
-				newcontent.Write(colData.Content[:startOffset]) //unchanged content
-				newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
-				newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
-
-				colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
-				affectedRow.ColMap[c.Name] = colData
-				table.rows[record.Lop_Insert_Delete.RowId.SlotNumber] = affectedRow
-				break
-			}
-
+		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages)
+		if e == nil {
+			colmap[col.Name] = ColData{Content: colval}
 		}
 
 	}
+
+	loggedOperation := "Inserted at "
+	loggedOperation += record.GetBeginCommitDate()
+	loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+
+	table.rows = append(table.rows, Row{ColMap: colmap, Carved: false,
+		LoggedOperation: loggedOperation})
+}
+
+func (table *Table) MarkRowDeleted(record LDF.Record) {
+	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
+
+	table.rows[rowid].LoggedOperation = "Deleted at " + record.GetBeginCommitDate() +
+		fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+
+}
+
+func (table *Table) MarkRowModified(record LDF.Record) {
+
+	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
+
+	table.rows[rowid].LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+
+	for _, c := range table.Schema {
+		if c.Offset >= int16(record.Lop_Insert_Delete.OffsetInRow) {
+			var newcontent bytes.Buffer
+			newcontent.Grow(int(c.Size))
+
+			colData := table.rows[rowid].ColMap[c.Name]
+			//new data from startoffset -> startoffset + modifysize
+			startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.Offset
+
+			newcontent.Write(colData.Content[:startOffset]) //unchanged content
+			newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
+			newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
+
+			colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
+			table.rows[rowid].ColMap[c.Name] = colData
+
+			break
+		}
+
+	}
+}
+
+func (table *Table) addLogChanges(records LDF.Records) {
+	for rowid := range table.rows {
+		for _, record := range records {
+			if uint16(rowid) != record.Lop_Insert_Delete.RowId.SlotNumber {
+				continue
+			}
+
+			if record.GetOperationType() == "LOP_INSERT_ROW" {
+				table.AddRow(record)
+			} else if record.GetOperationType() == "LOP_DELETE_ROW" {
+				table.MarkRowDeleted(record)
+			} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
+				table.MarkRowModified(record)
+			}
+
+		}
+	}
+
 }
 
 func (table Table) getHeader() utils.Record {
@@ -308,9 +323,7 @@ func (table Table) printData(showtorow int, showrow int, showcarved bool, showld
 		if showrow != -1 && idx != showrow {
 			continue
 		}
-		if showldf && row.LoggedOperation != "" {
-			fmt.Printf("%s ", row.LoggedOperation)
-		}
+
 		for _, c := range table.Schema {
 
 			colData := row.ColMap[c.Name]
@@ -326,6 +339,10 @@ func (table Table) printData(showtorow int, showrow int, showcarved bool, showld
 			}
 			c.Print(colData.Content)
 
+		}
+
+		if showldf && row.LoggedOperation != "" {
+			fmt.Printf("%s ", row.LoggedOperation)
 		}
 		fmt.Printf("\n")
 	}
