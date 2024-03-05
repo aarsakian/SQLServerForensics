@@ -304,6 +304,7 @@ func (db *Database) AddTablesChangesHistory() {
 				lop_mod_ins_del_records.FilterByPageID(page.Header.PageId)...)
 		}
 
+		sort.Sort(LDF.ByGreaterLSN(candidateRecords))
 		db.Tables[idx].addLogChanges(candidateRecords)
 
 	}
