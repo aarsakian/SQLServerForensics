@@ -47,6 +47,10 @@ func (record Record) HasGreaterLSN(lsn utils.LSN) bool {
 	return record.PreviousLSN.IsGreater(lsn)
 }
 
+func (record Record) HasLessLSN(lsn utils.LSN) bool {
+	return !record.PreviousLSN.IsGreater(lsn)
+}
+
 func (record Record) GetBeginRecordPtr() (*Record, error) {
 	prevRecord := record.PreviousRecord
 	for prevRecord != nil {
@@ -111,6 +115,19 @@ func (record Record) ShowLOPInfo(filterloptype string) {
 
 }
 
+func (record Record) HasOperationType(operationtypes []string) bool {
+	for _, operationtype := range operationtypes {
+		if record.GetOperationType() == operationtype {
+			return true
+		}
+	}
+	return false
+}
+func (record Record) HasPageID(pageID uint32) bool {
+	return record.Lop_Insert_Delete != nil &&
+		record.Lop_Insert_Delete.RowId.PageId == pageID
+}
+
 func (records Records) FilterByOperation(operationType string) Records {
 	return utils.Filter(records, func(record Record) bool {
 		return record.GetOperationType() == operationType
@@ -121,4 +138,23 @@ func (records Records) FilterByGreaterLSN(lsn utils.LSN) Records {
 	return utils.Filter(records, func(record Record) bool {
 		return record.HasGreaterLSN(lsn)
 	})
+}
+
+func (records Records) FilterByLessLSN(lsn utils.LSN) Records {
+	return utils.Filter(records, func(record Record) bool {
+		return record.HasLessLSN(lsn)
+	})
+}
+
+func (records Records) FilterByOperations(operationtypes []string) Records {
+	return utils.Filter(records, func(record Record) bool {
+		return record.HasOperationType(operationtypes)
+	})
+}
+
+func (records Records) FilterByPageID(pageID uint32) Records {
+	return utils.Filter(records, func(record Record) bool {
+		return record.HasPageID(pageID)
+	})
+
 }
