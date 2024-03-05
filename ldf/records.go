@@ -2,6 +2,7 @@ package LDF
 
 import (
 	"MSSQLParser/utils"
+	"errors"
 	"fmt"
 )
 
@@ -46,32 +47,46 @@ func (record Record) HasGreaterLSN(lsn utils.LSN) bool {
 	return record.PreviousLSN.IsGreater(lsn)
 }
 
-func (record Record) GetBeginCommitDate() string {
-
+func (record Record) GetBeginRecordPtr() (*Record, error) {
 	prevRecord := record.PreviousRecord
 	for prevRecord != nil {
 		if prevRecord.Lop_Begin != nil && prevRecord.TransactionID == record.TransactionID {
-			return utils.DateTimeTostr(prevRecord.Lop_Begin.BeginTime[:])
+			return prevRecord, nil
 
 		}
 		prevRecord = prevRecord.PreviousRecord
 	}
-	return "NA"
+	return nil, errors.New("begin record not found")
+}
+
+func (record Record) GetBeginCommitDate() string {
+	beginRecord, err := record.GetBeginRecordPtr()
+	if err == nil {
+		return utils.DateTimeTostr(beginRecord.Lop_Begin.BeginTime[:])
+	} else {
+		return "NA"
+	}
+
 }
 
 func (record Record) GetEndCommitDate() string {
 
-	prevRecord := record.PreviousRecord
-	for prevRecord != nil {
-		if prevRecord.NextRecord == nil {
-			break
-		} else if prevRecord.NextRecord.Lop_Commit != nil && prevRecord.NextRecord.TransactionID == record.TransactionID {
-			return utils.DateTimeTostr(prevRecord.NextRecord.Lop_Commit.EndTime[:])
+	beginRecord, err := record.GetBeginRecordPtr()
+	if err != nil {
+		return "NA"
+	}
+
+	for beginRecord != nil {
+
+		if beginRecord.Lop_Commit != nil && beginRecord.TransactionID == record.TransactionID {
+			return utils.DateTimeTostr(beginRecord.Lop_Commit.EndTime[:])
 
 		}
-		prevRecord = prevRecord.PreviousRecord
+		beginRecord = beginRecord.NextRecord
 	}
+
 	return "NA"
+
 }
 
 func (record Record) ShowLOPInfo(filterloptype string) {
