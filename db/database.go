@@ -20,7 +20,8 @@ type Database struct {
 	Tables              []Table
 	LogPage             page.Page
 	VLFs                *LDF.VLFs
-	ActiveRecords       LDF.Records
+	ActiveLogRecords    LDF.Records
+	CarvedLogRecords    LDF.Records
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -286,25 +287,24 @@ func (db *Database) AddTablesChangesHistory() {
 	var allocatedPages page.Pages
 
 	for idx := range db.Tables {
-
+		var candidateRecords LDF.Records
 		for _, allocUnitID := range db.Tables[idx].AllocationUnitIds {
 			allocatedPages = db.PagesPerAllocUnitID.GetPages(allocUnitID)
 		}
 
-		for _, record := range db.ActiveRecords {
-			if record.Lop_Insert_Delete == nil {
-				continue
-			}
-			for _, page := range allocatedPages {
+		lop_mod_ins_del_records := db.CarvedLogRecords.FilterByOperations(
+			[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})
 
-				if page.Header.PageId != record.Lop_Insert_Delete.RowId.PageId {
-					continue
-				}
+		lop_mod_ins_del_records = append(lop_mod_ins_del_records,
+			db.ActiveLogRecords.FilterByOperations(
+				[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})...)
 
-				db.Tables[idx].AddHistoryChanges(record)
-			}
-
+		for _, page := range allocatedPages {
+			candidateRecords = append(candidateRecords,
+				lop_mod_ins_del_records.FilterByPageID(page.Header.PageId)...)
 		}
+
+		db.Tables[idx].addLogChanges(candidateRecords)
 
 	}
 
@@ -421,12 +421,10 @@ func (db Database) DetermineMinLSN(records LDF.Records) utils.LSN {
 func (db Database) FindPageChanges() {
 }
 
-func (db *Database) DetermineActiveLogRecords() {
+func (db *Database) LocateRecords() {
 	var records LDF.Records
 	for _, vlf := range *db.VLFs {
-		if vlf.Header.Status != 0 {
-			continue
-		}
+
 		for _, block := range vlf.Blocks {
 			for _, record := range block.Records {
 				records = append(records, record)
@@ -436,6 +434,7 @@ func (db *Database) DetermineActiveLogRecords() {
 	}
 
 	minLSN := db.DetermineMinLSN(records)
-	db.ActiveRecords = records.FilterByGreaterLSN(minLSN)
+	db.ActiveLogRecords = records.FilterByGreaterLSN(minLSN)
+	db.CarvedLogRecords = records.FilterByLessLSN(minLSN)
 
 }
