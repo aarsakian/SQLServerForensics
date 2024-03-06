@@ -59,7 +59,7 @@ type SysAllocUnits struct {
 
 // syscolpars a contains a row for every column in a table (column definitions)
 type SysColpars struct {
-	Id          uint32 //4 -8
+	Id          uint32 //4 -8  //objectID
 	Number      uint16 //8-10
 	Colid       uint16 //10 -12
 	Unknown     [2]byte
@@ -263,7 +263,6 @@ func (sysallocunits SysAllocUnits) ShowData() {
 }
 
 func (syscolpars SysColpars) GetName() string {
-
 	return utils.DecodeUTF16(syscolpars.Name)
 
 }
