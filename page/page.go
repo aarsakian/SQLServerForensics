@@ -330,6 +330,9 @@ func retrieveSlots(data []byte) []utils.SlotOffset {
 	var slot utils.SlotOffset
 	for idx := 0; idx < binary.Size(data); idx += 2 {
 		binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &slot)
+		if slot == 0 {
+			continue
+		}
 		slotsOffset = append(slotsOffset, slot)
 
 	}
