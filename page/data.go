@@ -195,7 +195,8 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 		}
 
 		if dataRow.SystemTable != nil {
-			dataRow.SystemTable.SetName(cpy)
+			dataRow.SystemTable.SetName(cpy) //keep only first entry
+			break
 		} else if inlineBlob16 != nil {
 			datacols = append(datacols,
 				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
@@ -313,7 +314,7 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 	if len(dataRow.VarLengthColOffsets) == 0 {
 		mslogger.Mslogger.Warning("No var len col offsets found")
 		return dataRowSize
-	} else if dataRow.NumberOfVarLengthCols > 0 && int(dataRow.NumberOfVarLengthCols)-1 != len(dataRow.VarLengthColOffsets) { // last varlencol
+	} else if dataRow.NumberOfVarLengthCols > 0 && int(dataRow.NumberOfVarLengthCols) != len(dataRow.VarLengthColOffsets) { // last varlencol
 		mslogger.Mslogger.Warning("Mismatch in var len col parsing real differs with declared number of cols.")
 		return int(dataRow.VarLengthColOffsets[len(dataRow.VarLengthColOffsets)-1])
 	} else if dataRow.NumberOfVarLengthCols > 0 {
