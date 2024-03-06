@@ -300,11 +300,14 @@ func (db *Database) AddTablesChangesHistory() {
 				[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})...)
 
 		for _, page := range allocatedPages {
+			if page.GetType() != "DATA" {
+				continue
+			}
 			candidateRecords = append(candidateRecords,
 				lop_mod_ins_del_records.FilterByPageID(page.Header.PageId)...)
 		}
 
-		sort.Sort(LDF.ByGreaterLSN(candidateRecords))
+		sort.Sort(LDF.ByLesserLSN(candidateRecords))
 		db.Tables[idx].addLogChanges(candidateRecords)
 
 	}
