@@ -35,19 +35,19 @@ type Record struct {
 	NextRecord        *Record
 }
 
-type ByGreaterLSN []Record
+type ByDecreasingLSN []Record
 
-func (b ByGreaterLSN) Less(i, j int) bool {
+func (b ByDecreasingLSN) Less(i, j int) bool {
 
-	return !b[i].CurrentLSN.IsGreater(b[j].CurrentLSN)
+	return b[i].CurrentLSN.IsGreater(b[j].CurrentLSN)
 }
 
-func (b ByGreaterLSN) Swap(i, j int) {
+func (b ByDecreasingLSN) Swap(i, j int) {
 
 	b[i], b[j] = b[j], b[i]
 }
 
-func (b ByGreaterLSN) Len() int {
+func (b ByDecreasingLSN) Len() int {
 	return len(b)
 
 }
