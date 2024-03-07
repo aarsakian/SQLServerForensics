@@ -9,11 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 )
 
 type Row struct {
 	ColMap          ColMap
 	LoggedOperation string
+	LogDate         time.Time
 }
 
 type Table struct {
@@ -47,6 +49,23 @@ func (b ByColOrder) Swap(i, j int) {
 
 func (b ByColOrder) Len() int {
 	return len(b)
+
+}
+
+type ByActionDate []Row
+
+func (row ByActionDate) Less(i, j int) bool {
+
+	return row[i].LogDate.Before(row[j].LogDate)
+}
+
+func (row ByActionDate) Swap(i, j int) {
+
+	row[i], row[j] = row[j], row[i]
+}
+
+func (row ByActionDate) Len() int {
+	return len(row)
 
 }
 
@@ -88,7 +107,8 @@ func (table *Table) AddRow(record LDF.Record) {
 	loggedOperation += record.GetBeginCommitDate()
 	loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	table.loggedrows = append(table.loggedrows, Row{ColMap: colmap, LoggedOperation: loggedOperation})
+	table.loggedrows = append(table.loggedrows, Row{ColMap: colmap, LoggedOperation: loggedOperation,
+		LogDate: record.GetBeginCommitDateObj()})
 }
 
 func (table *Table) MarkRowDeleted(record LDF.Record) {
@@ -98,6 +118,7 @@ func (table *Table) MarkRowDeleted(record LDF.Record) {
 
 	row := table.rows[rowid]
 	row.LoggedOperation = loggedOperation
+	row.LogDate = record.GetBeginCommitDateObj()
 
 	table.loggedrows = append(table.loggedrows, row)
 
@@ -108,6 +129,7 @@ func (table *Table) MarkRowModified(record LDF.Record) {
 	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
 	row := table.rows[rowid]
 	row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+	row.LogDate = record.GetBeginCommitDateObj()
 
 	for _, c := range table.Schema {
 		if c.Offset >= int16(record.Lop_Insert_Delete.OffsetInRow) {
@@ -338,7 +360,8 @@ func (table Table) cleverPrintData() {
 		groupedRowsById[c.toString(colData.Content)] = row
 	}
 
-	fmt.Printf("Grouped By First col all changes carved and logged\n")
+	fmt.Printf("Grouped By First col all changes carved and logged oldest first\n")
+	sort.Sort(ByActionDate(table.loggedrows))
 	for _, row := range table.loggedrows {
 		for cid, c := range table.Schema {
 			loggedCol := row.ColMap[c.Name]
@@ -351,10 +374,10 @@ func (table Table) cleverPrintData() {
 				loggedData := c.toString(loggedCol.Content)
 
 				if loggedData != orgData {
-					fmt.Printf(" %s -> %s ", loggedData, orgData)
+					fmt.Printf(" ** %s -> %s ", loggedData, orgData)
 
 				} else if loggedCol.LoggedColData != nil {
-					fmt.Printf(" %s --> %s ",
+					fmt.Printf(" **  %s --> %s ",
 						c.toString(loggedCol.LoggedColData.Content), orgData)
 
 				} else {
