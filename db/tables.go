@@ -321,46 +321,51 @@ func (table Table) printHeader() {
 }
 
 func (table Table) cleverPrintData() {
-	groupedRowsById := make(map[string][]Row)
+	groupedRowsById := make(map[string]Row)
+	var org_row Row
 	for _, row := range table.rows {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
 
-		groupedRowsById[c.toString(colData.Content)] =
-			append(groupedRowsById[c.toString(colData.Content)], row)
+		groupedRowsById[c.toString(colData.Content)] = row
 
 	}
-	fmt.Printf("Grouped By First col all changes carved and logged")
-	for _, rows := range groupedRowsById {
-		fmt.Printf("\n")
-		prevRow := rows[0]
-		for idx, row := range rows {
 
-			for _, c := range table.Schema {
-				colData := row.ColMap[c.Name]
-				if idx == 0 {
-					c.Print(colData.Content)
-					continue
-				}
-				prevData := c.toString(prevRow.ColMap[c.Name].Content)
-				data := c.toString(colData.Content)
+	for _, row := range table.carvedrows {
+		c := table.Schema[0]
+		colData := row.ColMap[c.Name]
 
-				if prevData != data {
-					fmt.Printf(" %s -> %s ", prevData, data)
+		groupedRowsById[c.toString(colData.Content)] = row
+	}
 
-				}
-				if colData.LoggedColData != nil {
+	fmt.Printf("Grouped By First col all changes carved and logged\n")
+	for _, row := range table.loggedrows {
+		for cid, c := range table.Schema {
+			loggedCol := row.ColMap[c.Name]
+			if cid == 0 {
 
-					c.Print(colData.LoggedColData.Content)
-				}
-
+				org_row = groupedRowsById[c.toString(loggedCol.Content)]
 			}
+			if org_row.ColMap != nil {
+				orgData := c.toString(org_row.ColMap[c.Name].Content)
+				loggedData := c.toString(loggedCol.Content)
 
-			if row.LoggedOperation != "" {
-				fmt.Printf("%s ", row.LoggedOperation)
+				if loggedData != orgData {
+					fmt.Printf(" %s -> %s ", loggedData, orgData)
+
+				} else if loggedCol.LoggedColData != nil {
+					fmt.Printf(" %s --> %s ",
+						c.toString(loggedCol.LoggedColData.Content), orgData)
+
+				} else {
+					fmt.Printf(" %s ", orgData)
+				}
+
 			}
 
 		}
+
+		fmt.Printf("%s \n", row.LoggedOperation)
 
 	}
 }
@@ -381,6 +386,7 @@ func (table Table) printData(showtorow int, showrow int, showcarved bool, showld
 			colData := row.ColMap[c.Name]
 			c.Print(colData.Content)
 		}
+		fmt.Printf("\n")
 	}
 
 	if showcarved {
