@@ -266,6 +266,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		if showContent {
 			table.printHeader()
 			table.printData(showrows, showrow, showcarved, showldf)
+			table.cleverPrintData()
 		}
 
 		if showAllocation == "simple" {
