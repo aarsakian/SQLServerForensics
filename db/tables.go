@@ -314,6 +314,12 @@ func (table Table) printHeader() {
 }
 
 func (table Table) printData(showtorow int, showrow int, showcarved bool, showldf bool) {
+	if showcarved {
+		fmt.Printf("* = carved row\n")
+	}
+	if showldf {
+		fmt.Printf("** = logged row\n")
+	}
 
 	for idx, row := range table.rows {
 		if showtorow != -1 && idx > showtorow {
