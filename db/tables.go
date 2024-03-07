@@ -6,13 +6,13 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"bytes"
+	"errors"
 	"fmt"
 	"sort"
 )
 
 type Row struct {
 	ColMap          ColMap
-	Carved          bool
 	LoggedOperation string
 }
 
@@ -21,6 +21,8 @@ type Table struct {
 	ObjectId          int32
 	Type              string
 	rows              []Row
+	carvedrows        []Row
+	loggedrows        []Row
 	PartitionIds      []uint64
 	AllocationUnitIds []uint64
 	Schema            []Column
@@ -86,30 +88,33 @@ func (table *Table) AddRow(record LDF.Record) {
 	loggedOperation += record.GetBeginCommitDate()
 	loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	table.rows = append(table.rows, Row{ColMap: colmap, Carved: false,
-		LoggedOperation: loggedOperation})
+	table.loggedrows = append(table.loggedrows, Row{ColMap: colmap, LoggedOperation: loggedOperation})
 }
 
 func (table *Table) MarkRowDeleted(record LDF.Record) {
 	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
-
-	table.rows[rowid].LoggedOperation = "Deleted at " + record.GetBeginCommitDate() +
+	loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
 		fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+
+	row := table.rows[rowid]
+	row.LoggedOperation = loggedOperation
+
+	table.loggedrows = append(table.loggedrows, row)
 
 }
 
 func (table *Table) MarkRowModified(record LDF.Record) {
 
 	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
-
-	table.rows[rowid].LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+	row := table.rows[rowid]
+	row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
 	for _, c := range table.Schema {
 		if c.Offset >= int16(record.Lop_Insert_Delete.OffsetInRow) {
 			var newcontent bytes.Buffer
 			newcontent.Grow(int(c.Size))
 
-			colData := table.rows[rowid].ColMap[c.Name]
+			colData := row.ColMap[c.Name]
 			//new data from startoffset -> startoffset + modifysize
 			startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.Offset
 
@@ -118,12 +123,14 @@ func (table *Table) MarkRowModified(record LDF.Record) {
 			newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
 
 			colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
-			table.rows[rowid].ColMap[c.Name] = colData
+			row.ColMap[c.Name] = colData
 
 			break
 		}
 
 	}
+	table.loggedrows = append(table.loggedrows, row)
+
 }
 
 func (table *Table) addLogChanges(records LDF.Records) {
@@ -313,13 +320,52 @@ func (table Table) printHeader() {
 	fmt.Printf("\n")
 }
 
+func (table Table) cleverPrintData() {
+	groupedRowsById := make(map[string][]Row)
+	for _, row := range table.rows {
+		c := table.Schema[0]
+		colData := row.ColMap[c.Name]
+
+		groupedRowsById[c.toString(colData.Content)] =
+			append(groupedRowsById[c.toString(colData.Content)], row)
+
+	}
+	fmt.Printf("Grouped By First col all changes carved and logged")
+	for _, rows := range groupedRowsById {
+		fmt.Printf("\n")
+		prevRow := rows[0]
+		for idx, row := range rows {
+
+			for _, c := range table.Schema {
+				colData := row.ColMap[c.Name]
+				if idx == 0 {
+					c.Print(colData.Content)
+					continue
+				}
+				prevData := c.toString(prevRow.ColMap[c.Name].Content)
+				data := c.toString(colData.Content)
+
+				if prevData != data {
+					fmt.Printf(" %s -> %s ", prevData, data)
+
+				}
+				if colData.LoggedColData != nil {
+
+					c.Print(colData.LoggedColData.Content)
+				}
+
+			}
+
+			if row.LoggedOperation != "" {
+				fmt.Printf("%s ", row.LoggedOperation)
+			}
+
+		}
+
+	}
+}
+
 func (table Table) printData(showtorow int, showrow int, showcarved bool, showldf bool) {
-	if showcarved {
-		fmt.Printf("* = carved row\n")
-	}
-	if showldf {
-		fmt.Printf("** = logged row\n")
-	}
 
 	for idx, row := range table.rows {
 		if showtorow != -1 && idx > showtorow {
@@ -333,24 +379,45 @@ func (table Table) printData(showtorow int, showrow int, showcarved bool, showld
 		for _, c := range table.Schema {
 
 			colData := row.ColMap[c.Name]
-			if showcarved && row.Carved {
-				fmt.Printf("* ")
-			} else if showldf && row.LoggedOperation != "" {
-				fmt.Printf("** ")
+			c.Print(colData.Content)
+		}
+	}
+
+	if showcarved {
+		fmt.Printf("* = carved row\n")
+		for _, row := range table.carvedrows {
+			for cid, c := range table.Schema {
+
+				colData := row.ColMap[c.Name]
+				if cid == 0 {
+					fmt.Printf("* ")
+				}
+				c.Print(colData.Content)
+			}
+		}
+	}
+
+	if showldf {
+		fmt.Printf("\n** = logged row\n")
+
+		for _, row := range table.loggedrows {
+			for cid, c := range table.Schema {
+
+				colData := row.ColMap[c.Name]
+				if cid == 0 {
+					fmt.Printf("** ")
+				}
 
 				if colData.LoggedColData != nil {
 					fmt.Printf(" -> ")
 					c.Print(colData.LoggedColData.Content)
 				}
+				c.Print(colData.Content)
+
 			}
-			c.Print(colData.Content)
 
+			fmt.Printf("%s \n", row.LoggedOperation)
 		}
-
-		if showldf && row.LoggedOperation != "" {
-			fmt.Printf("%s ", row.LoggedOperation)
-		}
-		fmt.Printf("\n")
 	}
 
 }
@@ -375,7 +442,7 @@ func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16
 func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
-	var carved bool
+
 	rownum := 0
 	node := dataPages.GetHeadNode()
 	for node != nil {
@@ -388,15 +455,21 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 
 		table.indexType = page.GetIndexType()
 		for _, datarow := range page.DataRows {
-			carved = false
-			table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages, carved)
-			rownum++
+
+			row, err := table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages)
+			if err == nil {
+				table.rows = append(table.rows, row)
+				rownum++
+			}
+
 		}
 
 		for _, datarow := range page.CarvedDataRows {
 			rownum++
-			carved = true
-			table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages, carved)
+			row, err := table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages)
+			if err == nil {
+				table.carvedrows = append(table.carvedrows, row)
+			}
 
 		}
 		node = node.Next
@@ -404,8 +477,8 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 
 }
 
-func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
-	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], carved bool) {
+func (table Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) (Row, error) {
 
 	colmap := make(ColMap)
 	nofCols := len(table.Schema)
@@ -414,13 +487,13 @@ func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 		msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
 			int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
 		mslogger.Mslogger.Warning(msg)
-		return
+		return Row{}, errors.New(msg)
 	}
 	if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
 		msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
 			pageId, rownum, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
 		mslogger.Mslogger.Warning(msg)
-		return
+		return Row{}, errors.New(msg)
 	}
 
 	for colnum, col := range table.Schema {
@@ -441,5 +514,5 @@ func (table *Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 			colmap[col.Name] = ColData{Content: colval}
 		}
 	}
-	table.rows = append(table.rows, Row{ColMap: colmap, Carved: carved})
+	return Row{ColMap: colmap}, nil
 }
