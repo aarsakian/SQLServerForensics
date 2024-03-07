@@ -4,6 +4,7 @@ import (
 	"MSSQLParser/utils"
 	"errors"
 	"fmt"
+	"time"
 )
 
 //stored in reversed order It consists of 2-byte values that represent the
@@ -86,6 +87,16 @@ func (record Record) GetBeginCommitDate() string {
 		return utils.DateTimeTostr(beginRecord.Lop_Begin.BeginTime[:])
 	} else {
 		return "NA"
+	}
+
+}
+
+func (record Record) GetBeginCommitDateObj() time.Time {
+	beginRecord, err := record.GetBeginRecordPtr()
+	if err == nil {
+		return utils.DateTimeToObj(beginRecord.Lop_Begin.BeginTime[:])
+	} else {
+		return time.Time{}
 	}
 
 }
