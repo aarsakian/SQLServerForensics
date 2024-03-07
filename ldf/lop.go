@@ -99,9 +99,10 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte
 				bsoffset+rowlogcontentoffset, len(bs)))
 			break
 		}
-		if bs[bsoffset] == 0x10 {
+		if bs[bsoffset] == 0x30 || bs[bsoffset] == 0x10 {
 			datarow := new(page.DataRow)
-			utils.Unmarshal(bs[bsoffset:bsoffset+rowlogcontentoffset], datarow)
+			datarow.Parse(bs[bsoffset:bsoffset+rowlogcontentoffset], int(bsoffset)+int(rowlogcontentoffset), -1)
+
 			lop_insert_delete_mod.DataRow = datarow
 		} else {
 			rowlogcontents := make([]byte, len(bs[bsoffset:bsoffset+rowlogcontentoffset]))
