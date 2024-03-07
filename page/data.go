@@ -40,8 +40,7 @@ var DataRecord = map[uint8]string{
 
 type InlineBLob24 struct {
 	Type       uint8
-	Link       uint8
-	IndexLevel uint8
+	IndexLevel uint16
 	Unused     byte
 	UpdateSeq  uint32
 	Timestamp  uint32
@@ -154,7 +153,7 @@ func (dataRow DataRow) ShowData() {
 	fmt.Printf("\n")
 }
 
-func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data per slot
+func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // data per slot
 	var datacols DataCols
 	var inlineBlob24 *InlineBLob24
 	var inlineBlob16 *InlineBLob16
@@ -211,8 +210,14 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) { // data pe
 		}
 
 	}
-
 	dataRow.VarLenCols = &datacols
+
+	if dataRow.NumberOfVarLengthCols > 0 && int(dataRow.NumberOfVarLengthCols) != len(dataRow.VarLengthColOffsets) { // last varlencol
+		mslogger.Mslogger.Warning("Mismatch in var len col parsing real differs with declared number of cols.")
+		return int(dataRow.VarLengthColOffsets[int(dataRow.NumberOfVarLengthCols)-len(dataRow.VarLengthColOffsets)])
+	} else {
+		return int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
+	}
 
 }
 
@@ -308,19 +313,11 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 	} else if pageType == -0x18d {
 		fmt.Println("INDEXES")
 	}
-
-	dataRow.ProcessVaryingCols(data, offset)
-
 	if len(dataRow.VarLengthColOffsets) == 0 {
-		mslogger.Mslogger.Warning("No var len col offsets found")
+		mslogger.Mslogger.Info("No var len col offsets found")
 		return dataRowSize
-	} else if dataRow.NumberOfVarLengthCols > 0 && int(dataRow.NumberOfVarLengthCols) != len(dataRow.VarLengthColOffsets) { // last varlencol
-		mslogger.Mslogger.Warning("Mismatch in var len col parsing real differs with declared number of cols.")
-		return int(dataRow.VarLengthColOffsets[len(dataRow.VarLengthColOffsets)-1])
-	} else if dataRow.NumberOfVarLengthCols > 0 {
-		return int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
 	} else {
-		return dataRowSize
+		return dataRow.ProcessVaryingCols(data, offset)
 	}
 
 }
