@@ -247,7 +247,7 @@ func (db Database) ShowLDF(filterloptype string) {
 }
 
 func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
-	showAllocation string, tabletype string, showrows int,
+	showAllocation string, tabletype string, showrows int, skiprows int,
 	showrow int, showcarved bool, showldf bool) {
 	tableLocated := false
 	for _, table := range db.Tables {
@@ -265,7 +265,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		}
 		if showContent {
 			table.printHeader()
-			table.printData(showrows, showrow, showcarved, showldf)
+			table.printData(showrows, skiprows, showrow, showcarved, showldf)
 			table.cleverPrintData()
 		}
 
