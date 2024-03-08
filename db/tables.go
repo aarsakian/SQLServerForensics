@@ -95,6 +95,11 @@ func (table *Table) AddRow(record LDF.Record) {
 	colmap := make(ColMap)
 
 	for _, col := range table.Schema {
+		if record.Lop_Insert_Delete.DataRow == nil {
+			msg := fmt.Sprintf("Lop Insert Record missing DataRow %s", record.CurrentLSN.ToStr())
+			mslogger.Mslogger.Warning(msg)
+			continue
+		}
 
 		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages)
 		if e == nil {
@@ -393,9 +398,13 @@ func (table Table) cleverPrintData() {
 	}
 }
 
-func (table Table) printData(showtorow int, showrow int, showcarved bool, showldf bool) {
+func (table Table) printData(showtorow int, skiprows int,
+	showrow int, showcarved bool, showldf bool) {
 
 	for idx, row := range table.rows {
+		if skiprows != -1 && idx < skiprows {
+			continue
+		}
 		if showtorow != -1 && idx > showtorow {
 			break
 		}
