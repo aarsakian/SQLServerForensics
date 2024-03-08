@@ -1,24 +1,58 @@
 package page
 
-import "fmt"
+import (
+	"MSSQLParser/utils"
+	"fmt"
+)
 
 //clustered index root -> intermediate level rowid( child fileId+child PageId) +key value and so on
 //intermediate level one row for each leaf size =key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
 
-//non clustered key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
-//root->childpageID leaf level have value of 0
+// non clustered key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
+// root->childpageID leaf level have value of 0
 type IndexRows []IndexRow
+
+type IndexRootClustered struct {
+	PageID uint32
+	FileID uint16
+}
+
+type IndexIntermediateClustered struct {
+	PageID       uint32
+	FileID       uint16
+	ChildFileID  uint16 //? not sure
+	RowLen       uint16
+	KeyHashValue []byte
+}
 
 type IndexRow struct {
 	// index record on a non-clustered index at leaf level,,
 	//Only if the index row has nullable columns are the field called NumberofCols and the null bitmap both present
-	StatusA               uint8  //1-2
+	StatusA               uint8 //1-2
+	RootClustered         *IndexRootClustered
+	IntermediateClustered *IndexIntermediateClustered
+
 	FixedLenCols          []byte //0-
 	NumberOfCols          uint16 //
 	NullBitmap            []byte //
 	NumberOfVarLengthCols uint16 //0-
 	VarLengthColOffsets   []int16
 	VarLenCols            *DataCols
+}
+
+func (indexRow *IndexRow) Parse(data []byte) {
+	indexRow.StatusA = data[0]
+	if indexRow.IsIntermediateNonClusteredRecord() {
+		indexIntermediate := new(IndexIntermediateClustered)
+		utils.Unmarshal(data[1:], indexIntermediate)
+		indexRow.IntermediateClustered = indexIntermediate
+
+	} else if indexRow.IsRootRecordNonClustered() { // root ?
+		indexRoot := new(IndexRootClustered)
+		utils.Unmarshal(data[1:], indexRoot)
+		indexRow.RootClustered = indexRoot
+	}
+
 }
 
 func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
@@ -42,6 +76,14 @@ func (indexRow IndexRow) IsPrimary() bool {
 
 func (indexRow IndexRow) IsIndexRecord() bool {
 	return indexRow.StatusA&3 == 3
+}
+
+func (indexRow IndexRow) IsIntermediateNonClusteredRecord() bool {
+	return indexRow.StatusA&38 == 38
+}
+
+func (indexRow IndexRow) IsRootRecordNonClustered() bool {
+	return indexRow.StatusA&6 == 6
 }
 
 func (indexRow IndexRow) IsGhostRecord() bool {

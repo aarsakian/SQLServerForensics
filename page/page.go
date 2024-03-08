@@ -584,8 +584,6 @@ func (page *Page) parseIndex(data []byte, offset int) {
 			continue
 		}
 
-		var indexRow *IndexRow = new(IndexRow)
-
 		var indexRowLen utils.SlotOffset
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
@@ -597,8 +595,9 @@ func (page *Page) parseIndex(data []byte, offset int) {
 		} else { //last slot
 			indexRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
-
-		dst := make([]byte, page.Header.PMinLen-1)                                     // allocate memory for fixed len cols
+		indexRow := new(IndexRow)
+		indexRow.Parse(data[slotoffset : slotoffset+indexRowLen])
+		/*dst := make([]byte, page.Header.PMinLen-1)                                     // allocate memory for fixed len cols
 		copy(dst, data[slotoffset+1:slotoffset+utils.SlotOffset(page.Header.PMinLen)]) //first always statusA
 		indexRow.FixedLenCols = dst
 		if utils.HasNullBitmap(data[slotoffset]) {
@@ -606,7 +605,8 @@ func (page *Page) parseIndex(data []byte, offset int) {
 
 			indexRow.ProcessVaryingCols(data[slotoffset:], offset+int(slotoffset))
 
-		}
+		}*/
+
 		indexRows = append(indexRows, *indexRow)
 
 	}
