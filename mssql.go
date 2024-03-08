@@ -73,7 +73,8 @@ func main() {
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
 	showTableAllocation := flag.String("showTableAllocation", "",
 		"show pages that the table has been allocated write 'simple' or 'links' to see the linked page structure")
-	selectedTableRows := flag.Int("torow", -1, "show only the first number of rows (Default is all)")
+	selectedTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
+	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
 	selectedTableRow := flag.Int("row", -1, "Show only the selected row")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	exportPath := flag.String("export", "", "export table")
@@ -108,6 +109,7 @@ func main() {
 		ShowPageStats:       *showPageStats,
 		ShowIndex:           *showIndex,
 		SelectedTableRows:   *selectedTableRows,
+		SkippedTableRows:    *skippedTableRows,
 		SelectedTableRow:    *selectedTableRow,
 		ShowCarved:          *showcarved,
 		ShowLDF:             *showLDF,
