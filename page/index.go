@@ -3,6 +3,7 @@ package page
 import (
 	"MSSQLParser/utils"
 	"fmt"
+	"unsafe"
 )
 
 //clustered index root -> intermediate level rowid( child fileId+child PageId) +key value and so on
@@ -12,39 +13,34 @@ import (
 // root->childpageID leaf level have value of 0
 type IndexRows []IndexRow
 
-type IndexRootClustered struct {
-	PageID uint32
-	FileID uint16
-}
-
 type IndexIntermediateClustered struct {
-	PageID       uint32
-	FileID       uint16
-	ChildFileID  uint16 //? not sure
-	RowSize      uint16
-	KeyHashValue []byte
+	PageID      uint32
+	FileID      uint16
+	ChildFileID uint16 //? not sure
+	RowSize     uint16
+	KeyValue    []byte
 }
 
-type IndexNoNClustered struct {
+type IndexNoNLeaf struct {
+	KeyValue    []byte //0-?
 	ChildPageID uint32
 	ChildFileID uint16
-	KeyValue    []byte //0-?
 }
 
 type IndexLeafNoNClustered struct {
+	KeyValue    []byte //0-?
 	ChildPageID uint32
 	ChildFileID uint16
 	RowId       uint16
-	KeyValue    []byte //0-?
-
 }
 
 type IndexRow struct {
 	// index record on a non-clustered index at leaf level,,
 	//Only if the index row has nullable columns are the field called NumberofCols and the null bitmap both present
-	StatusA               uint8 //1-2
-	RootClustered         *IndexRootClustered
+	StatusA               uint8 //0-1
+	NoNLeaf               *IndexNoNLeaf
 	IntermediateClustered *IndexIntermediateClustered
+	LeafNoNClustered      *IndexLeafNoNClustered
 
 	FixedLenCols          []byte //0-
 	NumberOfCols          uint16 //
@@ -59,12 +55,35 @@ func (indexRow *IndexRow) Parse(data []byte) {
 	if indexRow.IsIntermediateClusteredRecord() {
 		indexIntermediate := new(IndexIntermediateClustered)
 		utils.Unmarshal(data[1:], indexIntermediate)
+
+		structSize := int(unsafe.Sizeof(indexIntermediate))
+		indexIntermediate.KeyValue = make([]byte, len(data[1+structSize:]))
+		copy(indexIntermediate.KeyValue, data[1+structSize:])
+
 		indexRow.IntermediateClustered = indexIntermediate
 
 	} else if indexRow.IsRootRecordClustered() { // root ?
-		indexRoot := new(IndexRootClustered)
-		utils.Unmarshal(data[1:], indexRoot)
-		indexRow.RootClustered = indexRoot
+
+		indexNoNLeaf := new(IndexNoNLeaf)
+		utils.Unmarshal(data[len(data)-6:], indexNoNLeaf)
+
+		structSize := int(unsafe.Sizeof(indexNoNLeaf))
+		if len(data) > structSize {
+			indexNoNLeaf.KeyValue = make([]byte, len(data[1:len(data)-structSize]))
+			copy(indexNoNLeaf.KeyValue, data[1:len(data)-structSize])
+		}
+
+		indexRow.NoNLeaf = indexNoNLeaf
+
+	} else if indexRow.IsLeafNoNClusteredRecord() {
+		indexLeafNoNClustered := new(IndexLeafNoNClustered)
+		utils.Unmarshal(data[len(data)-8:], indexLeafNoNClustered)
+
+		structSize := int(unsafe.Sizeof(indexLeafNoNClustered))
+		indexLeafNoNClustered.KeyValue = make([]byte, len(data[1:len(data)-structSize]))
+		copy(indexLeafNoNClustered.KeyValue, data[1:len(data)-structSize])
+
+		indexRow.LeafNoNClustered = indexLeafNoNClustered
 	}
 
 }
@@ -100,7 +119,7 @@ func (indexRow IndexRow) IsRootRecordClustered() bool {
 	return indexRow.StatusA&6 == 6
 }
 
-func (indexRow IndexRow) IsIntermediateNoNClusteredRecord() bool {
+func (indexRow IndexRow) IsLeafNoNClusteredRecord() bool {
 	return indexRow.StatusA&22 == 22
 }
 
@@ -109,10 +128,18 @@ func (indexRow IndexRow) IsGhostRecord() bool {
 }
 
 func (indexRow IndexRow) ShowData() {
-	fmt.Printf("Fixed Cols %x ", indexRow.FixedLenCols)
-	for _, datacol := range *indexRow.VarLenCols {
-		fmt.Printf(" Varying cols %x ", datacol.content)
-
+	if indexRow.IntermediateClustered != nil {
+		fmt.Printf("Intermediate CLustered Child FileID %d PageID %d  Key %x RowSize %d\n",
+			indexRow.IntermediateClustered.ChildFileID,
+			indexRow.IntermediateClustered.PageID, indexRow.IntermediateClustered.KeyValue,
+			indexRow.IntermediateClustered.RowSize)
+	} else if indexRow.LeafNoNClustered != nil {
+		fmt.Printf("Leaf Non Clustered ChildID %d Key %x RowID %d\n",
+			indexRow.LeafNoNClustered.ChildPageID,
+			indexRow.LeafNoNClustered.KeyValue, indexRow.LeafNoNClustered.RowId)
+	} else if indexRow.NoNLeaf != nil {
+		fmt.Printf("Non Leaf %d key %x\n", indexRow.NoNLeaf.ChildPageID,
+			indexRow.NoNLeaf.KeyValue)
 	}
-	fmt.Printf("\n")
+
 }
