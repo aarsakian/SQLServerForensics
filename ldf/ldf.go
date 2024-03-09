@@ -194,6 +194,11 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 	LSN_to_Record := make(map[utils.LSN]*Record)
 
 	for recordId := 0; recordId < len(recordOffsets); recordId++ {
+		if len(bs) < 2*(recordId+1) {
+			msg := fmt.Sprintf("log record id exceeds buffer at %d", recordId)
+			mslogger.Mslogger.Warning(msg)
+			break
+		}
 		recordOffsets[recordId] = utils.ToUint16(bs[len(bs)-2*(recordId+1) : len(bs)-2*recordId])
 
 	}
@@ -202,6 +207,11 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 	currentLSN := logBlock.Header.FirstLSN
 
 	for idx, recordOffset := range recordOffsets {
+		if len(bs) < int(recordOffset) {
+			msg := fmt.Sprintf("log record offset exceeds buffer at %d", recordOffset)
+			mslogger.Mslogger.Warning(msg)
+			break
+		}
 		record := new(Record)
 		utils.Unmarshal(bs[recordOffset:], record)
 		LSN_to_Record[currentLSN] = record
@@ -245,7 +255,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 
 		logBlock.Records[idx] = *record
 
-		mslogger.Mslogger.Info(fmt.Sprintf("Located %s at %d", OperationType[record.Operation],
+		mslogger.Mslogger.Info(fmt.Sprintf("Record %s at %d", record.GetOperationType(),
 			int64(recordOffset)+baseOffset))
 
 	}
