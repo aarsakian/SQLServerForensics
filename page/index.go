@@ -21,8 +21,22 @@ type IndexIntermediateClustered struct {
 	PageID       uint32
 	FileID       uint16
 	ChildFileID  uint16 //? not sure
-	RowLen       uint16
+	RowSize      uint16
 	KeyHashValue []byte
+}
+
+type IndexNoNClustered struct {
+	ChildPageID uint32
+	ChildFileID uint16
+	KeyValue    []byte //0-?
+}
+
+type IndexLeafNoNClustered struct {
+	ChildPageID uint32
+	ChildFileID uint16
+	RowId       uint16
+	KeyValue    []byte //0-?
+
 }
 
 type IndexRow struct {
@@ -42,12 +56,12 @@ type IndexRow struct {
 
 func (indexRow *IndexRow) Parse(data []byte) {
 	indexRow.StatusA = data[0]
-	if indexRow.IsIntermediateNonClusteredRecord() {
+	if indexRow.IsIntermediateClusteredRecord() {
 		indexIntermediate := new(IndexIntermediateClustered)
 		utils.Unmarshal(data[1:], indexIntermediate)
 		indexRow.IntermediateClustered = indexIntermediate
 
-	} else if indexRow.IsRootRecordNonClustered() { // root ?
+	} else if indexRow.IsRootRecordClustered() { // root ?
 		indexRoot := new(IndexRootClustered)
 		utils.Unmarshal(data[1:], indexRoot)
 		indexRow.RootClustered = indexRoot
@@ -78,12 +92,16 @@ func (indexRow IndexRow) IsIndexRecord() bool {
 	return indexRow.StatusA&3 == 3
 }
 
-func (indexRow IndexRow) IsIntermediateNonClusteredRecord() bool {
+func (indexRow IndexRow) IsIntermediateClusteredRecord() bool {
 	return indexRow.StatusA&38 == 38
 }
 
-func (indexRow IndexRow) IsRootRecordNonClustered() bool {
+func (indexRow IndexRow) IsRootRecordClustered() bool {
 	return indexRow.StatusA&6 == 6
+}
+
+func (indexRow IndexRow) IsIntermediateNoNClusteredRecord() bool {
+	return indexRow.StatusA&22 == 22
 }
 
 func (indexRow IndexRow) IsGhostRecord() bool {
