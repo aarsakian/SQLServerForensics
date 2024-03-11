@@ -312,6 +312,9 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 		fmt.Println("INDXE COLS")
 	} else if pageType == -0x18d {
 		fmt.Println("INDEXES")
+	} else if pageType == 0x36 {
+		sysidxstats := new(SysIdxStats)
+		dataRow.Process(sysidxstats)
 	}
 	if len(dataRow.VarLengthColOffsets) == 0 {
 		mslogger.Mslogger.Info("No var len col offsets found")
