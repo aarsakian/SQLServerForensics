@@ -78,6 +78,21 @@ type SysColpars struct {
 	Name        []byte
 }
 
+// a row for every index or statistics
+type SysIdxStats struct {
+	Id        uint32 //objectID
+	Indid     uint32
+	Name      []byte
+	Status    uint32
+	Intprop   uint32
+	Fillfact  uint8
+	Type      uint8
+	Tinyprop  uint8
+	Dataspace uint32
+	Lobds     uint32
+	Rowsetid  uint64
+}
+
 type sysIsCols struct {
 	Idmajor   uint32
 	Idminor   uint32
@@ -171,8 +186,24 @@ func (sysobject *SysObjects) SetName([]byte) {
 
 }
 
-func (sysobjects *SysObjects) ShowData() {
+func (sysobjects SysObjects) ShowData() {
 	fmt.Printf("sysobjects")
+}
+
+func (sysidxstats SysIdxStats) GetData() (any, any) {
+	return nil, nil
+}
+
+func (sysidxstats SysIdxStats) GetName() string {
+	return utils.DecodeUTF16(sysidxstats.Name)
+}
+
+func (sysidxstats *SysIdxStats) SetName(name []byte) {
+	sysidxstats.Name = name
+}
+
+func (sysidxstats SysIdxStats) ShowData() {
+
 }
 
 func (sysrscols SysRsCols) GetName() string {
