@@ -6,7 +6,6 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"bytes"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -432,6 +431,7 @@ func (table Table) printData(showtorow int, skiprows int,
 				}
 				c.Print(colData.Content)
 			}
+			fmt.Printf("\n")
 		}
 	}
 
@@ -492,22 +492,48 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 		}
 
 		table.indexType = page.GetIndexType()
+
+		nofCols := len(table.Schema)
+
 		for _, datarow := range page.DataRows {
 
-			row, err := table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages)
-			if err == nil {
-				table.rows = append(table.rows, row)
-				rownum++
+			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
+				msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
+					int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
+				mslogger.Mslogger.Warning(msg)
+				continue
 			}
+			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
+				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
+					pageId, rownum, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
+				mslogger.Mslogger.Warning(msg)
+				continue
+			}
+
+			table.rows = append(table.rows,
+				table.ProcessRow(rownum, datarow, lobPages, textLobPages))
+
+			rownum++
 
 		}
 
 		for _, datarow := range page.CarvedDataRows {
-			rownum++
-			row, err := table.ProcessRow(rownum, datarow, pageId, lobPages, textLobPages)
-			if err == nil {
-				table.carvedrows = append(table.carvedrows, row)
+			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
+				msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
+					int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
+				mslogger.Mslogger.Warning(msg)
+				continue
 			}
+			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
+				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
+					pageId, rownum, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
+				mslogger.Mslogger.Warning(msg)
+				continue
+			}
+			rownum++
+
+			table.carvedrows = append(table.carvedrows,
+				table.ProcessRow(rownum, datarow, lobPages, textLobPages))
 
 		}
 		node = node.Next
@@ -515,24 +541,11 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 
 }
 
-func (table Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
-	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) (Row, error) {
+func (table Table) ProcessRow(rownum int, datarow page.DataRow,
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) Row {
 
 	colmap := make(ColMap)
 	nofCols := len(table.Schema)
-
-	if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-		msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
-			int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
-		mslogger.Mslogger.Warning(msg)
-		return Row{}, errors.New(msg)
-	}
-	if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
-		msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
-			pageId, rownum, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
-		mslogger.Mslogger.Warning(msg)
-		return Row{}, errors.New(msg)
-	}
 
 	for colnum, col := range table.Schema {
 		//schema is sorted by colorder use colnum instead of col.Order
@@ -552,5 +565,5 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow, pageId uint32,
 			colmap[col.Name] = ColData{Content: colval}
 		}
 	}
-	return Row{ColMap: colmap}, nil
+	return Row{ColMap: colmap}
 }
