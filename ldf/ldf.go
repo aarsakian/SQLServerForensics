@@ -106,7 +106,8 @@ func (logBlock LogBlock) GetSize() int64 {
 	return nofBlocks * int64(LOGBLOCKMINSIZE)
 }
 
-func (vlfs *VLFs) Process(file os.File) {
+func (vlfs *VLFs) Process(file os.File) int {
+	recordsProcessed := 0
 
 	offset := int64(8192)
 
@@ -125,7 +126,7 @@ func (vlfs *VLFs) Process(file os.File) {
 
 		if err != nil {
 			fmt.Printf("error reading log page ---\n")
-			return
+			return recordsProcessed
 		}
 		vlfheader := new(VLFHeader)
 		vlfheader.Process(bs)
@@ -139,7 +140,7 @@ func (vlfs *VLFs) Process(file os.File) {
 			_, err = file.ReadAt(bs, offset+logBlockoffset)
 			if err != nil {
 				fmt.Printf("error reading log page ---\n")
-				return
+				return recordsProcessed
 			}
 			logBlock := new(LogBlock)
 			logBlock.ProcessHeader(bs)
@@ -162,9 +163,9 @@ func (vlfs *VLFs) Process(file os.File) {
 			_, err = file.ReadAt(bs, offset+logBlockoffset)
 			if err != nil {
 				fmt.Printf("error reading log page at --- %d\n", offset)
-				return
+				return recordsProcessed
 			}
-			logBlock.ProcessRecords(bs, offset+logBlockoffset)
+			recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset)
 
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
 
@@ -180,6 +181,7 @@ func (vlfs *VLFs) Process(file os.File) {
 		}
 		offset += int64(vlf.Header.FileSize) //needs check
 	}
+	return recordsProcessed
 
 }
 
@@ -188,7 +190,7 @@ func (vlfs *VLFs) Process(file os.File) {
 // the only log record that contains the date and time when the transaction started,
 //user SID
 
-func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
+func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) int {
 	recordOffsets := make(RecordOffsets, logBlock.Header.NofSlots)
 
 	LSN_to_Record := make(map[utils.LSN]*Record)
@@ -259,7 +261,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) {
 			int64(recordOffset)+baseOffset))
 
 	}
-
+	return len(logBlock.Records)
 }
 
 func (logBlock *LogBlock) ProcessHeader(bs []byte) {
