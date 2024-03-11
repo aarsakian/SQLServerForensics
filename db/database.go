@@ -115,7 +115,8 @@ func (db *Database) ProcessLDF() {
 	db.LogPage = db.ProcessPage(bs, offset, carve)
 
 	db.VLFs = new(LDF.VLFs)
-	db.VLFs.Process(*file)
+	recordsProcessed := db.VLFs.Process(*file)
+	fmt.Printf("LDF processing completed %d records processed", recordsProcessed)
 }
 
 func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
