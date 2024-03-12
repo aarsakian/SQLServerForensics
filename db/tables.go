@@ -17,6 +17,12 @@ type Row struct {
 	LogDate         time.Time
 }
 
+type TableIndex struct {
+	name      string
+	rootPage  uint32
+	firstPage uint32
+}
+
 type Table struct {
 	Name              string
 	ObjectId          int32
@@ -27,6 +33,7 @@ type Table struct {
 	PartitionIds      []uint64
 	AllocationUnitIds []uint64
 	Schema            []Column
+	Indexes           []TableIndex
 	VarLenCols        []int
 	PageIDsPerType    map[string][]uint32 //pageType ->pageID
 	indexType         string
@@ -86,6 +93,12 @@ func (byrowid ByRowId) Swap(i, j int) {
 
 	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
 }*/
+
+func (table *Table) addIndex(indexInfo SysIdxStats, sysallocunit SysAllocUnits) {
+	table.Indexes = append(table.Indexes,
+		TableIndex{name: indexInfo.GetName(), rootPage: sysallocunit.GetRootPageId(),
+			firstPage: sysallocunit.GetFirstPageId()})
+}
 
 func (table *Table) AddRow(record LDF.Record) {
 
