@@ -23,7 +23,7 @@ type ColumnsInfo map[int32][]SysColpars
 
 type TablesPartitions map[int32][]SysRowSets
 
-type IndexesInfo map[int32]SysIdxStats
+type IndexesInfo map[int32][]SysIdxStats
 
 type TablesAllocations map[uint64][]SysAllocUnits
 
@@ -192,6 +192,18 @@ func (syscolpars SysColpars) GetName() string {
 	return utils.DecodeUTF16(syscolpars.Name)
 
 }
+func (sysidxstats SysIdxStats) GetName() string {
+	return utils.DecodeUTF16(sysidxstats.Name)
+
+}
+
+func (sysallocationunits SysAllocUnits) GetRootPageId() uint32 {
+	return utils.ToUint32(sysallocationunits.Pgroot[:4])
+}
+
+func (sysallocationunits SysAllocUnits) GetFirstPageId() uint32 {
+	return utils.ToUint32(sysallocationunits.PgFirst[:4])
+}
 
 func (sysschobjs Sysschobjs) GetName() string {
 	return utils.DecodeUTF16(sysschobjs.Name)
@@ -303,7 +315,7 @@ func (indexesInfo IndexesInfo) Populate(datarows page.DataRows) {
 				}
 			}
 		}
-		indexesInfo[sysidxstats.Id] = *sysidxstats
+		indexesInfo[sysidxstats.Id] = append(indexesInfo[sysidxstats.Id], *sysidxstats)
 	}
 
 }
