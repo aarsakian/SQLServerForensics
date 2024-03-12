@@ -22,7 +22,7 @@ type ForwardingPointer struct { //smallest size of data row structure appear whe
 type DataCol struct {
 	id           int
 	offset       uint16
-	content      []byte
+	Content      []byte
 	InlineBlob24 *InlineBLob24
 	InlineBlob16 *InlineBLob16
 }
@@ -35,7 +35,8 @@ type DataCols []DataCol //holds varying len cols
 
 var DataRecord = map[uint8]string{
 	0: "Primary Record", 2: "Forwarded Record", 4: "Forwarding Record", 6: "Index Record",
-	8: "BLOB Fragment", 10: "Ghost Index Record", 12: "Ghost Data Record", 14: "Ghost Version Record",
+	8: "BLOB Fragment", 10: "Ghost Index Record", 12: "Ghost Data Record",
+	14: "Ghost Version Record",
 }
 
 type InlineBLob24 struct {
@@ -148,7 +149,7 @@ func (dataRow DataRow) ShowData() {
 	}
 	for _, dataCol := range *dataRow.VarLenCols {
 		fmt.Printf(" %d  %d  %x ",
-			dataCol.offset, reflect.ValueOf(dataCol.content).Len(), dataCol.content)
+			dataCol.offset, reflect.ValueOf(dataCol.Content).Len(), dataCol.Content)
 	}
 	fmt.Printf("\n")
 }
@@ -193,20 +194,17 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 			inlineBlob16.RowId = *rowId
 		}
 
-		if dataRow.SystemTable != nil {
-			dataRow.SystemTable.SetName(cpy) //keep only first entry
-			break
-		} else if inlineBlob16 != nil {
+		if inlineBlob16 != nil {
 			datacols = append(datacols,
-				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
+				DataCol{id: idx, Content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
 			inlineBlob16 = nil
 		} else if inlineBlob24 != nil {
 			datacols = append(datacols,
-				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset), InlineBlob24: inlineBlob24})
+				DataCol{id: idx, Content: cpy, offset: uint16(startVarColOffset), InlineBlob24: inlineBlob24})
 			inlineBlob24 = nil
 		} else {
 			datacols = append(datacols,
-				DataCol{id: idx, content: cpy, offset: uint16(startVarColOffset)})
+				DataCol{id: idx, Content: cpy, offset: uint16(startVarColOffset)})
 		}
 
 	}
@@ -269,7 +267,7 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 
 			return lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp)), nil // might change
 		} else {
-			return (*dataRow.VarLenCols)[valorder].content, nil
+			return (*dataRow.VarLenCols)[valorder].Content, nil
 		}
 
 	}
@@ -280,42 +278,6 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 
 	dataRowSize, _ := utils.Unmarshal(data, dataRow)
 
-	if pageType == SystemTablesFlags["syscolpars"] {
-
-		var syscolpars *SysColpars = new(SysColpars)
-
-		dataRow.Process(syscolpars)
-
-	} else if pageType == SystemTablesFlags["sysschobjs"] {
-
-		var sysschobjs *Sysschobjs = new(Sysschobjs)
-
-		dataRow.Process(sysschobjs) // from slot to end
-
-	} else if pageType == 0x07 {
-		var sysallocationunits *SysAllocUnits = new(SysAllocUnits)
-		dataRow.Process(sysallocationunits)
-
-	} else if pageType == 0x03 {
-		var sysrscols *SysRsCols = new(SysRsCols)
-		dataRow.Process(sysrscols)
-	} else if pageType == 0x05 {
-		var sysrowsets *SysRowSets = new(SysRowSets)
-		dataRow.Process(sysrowsets)
-	} else if pageType == 0x37 {
-		var sysiscols *sysIsCols = new(sysIsCols)
-		dataRow.Process(sysiscols)
-	} else if pageType == -0x69 { // view object not reached
-		var sysobjects *SysObjects = new(SysObjects)
-		dataRow.Process(sysobjects)
-	} else if pageType == -0x191 { //index_columns
-		fmt.Println("INDXE COLS")
-	} else if pageType == -0x18d {
-		fmt.Println("INDEXES")
-	} else if pageType == 0x36 {
-		sysidxstats := new(SysIdxStats)
-		dataRow.Process(sysidxstats)
-	}
 	if len(dataRow.VarLengthColOffsets) == 0 {
 		mslogger.Mslogger.Info("No var len col offsets found")
 		return dataRowSize

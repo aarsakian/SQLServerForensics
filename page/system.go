@@ -124,7 +124,7 @@ type SysRsCols struct {
 type SysRowSets struct {
 	Rowsetid   uint64
 	Ownertype  uint8
-	Idmajor    uint32
+	Idmajor    int32
 	Idminor    uint32 // index id
 	Numpart    uint32
 	Status     uint32
@@ -191,7 +191,7 @@ func (sysobjects SysObjects) ShowData() {
 }
 
 func (sysidxstats SysIdxStats) GetData() (any, any) {
-	return nil, nil
+	return sysidxstats.Type, nil
 }
 
 func (sysidxstats SysIdxStats) GetName() string {
@@ -203,7 +203,7 @@ func (sysidxstats *SysIdxStats) SetName(name []byte) {
 }
 
 func (sysidxstats SysIdxStats) ShowData() {
-
+	fmt.Printf("Idx Name %s", utils.DecodeUTF16(sysidxstats.Name))
 }
 
 func (sysrscols SysRsCols) GetName() string {

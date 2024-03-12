@@ -97,7 +97,7 @@ func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 		dst := make([]byte, varLenColOffset-baseOffset) //buffer for varying le cols
 		copy(dst, data[baseOffset:varLenColOffset])
 		datacols = append(datacols,
-			DataCol{id: idx, content: dst, offset: uint16(varLenColOffset)})
+			DataCol{id: idx, Content: dst, offset: uint16(varLenColOffset)})
 		baseOffset = varLenColOffset
 	}
 	indexRow.VarLenCols = &datacols
