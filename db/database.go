@@ -314,21 +314,32 @@ func (db *Database) GetTables(tablename string) {
 			mslogger.Mslogger.Warning(msg)
 		}
 
+		for _, indexInfo := range db.indexesInfo[objectid] {
+			allocationUnits, ok := db.tablesAllocations[indexInfo.Rowsetid]
+			if ok {
+				for _, allocationUnit := range allocationUnits {
+					table.addIndex(indexInfo, allocationUnit)
+				}
+
+			}
+
+		}
+
 		partitions := db.tablesPartitions[objectid]
 
 		var table_alloc_pages page.Pages
 
 		for _, partition := range partitions {
 			table.PartitionIds = append(table.PartitionIds, partition.Rowsetid)
-			allocationUnitIds, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
+			allocationUnits, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
 
 			if ok {
-				for _, allocationUnitId := range allocationUnitIds {
+				for _, allocationUnit := range allocationUnits {
 
 					table_alloc_pages = append(table_alloc_pages,
-						db.PagesPerAllocUnitID.GetPages(allocationUnitId.GetId())...) // find the pages the table was allocated
+						db.PagesPerAllocUnitID.GetPages(allocationUnit.GetId())...) // find the pages the table was allocated
 					table.AllocationUnitIds = append(table.AllocationUnitIds,
-						allocationUnitId.GetId())
+						allocationUnit.GetId())
 
 				}
 
