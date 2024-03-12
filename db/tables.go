@@ -206,12 +206,12 @@ func (table *Table) setVarLenCols() {
 	}
 }
 
-func (table *Table) addColumns(columns []page.Result[string, string, int16, uint16, uint32, uint8, uint8]) {
+func (table *Table) addColumns(columns []SysColpars) {
 
 	for _, col := range columns {
-		table.addColumn(Column{Name: col.First, Type: col.Second,
-			Size: col.Third, Order: col.Fourth, CollationId: col.Fifth,
-			Precision: col.Sixth, Scale: col.Seventh})
+		table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
+			Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
+			Precision: col.Prec, Scale: col.Scale})
 	}
 	table.setVarLenCols()
 

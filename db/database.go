@@ -22,6 +22,16 @@ type Database struct {
 	VLFs                *LDF.VLFs
 	ActiveLogRecords    LDF.Records
 	CarvedLogRecords    LDF.Records
+	tablesInfo          TablesInfo
+	columnsinfo         ColumnsInfo
+	tablesPartitions    TablesPartitions
+	tablesAllocations   TablesAllocations
+	columnsPartitions   ColumnsPartitions
+	indexesInfo         IndexesInfo
+}
+
+type SystemTable interface {
+	Process(page.DataRows)
 }
 
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -33,6 +43,61 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bo
 
 	return totalProcessedPages
 
+}
+
+func (db *Database) ProcessSystemTables() {
+	node := db.PagesPerAllocUnitID.GetHeadNode()
+	db.tablesInfo = make(TablesInfo)               //objectid -> table info
+	db.columnsinfo = make(ColumnsInfo)             //objectid -> column info
+	db.tablesPartitions = make(TablesPartitions)   //objectid ->  sysrowsets
+	db.tablesAllocations = make(TablesAllocations) //rowsetid -> sysalloc
+	db.columnsPartitions = make(ColumnsPartitions) //partitionid ->  sysrscols
+	db.indexesInfo = make(IndexesInfo)             //objectid -> index info
+
+	for node != nil {
+
+		for _, page := range node.Pages {
+			if page.Header.ObjectId > 100 {
+				break
+			}
+			if page.GetType() != "DATA" {
+				continue
+			}
+
+			pageType := page.Header.ObjectId
+
+			if pageType == SystemTablesFlags["sysschobjs"] {
+				db.tablesInfo.Populate(page.DataRows)
+
+			} else if pageType == SystemTablesFlags["syscolpars"] {
+				db.columnsinfo.Populate(page.DataRows)
+
+			} else if pageType == SystemTablesFlags["sysallocationunits"] {
+				db.tablesAllocations.Populate(page.DataRows)
+
+			} else if pageType == SystemTablesFlags["sysrscols"] {
+				db.columnsPartitions.Populate(page.DataRows)
+			} else if pageType == SystemTablesFlags["sysrowsets"] {
+				db.tablesPartitions.Populate(page.DataRows)
+			} else if pageType == SystemTablesFlags["sysiscols"] {
+
+			} else if pageType == SystemTablesFlags["sysidxstats"] {
+				db.indexesInfo.Populate(page.DataRows)
+			}
+
+			/*	else if pageType == -0x69 { // view object not reached
+					var sysobjects *SysObjects = new(SysObjects)
+					dataRow.Process(sysobjects)
+				} else if pageType == -0x191 { //index_columns
+					fmt.Println("INDXE COLS")
+				} else if pageType == -0x18d {
+					fmt.Println("INDEXES")
+				} */
+
+		}
+
+		node = node.Next
+	}
 }
 
 func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve bool) int {
@@ -324,61 +389,58 @@ func (db *Database) GetTables(tablename string) {
 	 using the partitionid locate the allocationunitid  from sysallocationunits
 
 	*/
-	tablesMap := db.createMap("sysschobjs")   // table objectid = table info
-	colsMap := db.createMapList("syscolpars") //table objectid =[] name , type, size, colorder
 
-	colsMapOffsets := db.createColMapListOffsets("sysrscols") //Rowsetid =  []colid ,offset
-
-	tablePartitionsMap := db.createMapListPartitions("sysrowsets")     //(table objectid) = [](partitionId, index_id, ...)
-	tableSysAllocsMap := db.createMapListGeneric("sysallocationunits") //sysrowsets.Rowsetid =  []OwnerId, page allocunitid
-
-	for tobjectId, res := range tablesMap {
-		tname := res.First
-
+	for objectid, tableinfo := range db.tablesInfo {
+		tname := tableinfo.GetName()
 		if tablename != "all" && tablename != tname {
 			msg := fmt.Sprintf("table %s not processed", tname)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
-		table := Table{Name: tname, ObjectId: tobjectId.(int32), Type: res.Second,
+
+		table := Table{Name: tname, ObjectId: objectid, Type: tableinfo.GetTableType(),
 			PageIDsPerType: map[string][]uint32{}}
+
 		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 		mslogger.Mslogger.Info(msg)
 
-		results, ok := colsMap[tobjectId.(int32)] // correlate table with its columns
-
-		if ok {
-			table.addColumns(results)
+		colsinfo := db.columnsinfo[objectid]
+		if colsinfo != nil {
+			table.addColumns(colsinfo)
 			table.sortByColOrder()
 		} else {
 			msg := fmt.Sprintf("No columns located for table %s", table.Name)
 			mslogger.Mslogger.Warning(msg)
 		}
 
-		partitions := tablePartitionsMap[tobjectId.(int32)] // from sysrowsets idmajor => rowsetid
+		partitions := db.tablesPartitions[objectid]
 
 		var table_alloc_pages page.Pages
 
 		for _, partition := range partitions {
-			table.PartitionIds = append(table.PartitionIds, partition.First)
-			allocationUnitIds, ok := tableSysAllocsMap[partition.First] // from sysallocunits PartitionId => page m allocation unit id
+			table.PartitionIds = append(table.PartitionIds, partition.Rowsetid)
+			allocationUnitIds, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
 
 			if ok {
 				for _, allocationUnitId := range allocationUnitIds {
 
-					table_alloc_pages = append(table_alloc_pages, db.PagesPerAllocUnitID.GetPages(allocationUnitId)...) // find the pages the table was allocated
+					table_alloc_pages = append(table_alloc_pages,
+						db.PagesPerAllocUnitID.GetPages(allocationUnitId.GetId())...) // find the pages the table was allocated
+					table.AllocationUnitIds = append(table.AllocationUnitIds,
+						allocationUnitId.GetId())
+
 				}
 
-			}
-			table.AllocationUnitIds = allocationUnitIds
+				if partition.Idminor != 1 { // index_id 1 for data pages
+					msg := fmt.Sprintf("Table %s has partition heap index id %d\n",
+						table.Name, partition.Idminor)
+					mslogger.Mslogger.Info(msg)
+				}
+				for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
+					table.updateColOffsets(sysrscols.Rscolid,
+						sysrscols.GetLeafOffset(), sysrscols.Ordkey) //columnd_id ,offset, ordkey
+				}
 
-			if partition.Second != 1 { // index_id 1 for data pages
-				msg := fmt.Sprintf("Table %s has partition heap index id %d\n",
-					table.Name, partition.Second)
-				mslogger.Mslogger.Info(msg)
-			}
-			for _, rscolinfo := range colsMapOffsets[partition.First] {
-				table.updateColOffsets(rscolinfo.First, rscolinfo.Second, rscolinfo.Sixth) //columnd_id ,offset, ordkey
 			}
 
 		}
