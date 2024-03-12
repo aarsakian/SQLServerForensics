@@ -217,6 +217,8 @@ func main() {
 			database.LocateRecords()
 		}
 
+		database.ProcessSystemTables()
+
 		if totalProcessedPages <= 0 {
 			return
 		}
