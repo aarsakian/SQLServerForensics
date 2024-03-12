@@ -216,8 +216,10 @@ func main() {
 		if len(ldffiles) != 0 {
 			database.LocateRecords()
 		}
+		fmt.Printf("Processed %d pages.\n", totalProcessedPages)
 
 		database.ProcessSystemTables()
+		fmt.Printf("Processed system tables \n")
 
 		if totalProcessedPages <= 0 {
 			return
@@ -237,7 +239,6 @@ func main() {
 			database.FilterPagesBySystemTables("sysschobjs")
 		}
 
-		fmt.Printf("Processed %d pages.\n", totalProcessedPages)
 		fmt.Println("Reconstructing tables...")
 
 		/*retrieving schema and table contents */
