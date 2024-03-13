@@ -29,6 +29,8 @@ type TablesAllocations map[uint64][]SysAllocUnits
 
 type ColumnsPartitions map[uint64][]SysRsCols
 
+type ColumnsStatistics map[int32][]SysIsCols
+
 type SysObjects struct { //view
 	Name             []byte
 	Id               uint32
@@ -60,7 +62,7 @@ type SysObjects struct { //view
 type SysAllocUnits struct {
 	Auid       [8]byte //0-8
 	Type       uint8   //9
-	OwnerId    uint64  //9-17
+	OwnerId    uint64  //9-17 rowsetid
 	Status     int32   //17-21
 	Fgid       uint16  //21-23
 	PgFirst    [6]byte //6 bytes
@@ -108,7 +110,7 @@ type SysIdxStats struct {
 }
 
 type SysIsCols struct {
-	Idmajor   uint32
+	Idmajor   int32
 	Idminor   uint32
 	Subid     uint32
 	Status    uint32
@@ -298,6 +300,15 @@ func (tablesInfo TablesInfo) Populate(datarows page.DataRows) {
 		tablesInfo[sysschobjs.Id] = *sysschobjs
 	}
 
+}
+
+func (columnsStats ColumnsStatistics) Populate(datarows page.DataRows) {
+	for _, datarow := range datarows {
+		sysiscols := new(SysIsCols)
+		utils.Unmarshal(datarow.FixedLenCols, sysiscols)
+		columnsStats[sysiscols.Idmajor] = append(columnsStats[sysiscols.Idmajor],
+			*sysiscols)
+	}
 }
 
 func (sysallocunits SysAllocUnits) GetId() uint64 {
