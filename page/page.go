@@ -62,7 +62,7 @@ type PagesPerIdNode struct {
 }
 
 type PagesPerId[K PageKey] struct {
-	lookup map[K]*PagesPerIdNode
+	Lookup map[K]*PagesPerIdNode
 	list   *PagesPerIdNodeList
 }
 
@@ -76,18 +76,18 @@ func (pagesPerID PagesPerId[K]) GetHeadNode() *PagesPerIdNode {
 
 func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
 	var pagesPerIDNode *PagesPerIdNode
-	pagesPerIDNode, ok := pagesPerID.lookup[allocUnitID]
+	pagesPerIDNode, ok := pagesPerID.Lookup[allocUnitID]
 
 	if !ok { // new node must be created
 		pagesPerIDNode = new(PagesPerIdNode)
 		if pagesPerID.list == nil { // first addition
-			pagesPerID.lookup = map[K]*PagesPerIdNode{}
+			pagesPerID.Lookup = map[K]*PagesPerIdNode{}
 			pagesPerID.list = &PagesPerIdNodeList{head: pagesPerIDNode}
 			pagesPerID.list.head = pagesPerIDNode
 		} else {
 			pagesPerID.list.UpdateNext(pagesPerIDNode)
 		}
-		pagesPerID.lookup[allocUnitID] = pagesPerIDNode
+		pagesPerID.Lookup[allocUnitID] = pagesPerIDNode
 		pagesPerIDNode.Pages = Pages{page}
 	} else {
 		pagesPerIDNode.Pages = append(pagesPerIDNode.Pages, page)
@@ -96,7 +96,7 @@ func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
 }
 
 func (pagesPerID PagesPerId[K]) GetPages(allocUnitID K) Pages {
-	node, ok := pagesPerID.lookup[allocUnitID]
+	node, ok := pagesPerID.Lookup[allocUnitID]
 	if ok {
 		return node.Pages
 	} else {
@@ -106,7 +106,7 @@ func (pagesPerID PagesPerId[K]) GetPages(allocUnitID K) Pages {
 }
 
 func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
-	node, ok := pagesPerID.lookup[allocUnitID]
+	node, ok := pagesPerID.Lookup[allocUnitID]
 	if ok {
 		return node.Pages[0]
 	} else {
@@ -243,7 +243,7 @@ func (pages Pages) FilterByTypeToMap(pageType string) PagesPerId[uint32] {
 
 func (pagesPerID PagesPerId[K]) GetIDs() []K {
 	var unitIDs []K
-	for unitID := range pagesPerID.lookup {
+	for unitID := range pagesPerID.Lookup {
 		unitIDs = append(unitIDs, unitID)
 
 	}
@@ -253,7 +253,7 @@ func (pagesPerID PagesPerId[K]) GetIDs() []K {
 func (pagesPerID PagesPerId[K]) FilterByType(pageType string) PagesPerId[K] {
 	newpagesPerID := PagesPerId[K]{}
 
-	for allocUnitId, pagesPerIDNode := range pagesPerID.lookup {
+	for allocUnitId, pagesPerIDNode := range pagesPerID.Lookup {
 		for _, page := range pagesPerIDNode.Pages {
 			if page.GetType() != pageType {
 				continue
@@ -285,7 +285,7 @@ func (pagesPerID PagesPerId[K]) FilterBySystemTables(systemTable string) PagesPe
 
 	newpagesPerID := PagesPerId[K]{}
 
-	for allocUnitId, pagesPerIDNode := range pagesPerID.lookup {
+	for allocUnitId, pagesPerIDNode := range pagesPerID.Lookup {
 		for _, page := range pagesPerIDNode.Pages {
 			if !page.isSystemPage(systemTable) {
 				continue
