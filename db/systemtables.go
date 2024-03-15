@@ -31,6 +31,15 @@ type ColumnsPartitions map[uint64][]SysRsCols
 
 type ColumnsStatistics map[int32][]SysIsCols
 
+type SysObjValues struct {
+	Valclass uint8
+	Objid    int32
+	Subobjid int32
+	Valnum   int32
+	Value    SqlVariant
+	Imageval []byte
+}
+
 type SysObjects struct { //view
 	Name             []byte
 	Id               uint32
@@ -88,7 +97,7 @@ type SysColpars struct {
 	Status      uint32
 	Maxinrow    uint16
 	Xmlns       uint32
-	Dflt        uint32
+	Dflt        uint32 //default constraint
 	Chk         uint32
 	Idtval      []byte
 	Name        []byte
@@ -96,8 +105,8 @@ type SysColpars struct {
 
 // a row for every index or statistics
 type SysIdxStats struct {
-	Id        int32 //objectID
-	Indid     uint32
+	Id        int32  //objectID
+	Indid     uint32 // index id ID of the index: 0 = Heap; 1 = Clustered index; >1 = Nonclustered index
 	Name      []byte
 	Status    uint32
 	Intprop   uint32
@@ -123,8 +132,8 @@ type SysIsCols struct {
 
 type SysRsCols struct {
 	Rsid        uint64 //1-8 partition id
-	Rscolid     int32  //8-12 column id
-	Hbcolid     int32  //12 - 16  ordinal position of the column in the clustered index
+	Rscolid     uint32 //8-12 column id
+	Hbcolid     uint32 //12 - 16 column order in the index
 	Rcmodified  int64  //16 -24
 	Ti          int32  //24 -28
 	Cid         uint32 //28 -32
