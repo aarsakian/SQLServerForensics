@@ -27,6 +27,7 @@ type Database struct {
 	tablesPartitions    TablesPartitions
 	tablesAllocations   TablesAllocations
 	columnsPartitions   ColumnsPartitions
+	columnsStatistics   ColumnsStatistics
 	indexesInfo         IndexesInfo
 }
 
@@ -53,6 +54,7 @@ func (db *Database) ProcessSystemTables() {
 	db.tablesAllocations = make(TablesAllocations) //rowsetid -> sysalloc
 	db.columnsPartitions = make(ColumnsPartitions) //partitionid ->  sysrscols
 	db.indexesInfo = make(IndexesInfo)             //objectid -> index info
+	db.columnsStatistics = make(ColumnsStatistics) //objectid ->
 
 	for node != nil {
 
@@ -80,7 +82,7 @@ func (db *Database) ProcessSystemTables() {
 			} else if pageType == SystemTablesFlags["sysrowsets"] {
 				db.tablesPartitions.Populate(page.DataRows)
 			} else if pageType == SystemTablesFlags["sysiscols"] {
-
+				db.columnsStatistics.Populate(page.DataRows)
 			} else if pageType == SystemTablesFlags["sysidxstats"] {
 				db.indexesInfo.Populate(page.DataRows)
 			}
@@ -314,17 +316,6 @@ func (db *Database) GetTables(tablename string) {
 			mslogger.Mslogger.Warning(msg)
 		}
 
-		for _, indexInfo := range db.indexesInfo[objectid] {
-			allocationUnits, ok := db.tablesAllocations[indexInfo.Rowsetid]
-			if ok {
-				for _, allocationUnit := range allocationUnits {
-					table.addIndex(indexInfo, allocationUnit)
-				}
-
-			}
-
-		}
-
 		partitions := db.tablesPartitions[objectid]
 
 		var table_alloc_pages page.Pages
@@ -343,18 +334,42 @@ func (db *Database) GetTables(tablename string) {
 
 				}
 
-				if partition.Idminor != 1 { // index_id 1 for data pages
-					msg := fmt.Sprintf("Table %s has partition heap index id %d\n",
-						table.Name, partition.Idminor)
-					mslogger.Mslogger.Info(msg)
-				}
 				for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
+					if partition.Idminor > 0 {
+						continue
+					}
 					table.updateColOffsets(sysrscols.Rscolid,
-						sysrscols.GetLeafOffset(), sysrscols.Ordkey) //columnd_id ,offset, ordkey
+						sysrscols.GetLeafOffset()) //columnd_id ,offset
 				}
 
 			}
 
+		}
+
+		for _, indexInfo := range db.indexesInfo[objectid] {
+			if len(indexInfo.Name) == 0 {
+				continue
+			}
+			allocationUnits, ok := db.tablesAllocations[indexInfo.Rowsetid] // f
+			if ok {
+				for _, allocationUnit := range allocationUnits {
+
+					table.addIndex(indexInfo, allocationUnit)
+
+				}
+			}
+			for _, partition := range partitions {
+				if partition.Idminor == 0 { // no index
+					continue
+				}
+				for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
+					if indexInfo.Indid == sysrscols.Hbcolid+1 { // to check normally should be equal
+						table.udateColIndex(sysrscols)
+						break
+					}
+
+				}
+			}
 		}
 
 		sort.Sort(table_alloc_pages)
@@ -374,6 +389,10 @@ func (db *Database) GetTables(tablename string) {
 		} else {
 			table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
 
+		}
+
+		if !indexPages.IsEmpty() {
+			table.setIndexContent(indexPages)
 		}
 
 		db.Tables = append(db.Tables, table)
