@@ -23,6 +23,8 @@ type TableIndex struct {
 	firstPage uint32
 }
 
+type ColumnIndex map[int]*Row
+
 type Table struct {
 	Name              string
 	ObjectId          int32
@@ -37,6 +39,8 @@ type Table struct {
 	VarLenCols        []int
 	PageIDsPerType    map[string][]uint32 //pageType ->pageID
 	indexType         string
+	indexedColumns    []*Column
+	columnIndex       map[string]*Row
 }
 
 type ByRowId []ColMap
@@ -94,10 +98,53 @@ func (byrowid ByRowId) Swap(i, j int) {
 	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
 }*/
 
+func (table *Table) udateColIndex(sysrscols SysRsCols) {
+	for _, col := range table.Schema {
+		if col.Order == uint16(sysrscols.Rscolid) {
+			table.indexedColumns = append(table.indexedColumns, &col)
+			break
+		}
+	}
+}
+
 func (table *Table) addIndex(indexInfo SysIdxStats, sysallocunit SysAllocUnits) {
+
 	table.Indexes = append(table.Indexes,
 		TableIndex{name: indexInfo.GetName(), rootPage: sysallocunit.GetRootPageId(),
 			firstPage: sysallocunit.GetFirstPageId()})
+}
+
+func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
+
+	for _, index := range table.Indexes {
+		pages := indexPages.Lookup[uint32(index.rootPage)]
+
+		for pages != nil {
+			page := pages.Pages[0]
+			for _, indexrow := range page.IndexRows {
+				if table.indexType == "Heap" {
+					table.ProcessIndexHeap(indexrow.NoNLeaf)
+				}
+
+			}
+			pages = pages.Next
+		}
+	}
+
+}
+
+func (table *Table) ProcessIndexHeap(leaf *page.IndexNoNLeaf) {
+	c := table.indexedColumns[0]
+	keystr := c.toString(leaf.KeyValue)
+	if keystr == "0" {
+		return
+	}
+	for rowid, row := range table.rows {
+		if c.toString(row.ColMap[c.Name].Content) == keystr {
+			table.columnIndex[keystr] = &table.rows[rowid]
+			break
+		}
+	}
 }
 
 func (table *Table) AddRow(record LDF.Record) {
@@ -473,7 +520,7 @@ func (table Table) printData(showtorow int, skiprows int,
 
 }
 
-func (table *Table) updateColOffsets(column_id int32, offset int16, ordkey int16) {
+func (table *Table) updateColOffsets(column_id uint32, offset int16) {
 	if len(table.Schema) < int(column_id) {
 		msg := fmt.Sprintf("Partition columnd id %d exceeds nof cols %d of table %s", column_id, len(table.Schema), table.Name)
 		mslogger.Mslogger.Warning(msg)
