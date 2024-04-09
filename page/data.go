@@ -259,6 +259,10 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 				colId, startoffset)
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
+		} else if dataRow.VarLenCols == nil {
+			msg := fmt.Sprintf("No var len cols found at offset %d", startoffset)
+			mslogger.Mslogger.Error(msg)
+			return nil, errors.New(msg)
 		}
 
 		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
