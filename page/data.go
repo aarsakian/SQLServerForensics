@@ -260,8 +260,9 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
 		}
+
 		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
-		if rowId.FileId != 0 {
+		if !lobPages.IsEmpty() && rowId.FileId != 0 { //only when there are lobpages proceed
 
 			lobPage := lobPages.GetFirstPage(rowId.PageId)
 
