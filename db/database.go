@@ -335,9 +335,7 @@ func (db *Database) GetTables(tablename string) {
 				}
 
 				for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
-					if partition.Idminor > 0 {
-						continue
-					}
+
 					table.updateColOffsets(sysrscols.Rscolid,
 						sysrscols.GetLeafOffset()) //columnd_id ,offset
 				}
