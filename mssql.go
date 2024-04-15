@@ -164,7 +164,7 @@ func main() {
 
 			if *ldf {
 				records = records.FilterByNames([]string{mdffile, ldffile})
-			} else {
+			} else if mdffile != "" {
 				records = records.FilterByName(mdffile)
 			}
 
