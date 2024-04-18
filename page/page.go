@@ -477,10 +477,10 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
 	var carvedDataRow *DataRow = new(DataRow)
 	slotoffset := 0
-	for slotoffset < len(unallocatedData) {
+	for slotoffset < len(unallocatedData) && slotoffset > 0 {
 		// second condition for negative offsets in var cols offsets
 
-		msg := fmt.Sprintf("unallocated space discovered at %d\n",
+		msg := fmt.Sprintf("unallocated space discovered at %d",
 			offset+len(unallocatedData))
 		mslogger.Mslogger.Warning(msg)
 		if GetRowType(unallocatedData[slotoffset]) != "Primary Record" {
@@ -595,8 +595,15 @@ func (page *Page) parseIndex(data []byte, offset int) {
 		} else { //last slot
 			indexRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
 		}
+
+		if int(indexRowLen+slotoffset) >= len(data) {
+			msg := fmt.Sprintf("exceeded buffer length %d by %d", len(data), len(data)-int(indexRowLen+slotoffset))
+			mslogger.Mslogger.Warning(msg)
+			break
+		}
 		indexRow := new(IndexRow)
 		indexRow.Parse(data[slotoffset : slotoffset+indexRowLen])
+
 		/*dst := make([]byte, page.Header.PMinLen-1)                                     // allocate memory for fixed len cols
 		copy(dst, data[slotoffset+1:slotoffset+utils.SlotOffset(page.Header.PMinLen)]) //first always statusA
 		indexRow.FixedLenCols = dst
