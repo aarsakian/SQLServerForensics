@@ -127,7 +127,7 @@ func main() {
 		defer servicer.StartService()
 	}
 
-	exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1"}
+	exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id"}
 
 	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" ||
 		*low && *dbfile != "" {
@@ -181,7 +181,8 @@ func main() {
 			exp.ExportRecords(records, physicalDisk, partitionId)
 
 			for _, record := range records {
-				fullpath := filepath.Join(exp.Location, record.GetFname())
+
+				fullpath := filepath.Join(exp.Location, fmt.Sprintf("[%d]%s", record.Entry, record.GetFname()))
 				extension := path.Ext(fullpath)
 				if extension == ".mdf" {
 					mdffiles = append(mdffiles, fullpath)
@@ -242,7 +243,7 @@ func main() {
 		fmt.Println("Reconstructing tables...")
 
 		/*retrieving schema and table contents */
-		database.GetTables(*tableName)
+		database.ProcessTables(*tableName)
 
 		database.AddTablesChangesHistory()
 
