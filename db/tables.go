@@ -123,6 +123,9 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 			page := pages.Pages[0]
 			for _, indexrow := range page.IndexRows {
 				if table.indexType == "Heap" {
+					if indexrow.NoNLeaf == nil {
+						continue
+					}
 					table.ProcessIndexHeap(indexrow.NoNLeaf)
 				}
 
@@ -133,12 +136,13 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
 }
 
-func (table *Table) ProcessIndexHeap(leaf *page.IndexNoNLeaf) {
+func (table *Table) ProcessIndexHeap(nonleaf *page.IndexNoNLeaf) {
 	c := table.indexedColumns[0]
-	keystr := c.toString(leaf.KeyValue)
+	keystr := c.toString(nonleaf.KeyValue)
 	if keystr == "0" {
 		return
 	}
+	table.columnIndex = make(map[string]*Row)
 	for rowid, row := range table.rows {
 		if c.toString(row.ColMap[c.Name].Content) == keystr {
 			table.columnIndex[keystr] = &table.rows[rowid]
