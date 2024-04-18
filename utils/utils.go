@@ -133,7 +133,12 @@ func isLeapYear(year uint) bool {
 // 52 bits for the fraction use negative power to 2
 // finaly multiply with exponent
 func FloatToStr(data []byte) string {
+	if len(data) < 8 {
+		dst := make([]byte, 8)
+		copy(dst, data)
+		data = dst
 
+	}
 	var bitrepresentation strings.Builder
 	for _, byteval := range Bytereverse(data[6:8]) {
 
@@ -589,7 +594,6 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 		field := structValPtr.Elem().Field(i) //StructField type
 		name := structType.Elem().Field(i).Name
 		switch field.Kind() {
-		case reflect.String:
 
 		case reflect.Uint8:
 			var temp uint8
