@@ -284,7 +284,7 @@ func (db *Database) AddTablesChangesHistory() {
 
 }
 
-func (db *Database) GetTables(tablename string) {
+func (db *Database) ProcessTables(tablename string) {
 	/*
 	 get objectid for each table  sysschobjs
 	 for each table using its objectid retrieve its columns from syscolpars
@@ -295,12 +295,13 @@ func (db *Database) GetTables(tablename string) {
 
 	for objectid, tableinfo := range db.tablesInfo {
 		tname := tableinfo.GetName()
+
 		if tablename != "all" && tablename != tname {
 			msg := fmt.Sprintf("table %s not processed", tname)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
-
+		fmt.Printf("Processing table %s\n", tname)
 		table := Table{Name: tname, ObjectId: objectid, Type: tableinfo.GetTableType(),
 			PageIDsPerType: map[string][]uint32{}}
 
@@ -361,7 +362,7 @@ func (db *Database) GetTables(tablename string) {
 					continue
 				}
 				for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
-					if indexInfo.Indid == sysrscols.Hbcolid+1 { // to check normally should be equal
+					if indexInfo.Indid == sysrscols.Hbcolid { // to check normally should be equal
 						table.udateColIndex(sysrscols)
 						break
 					}
