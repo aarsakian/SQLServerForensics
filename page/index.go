@@ -62,18 +62,18 @@ func (indexRow *IndexRow) Parse(data []byte) {
 
 		indexRow.IntermediateClustered = indexIntermediate
 
-	} else if indexRow.IsRootRecordClustered() { // root ?
+	} else if indexRow.IsRootRecordClustered() && len(data) > 6 { // root ?
 
 		indexNoNLeaf := new(IndexNoNLeaf)
+
 		utils.Unmarshal(data[len(data)-6:], indexNoNLeaf)
 
 		structSize := int(unsafe.Sizeof(indexNoNLeaf))
 		if len(data) > structSize {
 			indexNoNLeaf.KeyValue = make([]byte, len(data[1:len(data)-structSize]))
 			copy(indexNoNLeaf.KeyValue, data[1:len(data)-structSize])
+			indexRow.NoNLeaf = indexNoNLeaf
 		}
-
-		indexRow.NoNLeaf = indexNoNLeaf
 
 	} else if indexRow.IsLeafNoNClusteredRecord() {
 		indexLeafNoNClustered := new(IndexLeafNoNClustered)
