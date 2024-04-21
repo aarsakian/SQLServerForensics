@@ -402,10 +402,16 @@ func (table Table) GetImages() utils.Images {
 	return images
 }
 
-func (table Table) printHeader() {
+func (table Table) printHeader(showcolnames []string) {
 	fmt.Printf("\n---------------------------\n")
 	for _, c := range table.Schema {
-		fmt.Printf("%s ", c.Name)
+		for _, showcolname := range showcolnames {
+			if showcolname != "" && showcolname != c.Name {
+				continue
+			}
+			fmt.Printf("%s ", c.Name)
+		}
+
 	}
 	fmt.Printf("\n")
 }
@@ -462,7 +468,7 @@ func (table Table) cleverPrintData() {
 }
 
 func (table Table) printData(showtorow int, skiprows int,
-	showrow int, showcarved bool, showldf bool) {
+	showrow int, showcarved bool, showldf bool, showcolnames []string) {
 
 	for idx, row := range table.rows {
 		if skiprows != -1 && idx < skiprows {
@@ -477,9 +483,14 @@ func (table Table) printData(showtorow int, skiprows int,
 		}
 
 		for _, c := range table.Schema {
+			for _, showcolname := range showcolnames {
+				if showcolname != "" && showcolname != c.Name {
+					continue
+				}
+				colData := row.ColMap[c.Name]
+				c.Print(colData.Content)
 
-			colData := row.ColMap[c.Name]
-			c.Print(colData.Content)
+			}
 		}
 		fmt.Printf("\n")
 	}
@@ -488,12 +499,18 @@ func (table Table) printData(showtorow int, skiprows int,
 		fmt.Printf("* = carved row\n")
 		for _, row := range table.carvedrows {
 			for cid, c := range table.Schema {
+				for _, showcolname := range showcolnames {
+					if showcolname != "" && showcolname != c.Name {
+						continue
+					}
+					colData := row.ColMap[c.Name]
+					if cid == 0 {
+						fmt.Printf("* ")
+					}
+					c.Print(colData.Content)
 
-				colData := row.ColMap[c.Name]
-				if cid == 0 {
-					fmt.Printf("* ")
 				}
-				c.Print(colData.Content)
+
 			}
 			fmt.Printf("\n")
 		}
