@@ -86,6 +86,7 @@ func main() {
 	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	ldf := flag.Bool("ldf", false, "parse hardened (commited) transactions saved to the log")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|any")
+	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
 
 	flag.Parse()
 
@@ -113,7 +114,8 @@ func main() {
 		SelectedTableRow:    *selectedTableRow,
 		ShowCarved:          *showcarved,
 		ShowLDF:             *showLDF,
-		TableType:           *tabletype}
+		TableType:           *tabletype,
+		ShowColNames:        strings.Split(*colnames, ",")}
 
 	var physicalDisk disk.Disk
 	var recordsPerPartition map[int]MFT.Records
@@ -162,7 +164,7 @@ func main() {
 				continue
 			}
 
-			if *ldf {
+			if *ldf && ldffile != "" {
 				records = records.FilterByNames([]string{mdffile, ldffile})
 			} else if mdffile != "" {
 				records = records.FilterByName(mdffile)
@@ -177,6 +179,8 @@ func main() {
 			} else {
 				records = records.FilterByExtensions([]string{"MDF"})
 			}
+
+			records = records.FilterOutDeleted()
 
 			exp.ExportRecords(records, physicalDisk, partitionId)
 
