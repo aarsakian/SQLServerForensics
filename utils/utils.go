@@ -127,18 +127,22 @@ func isLeapYear(year uint) bool {
 
 }
 
-// 1: the signed bit
-// 2 to 12: the exponent, which is offset against a bias 2^1023
-// 13 to 64: the significand (also known as the mantissa)
-// 52 bits for the fraction use negative power to 2
-// finaly multiply with exponent
-func FloatToStr(data []byte) string {
+func CheckLenBefore(data []byte, functocall func([]byte) string) string {
 	if len(data) < 8 {
 		dst := make([]byte, 8)
 		copy(dst, data)
 		data = dst
 
 	}
+	return functocall(data)
+}
+
+// 1: the signed bit
+// 2 to 12: the exponent, which is offset against a bias 2^1023
+// 13 to 64: the significand (also known as the mantissa)
+// 52 bits for the fraction use negative power to 2
+// finaly multiply with exponent
+func FloatToStr(data []byte) string {
 	var bitrepresentation strings.Builder
 	for _, byteval := range Bytereverse(data[6:8]) {
 
@@ -234,6 +238,13 @@ func parseDateTime(data []byte) (int, int, int, int, int, int, int) {
 
 	var day int
 	var month int
+
+	if len(data) < 8 {
+		dst := make([]byte, 8)
+		copy(dst, data)
+		data = dst
+
+	}
 	daysSince1900 := ToInt32(data[4:8])
 	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
 
