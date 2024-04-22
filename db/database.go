@@ -228,7 +228,7 @@ func (db Database) ShowTables(tablename string, showSchema bool, showContent boo
 		if tabletype == "user" && table.Type != "User Table" {
 			continue
 		}
-
+		fmt.Printf("\nTable %s \n", table.Name)
 		if showSchema {
 			table.printSchema()
 		}
