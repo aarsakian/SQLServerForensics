@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -284,7 +285,6 @@ func (table *Table) addColumns(columns []SysColpars) {
 func (table Table) printSchema() {
 	if table.Schema != nil {
 
-		fmt.Printf("Table Name:  %s \n", table.Name)
 		fmt.Printf("Static cols \n")
 		for _, col := range table.Schema {
 			if !col.isStatic() {
@@ -364,10 +364,10 @@ func (table Table) printAllocation() {
 
 }
 
-func (table Table) GetRecords(selectedRow int) utils.Records {
-	var records utils.Records
+func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow int, records chan<- utils.Record) {
+	defer wg.Done()
 
-	records = append(records, table.getHeader())
+	records <- table.getHeader()
 
 	for rownum, row := range table.rows {
 		var record utils.Record
@@ -379,10 +379,9 @@ func (table Table) GetRecords(selectedRow int) utils.Records {
 			record = append(record, c.toString(colData.Content))
 
 		}
-		records = append(records, record)
+		records <- record
 	}
-	return records
-
+	close(records)
 }
 
 func (table Table) GetImages() utils.Images {
@@ -403,7 +402,6 @@ func (table Table) GetImages() utils.Images {
 }
 
 func (table Table) printHeader(showcolnames []string) {
-	fmt.Printf("\n---------------------------\n")
 	for _, c := range table.Schema {
 		for _, showcolname := range showcolnames {
 			if showcolname != "" && showcolname != c.Name {
@@ -434,7 +432,7 @@ func (table Table) cleverPrintData() {
 		groupedRowsById[c.toString(colData.Content)] = row
 	}
 
-	fmt.Printf("Grouped By First col all changes carved and logged oldest first\n")
+	fmt.Printf("\nGrouped By First col all changes carved and logged oldest first\n")
 	sort.Sort(ByActionDate(table.loggedrows))
 	for _, row := range table.loggedrows {
 		for cid, c := range table.Schema {
