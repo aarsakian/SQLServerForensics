@@ -205,7 +205,10 @@ func main() {
 			if e != nil {
 				mslogger.Mslogger.Error(e)
 			}
-			ldffiles = append(ldffiles, ldffilepath)
+			if ldffilepath != "" {
+				ldffiles = append(ldffiles, ldffilepath)
+			}
+
 		}
 	}
 
