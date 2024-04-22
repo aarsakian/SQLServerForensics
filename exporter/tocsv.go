@@ -8,11 +8,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
-func writeCSV(records utils.Records, filename string, folder string) {
-	fpath := filepath.Join(folder, filename)
-	file, err := os.Create(fmt.Sprintf("%s.csv", fpath))
+func writeCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, folder string) {
+	defer wg.Done()
+	fpath := filepath.Join(folder, fmt.Sprintf("%s.csv", filename))
+	file, err := os.OpenFile(fmt.Sprintf("%s.csv", fpath), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {
 		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
@@ -20,8 +22,11 @@ func writeCSV(records utils.Records, filename string, folder string) {
 	defer file.Close()
 	w := csv.NewWriter(file)
 
-	w.WriteAll(records)
+	fmt.Printf("Exporting table %s contents to %s\n", filename, fpath)
 
+	for record := range records {
+		w.Write(record)
+	}
 	// Write any buffered data to the underlying writer (standard output).
 	w.Flush()
 
@@ -31,6 +36,5 @@ func writeCSV(records utils.Records, filename string, folder string) {
 	//len(records) - header
 	msg := fmt.Sprintf("Exported %d rows to %s", len(records)-1, fpath)
 	mslogger.Mslogger.Info(msg)
-	fmt.Printf(msg + "\n")
 
 }
