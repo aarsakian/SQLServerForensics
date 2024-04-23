@@ -14,7 +14,7 @@ import (
 func writeCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, folder string) {
 	defer wg.Done()
 	fpath := filepath.Join(folder, fmt.Sprintf("%s.csv", filename))
-	file, err := os.OpenFile(fmt.Sprintf("%s.csv", fpath), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {
 		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
