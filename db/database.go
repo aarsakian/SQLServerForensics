@@ -14,8 +14,9 @@ import (
 var PAGELEN = 8192
 
 type Database struct {
-	Fname               string                  // path to mdf file
-	Lname               string                  // path to ldf file
+	Fname               string // path to mdf file
+	Lname               string // path to ldf file
+	Name                string
 	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables              []Table
 	LogPage             page.Page
