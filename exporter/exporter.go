@@ -22,10 +22,15 @@ type Exporter struct {
 func (exp Exporter) Export(database db.Database, tablename string, tabletype string, selectedTableRow int) {
 
 	var images utils.Images
+	var err error
+	err = os.RemoveAll(filepath.Join(exp.Path, database.Name))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	err := os.MkdirAll(filepath.Join(exp.Path, database.Fname), 0750)
+	err = os.MkdirAll(filepath.Join(exp.Path, database.Name), 0750)
 
-	if err != nil && !os.IsExist(err) {
+	if err != nil {
 		log.Fatal(err)
 	}
 
@@ -41,7 +46,7 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 		}
 
 		if table.Type != "" {
-			err := os.Mkdir(filepath.Join(exp.Path, table.Type), 0750)
+			err := os.Mkdir(filepath.Join(exp.Path, database.Name, table.Type), 0750)
 			if err != nil && !os.IsExist(err) {
 				log.Fatal(err)
 			}
@@ -49,7 +54,7 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 
 		wg := new(sync.WaitGroup)
 		wg.Add(2)
-		records := make(chan utils.Record, 100)
+		records := make(chan utils.Record, 1000)
 
 		go table.GetRecords(wg, selectedTableRow, records)
 
@@ -62,7 +67,7 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 
 		if exp.Format == "csv" {
 
-			go writeCSV(wg, records, table.Name, filepath.Join(exp.Path, table.Type))
+			go writeCSV(wg, records, table.Name, filepath.Join(exp.Path, database.Name, table.Type))
 			wg.Wait()
 		}
 
