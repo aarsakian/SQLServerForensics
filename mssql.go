@@ -215,9 +215,9 @@ func main() {
 	for idx, inputFile := range mdffiles {
 
 		if len(ldffiles) != len(mdffiles) {
-			database = db.Database{Fname: inputFile}
+			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
 		} else {
-			database = db.Database{Fname: inputFile, Lname: ldffiles[idx]}
+			database = db.Database{Fname: inputFile, Lname: ldffiles[idx], Name: filepath.Base(inputFile)}
 		}
 		/*processing pages stage */
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
