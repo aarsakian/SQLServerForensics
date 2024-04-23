@@ -91,7 +91,8 @@ func (transactionID TransactionID) ToStr() string {
 // Datetime2: 8 bytes rtl reading first 5 time unit intervals since midnight,last 3 (left) how many days have passed since 0001/01/01
 // 0x07 prefix time unit 100ns, 0x06 1 micro second intervals
 func DateTime2Tostr(data []byte) string {
-	return ""
+	return DateToStr(data[5:8])
+
 }
 
 // 1 byte for precision 1 byte for scale
@@ -135,6 +136,25 @@ func CheckLenBefore(data []byte, functocall func([]byte) string) string {
 
 	}
 	return functocall(data)
+}
+
+func RealToStr(data []byte, precision uint8, scale uint8) string {
+	//reverse bytes
+	//Decimal 10.3 allocate bytes to accomodate for precision e.g. 1.7 = 1700 = a406  (Little Endian) 4 bytes mini length
+	sign := ""
+	if uint(data[0]) == 0 { // 1 = positive
+		sign = "-"
+	}
+	val := strconv.FormatUint(uint64(ToInt32(data[1:])), 10)
+
+	dotPos := len(val) - int(scale)
+	if dotPos < 0 {
+		mslogger.Mslogger.Warning(fmt.Sprintf("scale %d less than value length %d", scale, len(val)))
+		return fmt.Sprintf("%s%s", sign, val)
+	} else {
+		return fmt.Sprintf("%s%s.%s", sign, val[:dotPos], val[dotPos:])
+	}
+
 }
 
 // 1: the signed bit
@@ -234,6 +254,38 @@ func DateTimeToObj(data []byte) time.Time {
 	return time.Date(years, time.Month(month), day, hours, minutes, seconds, msecs, time.UTC)
 }
 
+func ParseSmallDateTime(data []byte) string {
+	var day int
+	var month int
+
+	if len(data) < 8 {
+		dst := make([]byte, 8)
+		copy(dst, data)
+		data = dst
+
+	}
+	daysSince1900 := ToInt32(data[2:4])
+	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
+
+	nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
+	daysInTheYear := int(daysSince1900-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+
+	if isLeapYear(uint(years + 1900)) {
+		month = int(float64(daysInTheYear)/30.41667 + 1)
+		day = daysInTheYear - LeapYear[month] + 1
+	} else {
+		month = int(float64(daysInTheYear)/30.5 + 1)
+		day = daysInTheYear - Year[month]
+	}
+
+	timePart := ToUint32(data[0:2])
+	hours := int(float64((timePart / (300 * 60 * 60)) % 24))
+	minutes := int(float64((timePart / (300 * 60)) % 60))
+	seconds := 0
+	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d", day, month, years+1900, hours, minutes, seconds)
+
+}
+
 func parseDateTime(data []byte) (int, int, int, int, int, int, int) {
 
 	var day int
@@ -253,7 +305,7 @@ func parseDateTime(data []byte) (int, int, int, int, int, int, int) {
 
 	if isLeapYear(uint(years + 1900)) {
 		month = int(float64(daysInTheYear)/30.41667 + 1)
-		day = daysInTheYear - LeapYear[month]
+		day = daysInTheYear - LeapYear[month] + 1
 	} else {
 		month = int(float64(daysInTheYear)/30.5 + 1)
 		day = daysInTheYear - Year[month]
