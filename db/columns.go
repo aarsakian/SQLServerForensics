@@ -52,6 +52,11 @@ func (c Column) parseDecimal(data []byte) string {
 
 }
 
+func (c Column) parseReal(data []byte) string {
+	return utils.RealToStr(data, c.Precision, c.Scale)
+
+}
+
 func (sqlVariant SqlVariant) getData() string {
 	if sqlVariant.BaseType == 0x23 {
 		return fmt.Sprintf("%d", utils.ToInt32(sqlVariant.Value))
@@ -141,6 +146,10 @@ func (c Column) toString(data []byte) string {
 		return utils.CheckLenBefore(data, utils.DateToStr)
 	} else if c.Type == "float" {
 		return utils.CheckLenBefore(data, utils.FloatToStr)
+	} else if c.Type == "real" {
+		return c.parseReal(data)
+	} else if c.Type == "smalldatetime" {
+		return utils.ParseSmallDateTime(data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
