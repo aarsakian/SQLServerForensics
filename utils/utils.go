@@ -91,7 +91,20 @@ func (transactionID TransactionID) ToStr() string {
 // Datetime2: 8 bytes rtl reading first 5 time unit intervals since midnight,last 3 (left) how many days have passed since 0001/01/01
 // 0x07 prefix time unit 100ns, 0x06 1 micro second intervals
 func DateTime2Tostr(data []byte) string {
-	return DateToStr(data[5:8])
+
+	return fmt.Sprintf("%s %s", DateToStr(data[len(data)-3:]), timeToStr(data[:len(data)-3]))
+
+}
+
+func timeToStr(data []byte) string {
+	time64 := make([]byte, 8)
+	copy(time64, data)
+	timePart := ToUint64(time64)
+	hours := int(float64((timePart / (100000000 * 60 * 60)) % 24))
+	minutes := int(float64((timePart / (100000000 * 60)) % 60))
+	seconds := int(float64((timePart / 100000000) % 60))
+	_, nsecs := math.Modf(float64(timePart) / 100000000)
+	return fmt.Sprintf("%d:%02d:%02d.%03d", hours, minutes, seconds, int(nsecs))
 
 }
 
@@ -139,20 +152,37 @@ func CheckLenBefore(data []byte, functocall func([]byte) string) string {
 }
 
 func RealToStr(data []byte, precision uint8, scale uint8) string {
-	//reverse bytes
-	//Decimal 10.3 allocate bytes to accomodate for precision e.g. 1.7 = 1700 = a406  (Little Endian) 4 bytes mini length
-	sign := ""
-	if uint(data[0]) == 0 { // 1 = positive
-		sign = "-"
-	}
-	val := strconv.FormatUint(uint64(ToInt32(data[1:])), 10)
+	var bitrepresentation strings.Builder
+	for _, byteval := range Bytereverse(data[2:4]) {
 
-	dotPos := len(val) - int(scale)
-	if dotPos < 0 {
-		mslogger.Mslogger.Warning(fmt.Sprintf("scale %d less than value length %d", scale, len(val)))
-		return fmt.Sprintf("%s%s", sign, val)
+		bitrepresentation.WriteString(fillPrefixWithZeros(
+			strconv.FormatUint(uint64(byteval), 2), 8))
+	}
+
+	intval, _ := strconv.ParseUint(bitrepresentation.String()[1:9], 2, 8)
+	exponent := math.Pow(2, float64(intval-127))
+	if math.IsInf(exponent, 1) {
+		exponent = 0.0
+	}
+	mantissaSum := 0.0
+
+	var mantissa strings.Builder
+	mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(data[2]), 2), 8)[1:8])
+	for _, byteval := range Bytereverse(data[0:2]) {
+
+		mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(byteval), 2), 8))
+	}
+
+	for pos, bitval := range mantissa.String() {
+		mantissaSum += float64(bitval-48) * math.Pow(2, float64(-1*(pos+1)))
+
+	}
+
+	mantissaSum += 1
+	if data[3]&0x80 == 0x80 { //sing check
+		return strconv.FormatFloat(-1*exponent*mantissaSum, 'E', -1, 32)
 	} else {
-		return fmt.Sprintf("%s%s.%s", sign, val[:dotPos], val[dotPos:])
+		return strconv.FormatFloat(exponent*mantissaSum, 'E', -1, 32)
 	}
 
 }
@@ -205,12 +235,13 @@ func fillPrefixWithZeros(bitval string, targetLen int) string {
 
 func Bytereverse(barray []byte) []byte { //work with indexes
 	//  fmt.Println("before",barray)
-	for i, j := 0, len(barray)-1; i < j; i, j = i+1, j-1 {
+	reversedArray := make([]byte, len(barray))
+	for i := 0; i < len(barray); i++ {
 
-		barray[i], barray[j] = barray[j], barray[i]
+		reversedArray[i] = barray[len(barray)-i-1]
 
 	}
-	return barray
+	return reversedArray
 
 }
 
@@ -380,6 +411,16 @@ func ToInt16(data []byte) int {
 	var temp int16
 	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
 	return int(temp)
+}
+
+func BitToString(bitmap []byte, bitCount int) string {
+	var bitrepresentation string
+	for valpos, val := range bitmap {
+		bitval := addMissingBits(strconv.FormatUint(uint64(val), 2), len(bitmap)*8, valpos)
+		bitrepresentation = strings.Join([]string{bitval, bitrepresentation}, "")
+	}
+
+	return string(bitrepresentation[len(bitrepresentation)-bitCount])
 }
 
 func ToInt8(data []byte) int {
