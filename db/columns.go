@@ -136,7 +136,7 @@ func (c Column) toString(data []byte) string {
 	} else if c.Type == "image" {
 		return b64.StdEncoding.EncodeToString(data)
 	} else if c.Type == "bit" {
-		return fmt.Sprintf("%1d", utils.ToInt8(data))
+		return utils.BitToString(data, 1) // less than 8 cols one byte required > 2 two bytes
 	} else if c.Type == "uniqueidentifier" {
 		return fmt.Sprintf("%x-%x-%x-%x-%x", utils.Reverse(data[0:4]), utils.Reverse(data[4:6]),
 			utils.Reverse(data[6:8]), data[8:10], data[10:16])
