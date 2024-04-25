@@ -575,24 +575,22 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 		nofCols := len(table.Schema)
 
 		for _, datarow := range page.DataRows {
-
+			rownum++
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 				msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
 					int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
 				mslogger.Mslogger.Warning(msg)
-				continue
+				//continue
 			}
 			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
 				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
 					pageId, rownum, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
 				mslogger.Mslogger.Warning(msg)
-				continue
+				//continue
 			}
 
 			table.rows = append(table.rows,
 				table.ProcessRow(rownum, datarow, lobPages, textLobPages))
-
-			rownum++
 
 		}
 
