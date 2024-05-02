@@ -4,6 +4,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"bytes"
@@ -121,11 +122,15 @@ func LocateLDFfile(mdffile string) (string, error) {
 	if e != nil {
 		fmt.Printf("Error listing ldf folder%s", e)
 	}
+	re := regexp.MustCompile("\\[[0-9]+\\]")
+	nameOnly := string(re.ReplaceAll([]byte(fname), []byte("")))
+
 	for _, entry := range entries {
 		if filepath.Ext(entry.Name()) != ".ldf" {
 			continue
 		}
-		if strings.Contains(entry.Name(), fname) {
+		if strings.Contains(entry.Name(), nameOnly) {
+
 			return filepath.Join(dir, entry.Name()), nil
 		}
 
