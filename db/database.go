@@ -39,10 +39,10 @@ type SystemTable interface {
 func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
 
 	totalProcessedPages := db.ProcessMDF(selectedPage, fromPage, toPage, carve)
+
 	if db.Lname != "" {
 		db.ProcessLDF()
 	}
-
 	return totalProcessedPages
 
 }
@@ -184,7 +184,7 @@ func (db *Database) ProcessLDF() {
 
 	db.VLFs = new(LDF.VLFs)
 	recordsProcessed := db.VLFs.Process(*file)
-	fmt.Printf("LDF processing completed %d records processed\n", recordsProcessed)
+	fmt.Printf("LDF processing completed %d log records processed\n", recordsProcessed)
 }
 
 func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
@@ -302,7 +302,7 @@ func (db *Database) ProcessTables(tablename string) {
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
-		fmt.Printf("Processing table %s\n", tname)
+		//	fmt.Printf("Processing table %s\n", tname)
 		table := Table{Name: tname, ObjectId: objectid, Type: tableinfo.GetTableType(),
 			PageIDsPerType: map[string][]uint32{}}
 
