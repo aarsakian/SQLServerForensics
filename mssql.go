@@ -121,7 +121,7 @@ func main() {
 	var recordsPerPartition map[int]MFT.Records
 	var mdffiles, ldffiles []string
 
-	var ldffile, mdffile, basepath string
+	var mdffile, basepath string
 	var database db.Database
 
 	if *stopService {
@@ -153,21 +153,11 @@ func main() {
 		if *dbfile != "" {
 			basepath, mdffile = utils.SplitPath(*dbfile)
 
-			if *ldf {
-				ldffile = strings.Split(mdffile, ".")[0] + "_log.ldf"
-			}
-
 		}
 
 		for partitionId, records := range recordsPerPartition {
 			if len(records) == 0 {
 				continue
-			}
-
-			if *ldf && ldffile != "" {
-				records = records.FilterByNames([]string{mdffile, ldffile})
-			} else if mdffile != "" {
-				records = records.FilterByName(mdffile)
 			}
 
 			if len(basepath) > 0 {
@@ -181,6 +171,14 @@ func main() {
 			}
 
 			records = records.FilterOutDeleted()
+
+			if mdffile != "" && !*ldf {
+
+				records = records.FilterByName(mdffile)
+			} else if mdffile != "" {
+				records = records.FilterByPrefixesSuffixes(strings.Split(mdffile, ".")[0], "ldf",
+					strings.Split(mdffile, ".")[0], "mdf")
+			}
 
 			exp.ExportRecords(records, physicalDisk, partitionId)
 
@@ -200,38 +198,41 @@ func main() {
 
 	} else if *dbfile != "" {
 		mdffiles = append(mdffiles, *dbfile)
-		if *ldf {
-			ldffilepath, e := utils.LocateLDFfile(*dbfile)
-			if e != nil {
-				mslogger.Mslogger.Error(e)
-			}
-			if ldffilepath != "" {
-				ldffiles = append(ldffiles, ldffilepath)
-			}
 
-		}
 	}
 
-	for idx, inputFile := range mdffiles {
+	for _, inputFile := range mdffiles {
 
-		if len(ldffiles) != len(mdffiles) {
-			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
+		if *ldf {
+			ldffilepath, e := utils.LocateLDFfile(inputFile)
+			if e != nil {
+				mslogger.Mslogger.Error(e)
+				continue
+			}
+
+			database = db.Database{Fname: inputFile, Lname: ldffilepath, Name: filepath.Base(inputFile)}
+
 		} else {
-			database = db.Database{Fname: inputFile, Lname: ldffiles[idx], Name: filepath.Base(inputFile)}
+			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
 		}
+
 		/*processing pages stage */
 		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
+		if totalProcessedPages == -1 {
+			continue
+		}
 		if len(ldffiles) != 0 {
 			database.LocateRecords()
 		}
 		fmt.Printf("Processed %d pages.\n", totalProcessedPages)
 
+		if totalProcessedPages <= 0 {
+			fmt.Printf("no pages found skipped processing\n")
+			continue
+		}
+
 		database.ProcessSystemTables()
 		fmt.Printf("Processed system tables \n")
-
-		if totalProcessedPages <= 0 {
-			return
-		}
 
 		if *pageType != "" {
 			database.FilterPagesByType(*pageType) //mutable
