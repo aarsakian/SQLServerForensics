@@ -87,10 +87,12 @@ func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
 		} else {
 			pagesPerID.list.UpdateNext(pagesPerIDNode)
 		}
-		pagesPerID.Lookup[allocUnitID] = pagesPerIDNode
 		pagesPerIDNode.Pages = Pages{page}
+		pagesPerID.Lookup[allocUnitID] = pagesPerIDNode
+
 	} else {
 		pagesPerIDNode.Pages = append(pagesPerIDNode.Pages, page)
+
 	}
 
 }
