@@ -75,7 +75,13 @@ func (indexRow *IndexRow) Parse(data []byte) {
 			indexRow.NoNLeaf = indexNoNLeaf
 		}
 
-	} else if indexRow.IsLeafNoNClusteredRecord() {
+	} else if indexRow.IsLeafNoNClusteredRecord() && len(data) == 6 {
+		indexNoNLeaf := new(IndexNoNLeaf)
+
+		utils.Unmarshal(data[len(data)-6:], indexNoNLeaf)
+		indexRow.NoNLeaf = indexNoNLeaf
+
+	} else if indexRow.IsLeafNoNClusteredRecord() && len(data) > 8 {
 		indexLeafNoNClustered := new(IndexLeafNoNClustered)
 		utils.Unmarshal(data[len(data)-8:], indexLeafNoNClustered)
 
