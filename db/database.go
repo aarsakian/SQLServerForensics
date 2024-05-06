@@ -58,9 +58,9 @@ func (db *Database) ProcessSystemTables() {
 	db.columnsStatistics = make(ColumnsStatistics) //objectid ->
 
 	for node != nil { //for every alloc unit go over pages
-		fmt.Println("NODE")
+
 		for _, page := range node.Pages {
-			fmt.Printf("%d \t", page.Header.PageId)
+
 			if page.Header.ObjectId > 100 {
 				break
 			}
@@ -100,7 +100,7 @@ func (db *Database) ProcessSystemTables() {
 				} */
 
 		}
-		fmt.Println()
+
 		node = node.Next
 	}
 }
