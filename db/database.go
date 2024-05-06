@@ -48,7 +48,7 @@ func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bo
 }
 
 func (db *Database) ProcessSystemTables() {
-	node := db.PagesPerAllocUnitID.GetHeadNode()
+	node := db.PagesPerAllocUnitID.GetHeadNode()   //start from head
 	db.tablesInfo = make(TablesInfo)               //objectid -> table info
 	db.columnsinfo = make(ColumnsInfo)             //objectid -> column info
 	db.tablesPartitions = make(TablesPartitions)   //objectid ->  sysrowsets
@@ -57,9 +57,10 @@ func (db *Database) ProcessSystemTables() {
 	db.indexesInfo = make(IndexesInfo)             //objectid -> index info
 	db.columnsStatistics = make(ColumnsStatistics) //objectid ->
 
-	for node != nil {
-
+	for node != nil { //for every alloc unit go over pages
+		fmt.Println("NODE")
 		for _, page := range node.Pages {
+			fmt.Printf("%d \t", page.Header.PageId)
 			if page.Header.ObjectId > 100 {
 				break
 			}
@@ -73,6 +74,7 @@ func (db *Database) ProcessSystemTables() {
 				db.tablesInfo.Populate(page.DataRows)
 
 			} else if pageType == SystemTablesFlags["syscolpars"] {
+
 				db.columnsinfo.Populate(page.DataRows)
 
 			} else if pageType == SystemTablesFlags["sysallocationunits"] {
@@ -98,7 +100,7 @@ func (db *Database) ProcessSystemTables() {
 				} */
 
 		}
-
+		fmt.Println()
 		node = node.Next
 	}
 }
@@ -153,7 +155,14 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 		msg := fmt.Sprintf("Processing offset %d", offset)
 		mslogger.Mslogger.Info(msg)
 		page := db.ProcessPage(bs, offset, carve)
-		pages.Add(page.Header.GetMetadataAllocUnitId(), page)
+
+		allocUnitID := page.Header.GetMetadataAllocUnitId()
+		if allocUnitID == 0 {
+			msg := fmt.Sprintf("Skipped Processing page at offset %d no alloc unit", offset)
+			mslogger.Mslogger.Info(msg)
+			continue
+		}
+		pages.Add(allocUnitID, page)
 
 		totalProcessedPages++
 
