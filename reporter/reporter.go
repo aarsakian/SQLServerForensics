@@ -14,7 +14,6 @@ type Reporter struct {
 	ShowPFS             bool
 	ShowHeader          bool
 	ShowSlots           bool
-	TableName           string
 	ShowTableSchema     bool
 	ShowTableContent    bool
 	ShowTableAllocation string
@@ -77,15 +76,12 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 
 }
 
-func (rp Reporter) ShowTableInfo(database db.Database) {
-	tablename := rp.TableName
-	if tablename != "" {
+func (rp Reporter) ShowTableInfo(table db.Table) {
 
-		database.ShowTables(tablename, rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
-			rp.TableType, rp.SelectedTableRows, rp.SkippedTableRows,
-			rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF, rp.ShowColNames)
+	table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
+		rp.TableType, rp.SelectedTableRows, rp.SkippedTableRows,
+		rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF, rp.ShowColNames)
 
-	}
 }
 
 func (rp Reporter) ShowLDFInfo(database db.Database, filterlop string) {
