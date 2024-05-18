@@ -33,6 +33,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	disk "github.com/aarsakian/MFTExtractor/Disk"
@@ -60,7 +61,7 @@ func main() {
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
-	tableName := flag.String("table", "", "show table (use all for all tables)")
+	tablename := flag.String("table", "", "show table (use all for all tables)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
@@ -80,7 +81,7 @@ func main() {
 	exportPath := flag.String("export", "", "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 	logactive := flag.Bool("log", false, "log activity")
-	tabletype := flag.String("tabletype", "", "filter tables by type (xtype) e.g. user for user tables")
+	tabletype := flag.String("tabletype", "", "filter tables by type e.g. User Table for user tables")
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
@@ -103,7 +104,6 @@ func main() {
 		ShowPFS:             *showPFS,
 		ShowHeader:          *showHeader,
 		ShowSlots:           *showSlots,
-		TableName:           *tableName,
 		ShowTableSchema:     *showTableSchema,
 		ShowTableContent:    *showTableContent,
 		ShowTableAllocation: *showTableAllocation,
@@ -124,9 +124,16 @@ func main() {
 	var mdffile, basepath string
 	var database db.Database
 
+	var dbExp exporter.Exporter
+
 	if *stopService {
 		servicer.StopService()
 		defer servicer.StartService()
+	}
+
+	if *exportPath != "" {
+		dbExp = exporter.Exporter{Format: *exportFormat, Image: *exportImage, Path: *exportPath}
+
 	}
 
 	exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id"}
@@ -248,24 +255,24 @@ func main() {
 			database.FilterPagesBySystemTables("sysschobjs")
 		}
 
-		fmt.Println("Reconstructing tables...")
+		fmt.Println("Table Reconstruction - Report - Export Stage")
 
 		/*retrieving schema and table contents */
-		database.ProcessTables(*tableName)
 
-		database.AddTablesChangesHistory()
+		results := make(chan db.Table, 100) //max number of tables
 
-		fmt.Printf("Reconstructed %d tables.\n", len(database.Tables))
-		fmt.Println("Reporting & exporting stage.")
+		wg := new(sync.WaitGroup)
+		wg.Add(2)
+
+		go database.ProcessTables(wg, *tablename, *tabletype, results)
+		//	go reporter.ShowTableInfo(wg, table, results)
+
+		go dbExp.Export(wg, *selectedTableRow, database.Name, results)
+		wg.Wait()
 
 		reporter.ShowPageInfo(database, uint32(*selectedPage))
 		reporter.ShowLDFInfo(database, *filterlop)
-		reporter.ShowTableInfo(database)
 
-		if *exportPath != "" {
-			exp := exporter.Exporter{Format: *exportFormat, Image: *exportImage, Path: *exportPath}
-			exp.Export(database, *tableName, *tabletype, *selectedTableRow)
-		}
 	}
 
 }
