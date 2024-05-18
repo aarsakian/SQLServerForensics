@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 )
 
 var PAGELEN = 8192
@@ -225,76 +226,30 @@ func (db Database) ShowLDF(filterloptype string) {
 	}
 }
 
-func (db Database) ShowTables(tablename string, showSchema bool, showContent bool,
-	showAllocation string, tabletype string, showrows int, skiprows int,
-	showrow int, showcarved bool, showldf bool, showcolnames []string) {
-	tableLocated := false
-	for _, table := range db.Tables {
-
-		if table.Name != tablename && tablename != "all" {
-
-			continue
-		}
-		if tabletype == "user" && table.Type != "User Table" {
-			continue
-		}
-		fmt.Printf("\nTable %s \n", table.Name)
-		if showSchema {
-			table.printSchema()
-		}
-		if showContent {
-			table.printHeader(showcolnames)
-			table.printData(showrows, skiprows, showrow, showcarved, showldf, showcolnames)
-			table.cleverPrintData()
-		}
-
-		if showAllocation == "simple" {
-
-			table.printAllocation()
-		} else if showAllocation == "links" {
-			table.printAllocationWithLinks()
-		}
-		tableLocated = true
-
-	}
-	if !tableLocated {
-		fmt.Printf("Table %s was not found! \n", tablename)
-	}
-
+func (db Database) GetTablesInfo() TablesInfo {
+	return db.tablesInfo
 }
 
-func (db *Database) AddTablesChangesHistory() {
-	var allocatedPages page.Pages
+func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype string, tables chan<- Table) {
+	defer wg.Done()
+	for objectid, tableinfo := range db.GetTablesInfo() {
+		tname := tableinfo.GetName()
+		tableType := tableinfo.GetTableType()
 
-	for idx := range db.Tables {
-		var candidateRecords LDF.Records
-		for _, allocUnitID := range db.Tables[idx].AllocationUnitIds {
-			allocatedPages = db.PagesPerAllocUnitID.GetPages(allocUnitID)
+		if tablename != "all" && tablename != tname || tabletype != "" && tabletype != tableType {
+			msg := fmt.Sprintf("table %s not processed", tname)
+			mslogger.Mslogger.Info(msg)
+			continue
 		}
 
-		lop_mod_ins_del_records := db.CarvedLogRecords.FilterByOperations(
-			[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})
-
-		lop_mod_ins_del_records = append(lop_mod_ins_del_records,
-			db.ActiveLogRecords.FilterByOperations(
-				[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})...)
-
-		for _, page := range allocatedPages {
-			if page.GetType() != "DATA" {
-				continue
-			}
-			candidateRecords = append(candidateRecords,
-				lop_mod_ins_del_records.FilterByPageID(page.Header.PageId)...)
-		}
-
-		sort.Sort(LDF.ByDecreasingLSN(candidateRecords))
-		db.Tables[idx].addLogChanges(candidateRecords)
-
+		table := db.ProcessTable(objectid, tname, tableType)
+		table.AddChangesHistory(db.PagesPerAllocUnitID, db.CarvedLogRecords, db.ActiveLogRecords)
+		tables <- table
 	}
-
+	close(tables)
 }
 
-func (db *Database) ProcessTables(tablename string) {
+func (db Database) ProcessTable(objectid int32, tname string, tType string) Table {
 	/*
 	 get objectid for each table  sysschobjs
 	 for each table using its objectid retrieve its columns from syscolpars
@@ -303,109 +258,100 @@ func (db *Database) ProcessTables(tablename string) {
 
 	*/
 
-	for objectid, tableinfo := range db.tablesInfo {
-		tname := tableinfo.GetName()
+	//	fmt.Printf("Processing table %s\n", tname)
+	table := Table{Name: tname, ObjectId: objectid, Type: tType,
+		PageIDsPerType: map[string][]uint32{}}
 
-		if tablename != "all" && tablename != tname {
-			msg := fmt.Sprintf("table %s not processed", tname)
-			mslogger.Mslogger.Info(msg)
+	fmt.Printf("reconstructing table %s id %d type %s\n", table.Name, table.ObjectId, table.Type)
+	msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
+	mslogger.Mslogger.Info(msg)
+
+	colsinfo := db.columnsinfo[objectid]
+	if colsinfo != nil {
+		table.addColumns(colsinfo)
+		table.sortByColOrder()
+	} else {
+		msg := fmt.Sprintf("No columns located for table %s", table.Name)
+		mslogger.Mslogger.Warning(msg)
+	}
+
+	partitions := db.tablesPartitions[objectid]
+
+	var table_alloc_pages page.Pages
+
+	for _, partition := range partitions {
+		table.PartitionIds = append(table.PartitionIds, partition.Rowsetid)
+		allocationUnits, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
+
+		if ok {
+			for _, allocationUnit := range allocationUnits {
+
+				table_alloc_pages = append(table_alloc_pages,
+					db.PagesPerAllocUnitID.GetPages(allocationUnit.GetId())...) // find the pages the table was allocated
+				table.AllocationUnitIds = append(table.AllocationUnitIds,
+					allocationUnit.GetId())
+
+			}
+
+			for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
+
+				table.updateColOffsets(sysrscols.Rscolid,
+					sysrscols.GetLeafOffset()) //columnd_id ,offset
+			}
+
+		}
+
+	}
+
+	for _, indexInfo := range db.indexesInfo[objectid] {
+		if len(indexInfo.Name) == 0 {
 			continue
 		}
-		//	fmt.Printf("Processing table %s\n", tname)
-		table := Table{Name: tname, ObjectId: objectid, Type: tableinfo.GetTableType(),
-			PageIDsPerType: map[string][]uint32{}}
+		allocationUnits, ok := db.tablesAllocations[indexInfo.Rowsetid] // f
+		if ok {
+			for _, allocationUnit := range allocationUnits {
 
-		msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
-		mslogger.Mslogger.Info(msg)
-
-		colsinfo := db.columnsinfo[objectid]
-		if colsinfo != nil {
-			table.addColumns(colsinfo)
-			table.sortByColOrder()
-		} else {
-			msg := fmt.Sprintf("No columns located for table %s", table.Name)
-			mslogger.Mslogger.Warning(msg)
-		}
-
-		partitions := db.tablesPartitions[objectid]
-
-		var table_alloc_pages page.Pages
-
-		for _, partition := range partitions {
-			table.PartitionIds = append(table.PartitionIds, partition.Rowsetid)
-			allocationUnits, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
-
-			if ok {
-				for _, allocationUnit := range allocationUnits {
-
-					table_alloc_pages = append(table_alloc_pages,
-						db.PagesPerAllocUnitID.GetPages(allocationUnit.GetId())...) // find the pages the table was allocated
-					table.AllocationUnitIds = append(table.AllocationUnitIds,
-						allocationUnit.GetId())
-
-				}
-
-				for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
-
-					table.updateColOffsets(sysrscols.Rscolid,
-						sysrscols.GetLeafOffset()) //columnd_id ,offset
-				}
+				table.addIndex(indexInfo, allocationUnit)
 
 			}
-
 		}
-
-		for _, indexInfo := range db.indexesInfo[objectid] {
-			if len(indexInfo.Name) == 0 {
+		for _, partition := range partitions {
+			if partition.Idminor == 0 { // no index
 				continue
 			}
-			allocationUnits, ok := db.tablesAllocations[indexInfo.Rowsetid] // f
-			if ok {
-				for _, allocationUnit := range allocationUnits {
-
-					table.addIndex(indexInfo, allocationUnit)
-
+			for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
+				if indexInfo.Indid == sysrscols.Hbcolid { // to check normally should be equal
+					table.udateColIndex(sysrscols)
+					break
 				}
-			}
-			for _, partition := range partitions {
-				if partition.Idminor == 0 { // no index
-					continue
-				}
-				for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
-					if indexInfo.Indid == sysrscols.Hbcolid { // to check normally should be equal
-						table.udateColIndex(sysrscols)
-						break
-					}
 
-				}
 			}
 		}
-
-		sort.Sort(table_alloc_pages)
-		dataPages := table_alloc_pages.FilterByTypeToMap("DATA") // pageId -> Page
-		lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
-		textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
-		indexPages := table_alloc_pages.FilterByTypeToMap("Index")
-		iamPages := table_alloc_pages.FilterByTypeToMap("IAM")
-
-		table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
-			"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
-
-		if dataPages.IsEmpty() {
-			msg := fmt.Sprintf("No pages located for table %s", table.Name)
-			mslogger.Mslogger.Warning(msg)
-
-		} else {
-			table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
-
-		}
-
-		if !indexPages.IsEmpty() {
-			table.setIndexContent(indexPages)
-		}
-
-		db.Tables = append(db.Tables, table)
 	}
+
+	sort.Sort(table_alloc_pages)
+	dataPages := table_alloc_pages.FilterByTypeToMap("DATA") // pageId -> Page
+	lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
+	textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
+	indexPages := table_alloc_pages.FilterByTypeToMap("Index")
+	iamPages := table_alloc_pages.FilterByTypeToMap("IAM")
+
+	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
+		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
+
+	if dataPages.IsEmpty() {
+		msg := fmt.Sprintf("No pages located for table %s", table.Name)
+		mslogger.Mslogger.Warning(msg)
+
+	} else {
+		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
+
+	}
+
+	if !indexPages.IsEmpty() {
+		table.setIndexContent(indexPages)
+	}
+	return table
 
 }
 
