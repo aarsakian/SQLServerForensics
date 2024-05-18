@@ -108,6 +108,34 @@ func (table *Table) udateColIndex(sysrscols SysRsCols) {
 	}
 }
 
+func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64], carvedLogRecords LDF.Records, activeLogRecords LDF.Records) {
+	var allocatedPages page.Pages
+
+	var candidateRecords LDF.Records
+	for _, allocUnitID := range table.AllocationUnitIds {
+		allocatedPages = pagesPerAllocUnitID.GetPages(allocUnitID)
+	}
+
+	lop_mod_ins_del_records := carvedLogRecords.FilterByOperations(
+		[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})
+
+	lop_mod_ins_del_records = append(lop_mod_ins_del_records,
+		activeLogRecords.FilterByOperations(
+			[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})...)
+
+	for _, page := range allocatedPages {
+		if page.GetType() != "DATA" {
+			continue
+		}
+		candidateRecords = append(candidateRecords,
+			lop_mod_ins_del_records.FilterByPageID(page.Header.PageId)...)
+	}
+
+	sort.Sort(LDF.ByDecreasingLSN(candidateRecords))
+	table.addLogChanges(candidateRecords)
+
+}
+
 func (table *Table) addIndex(indexInfo SysIdxStats, sysallocunit SysAllocUnits) {
 
 	table.Indexes = append(table.Indexes,
@@ -139,8 +167,11 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
 func (table *Table) ProcessIndexHeap(nonleaf *page.IndexNoNLeaf) {
 	c := table.indexedColumns[0]
+	if int(c.Size) != len(nonleaf.KeyValue) {
+		return
+	}
 	keystr := c.toString(nonleaf.KeyValue)
-	if keystr == "0" {
+	if keystr == "0" { //?
 		return
 	}
 	table.columnIndex = make(map[string]*Row)
@@ -316,6 +347,29 @@ func (table Table) printTableInfo() {
 	fmt.Print("Allocation unit ids \n")
 	for _, allocationUnitId := range table.AllocationUnitIds {
 		fmt.Printf("%d \n", allocationUnitId)
+	}
+
+}
+
+func (table Table) Show(showSchema bool, showContent bool,
+	showAllocation string, tabletype string, showrows int, skiprows int,
+	showrow int, showcarved bool, showldf bool, showcolnames []string) {
+
+	fmt.Printf("\nTable %s \n", table.Name)
+	if showSchema {
+		table.printSchema()
+	}
+	if showContent {
+		table.printHeader(showcolnames)
+		table.printData(showrows, skiprows, showrow, showcarved, showldf, showcolnames)
+		table.cleverPrintData()
+	}
+
+	if showAllocation == "simple" {
+
+		table.printAllocation()
+	} else if showAllocation == "links" {
+		table.printAllocationWithLinks()
 	}
 
 }
@@ -628,6 +682,10 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 		//schema is sorted by colorder use colnum instead of col.Order
 		if colnum+1 != int(col.Order) {
 			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
+		}
+		if (len(datarow.NullBitmap) * 8) < nofCols { // compare nof cols in bitmap with schema col num
+			mslogger.Mslogger.Warning(fmt.Sprintf("Parsed number of cols %d differs with declared schema %d\n", len(datarow.NullBitmap)*8, nofCols))
+
 		}
 		if utils.HasFlagSet(datarow.NullBitmap, colnum+1, nofCols) { //col is NULL skip when ASCII 49  (1)
 
