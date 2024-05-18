@@ -1,7 +1,7 @@
 package exporter
 
 import (
-	db "MSSQLParser/db"
+	"MSSQLParser/db"
 	"MSSQLParser/utils"
 	"log"
 	"os"
@@ -19,39 +19,24 @@ type Exporter struct {
 	Path   string
 }
 
-func (exp Exporter) Export(database db.Database, tablename string, tabletype string, selectedTableRow int) {
+func (exp Exporter) CreateExportPath(databaseName string, tableType string) string {
+	expPath := filepath.Join(exp.Path, databaseName, tableType)
 
+	//err = os.RemoveAll(filepath.Join(exp.Path, database.Name))
+
+	err := os.MkdirAll(expPath, 0750)
+	if err != nil && !os.IsExist(err) {
+		log.Fatal(err)
+	}
+	return expPath
+
+}
+
+func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow int, databaseName string, tables <-chan db.Table) {
+	defer expWg.Done()
 	var images utils.Images
-	var err error
-	err = os.RemoveAll(filepath.Join(exp.Path, database.Name))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = os.MkdirAll(filepath.Join(exp.Path, database.Name), 0750)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, table := range database.Tables {
-
-		if tablename != "all" && table.Name != tablename {
-
-			continue
-		}
-
-		if tabletype == "user" && table.Type != "User Table" {
-			continue
-		}
-
-		if table.Type != "" {
-			err := os.Mkdir(filepath.Join(exp.Path, database.Name, table.Type), 0750)
-			if err != nil && !os.IsExist(err) {
-				log.Fatal(err)
-			}
-		}
-
+	for table := range tables {
+		expPath := exp.CreateExportPath(databaseName, table.Type)
 		wg := new(sync.WaitGroup)
 		wg.Add(2)
 		records := make(chan utils.Record, 1000)
@@ -61,16 +46,15 @@ func (exp Exporter) Export(database db.Database, tablename string, tabletype str
 		if exp.Image {
 			images = table.GetImages()
 
-			writeImages(images, table.Name, filepath.Join(database.GetName(), table.Type))
+			writeImages(images, table.Name, expPath)
 
 		}
 
 		if exp.Format == "csv" {
 
-			go writeCSV(wg, records, table.Name, filepath.Join(exp.Path, database.Name, table.Type))
+			go writeCSV(wg, records, table.Name, expPath)
 			wg.Wait()
 		}
-
 	}
 
 }
