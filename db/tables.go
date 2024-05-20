@@ -637,10 +637,17 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 				//continue
 			}
 			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
-				msg := fmt.Sprintf("Mismatch in var cols! Investigate page %d row %d. Declaring %d in reality %d table %s",
-					pageId, rownum, int(datarow.NumberOfVarLengthCols), len(*datarow.VarLenCols), table.Name)
+				msg := fmt.Sprintf("Mismatch in number of declared data var cols %d in row %d,  page %d and with actual cols %d table %s",
+					int(datarow.NumberOfVarLengthCols), rownum, pageId, len(*datarow.VarLenCols), table.Name)
 				mslogger.Mslogger.Warning(msg)
 				//continue
+			}
+
+			if datarow.HasVersionTag() {
+				msg := fmt.Sprintf("Datarow %d at pageId %d has versioning enabled. Table %s",
+					rownum, pageId, table.Name)
+				mslogger.Mslogger.Warning(msg)
+
 			}
 
 			table.rows = append(table.rows,
@@ -683,10 +690,7 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 		if colnum+1 != int(col.Order) {
 			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
 		}
-		if (len(datarow.NullBitmap) * 8) < nofCols { // compare nof cols in bitmap with schema col num
-			mslogger.Mslogger.Warning(fmt.Sprintf("Parsed number of cols %d differs with declared schema %d\n", len(datarow.NullBitmap)*8, nofCols))
 
-		}
 		if utils.HasFlagSet(datarow.NullBitmap, colnum+1, nofCols) { //col is NULL skip when ASCII 49  (1)
 
 			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
