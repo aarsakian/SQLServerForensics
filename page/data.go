@@ -55,6 +55,11 @@ type InlineBLob16 struct { //points to text lob
 	RowId     utils.RowId //4-
 }
 
+type TagVersion struct {
+	RowId utils.RowId
+        XSN [6]byte
+}
+
 type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 	// min len 9 bytes
 	StatusA               uint8  //1-2
@@ -65,6 +70,7 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 	NullBitmap            []byte //6-7
 	NumberOfVarLengthCols uint16 //0-
 	VarLengthColOffsets   []int16
+	VersioningInfo        *TagVersion
 	VarLenCols            *DataCols
 	SystemTable           SystemTable
 }
@@ -282,7 +288,10 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 
 	dataRowSize, _ := utils.Unmarshal(data, dataRow)
-
+	if dataRow.HasVersionTag() {
+		dataRow.VersioningInfo = new(TagVersion)
+		utils.Unmarshal(data[len(data)-14:], dataRow.VersioningInfo)
+	}
 	if len(dataRow.VarLengthColOffsets) == 0 {
 		mslogger.Mslogger.Info("No var len col offsets found")
 		return dataRowSize
