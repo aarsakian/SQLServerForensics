@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"unsafe"
 )
@@ -57,7 +58,7 @@ type InlineBLob16 struct { //points to text lob
 
 type TagVersion struct {
 	RowId utils.RowId
-        XSN [6]byte
+	XSN   [6]byte
 }
 
 type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
@@ -223,6 +224,15 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 		return int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
 	}
 
+}
+
+func (dataRow DataRow) PrintNullBitmapToBit(nofCols int) string {
+	var bitrepresentation string
+	for valpos, val := range dataRow.NullBitmap {
+		bitval := utils.AddMissingBits(strconv.FormatUint(uint64(val), 2), nofCols, valpos)
+		bitrepresentation = strings.Join([]string{bitval, bitrepresentation}, "")
+	}
+	return bitrepresentation
 }
 
 func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int16,
