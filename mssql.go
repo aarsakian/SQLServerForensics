@@ -259,15 +259,16 @@ func main() {
 
 		/*retrieving schema and table contents */
 
-		results := make(chan db.Table, 100) //max number of tables
+		represults := make(chan db.Table, 100) //max number of tables for report
+		expresults := make(chan db.Table, 100)
 
 		wg := new(sync.WaitGroup)
-		wg.Add(2)
+		wg.Add(3)
 
-		go database.ProcessTables(wg, *tablename, *tabletype, results)
-		//	go reporter.ShowTableInfo(wg, table, results)
+		go database.ProcessTables(wg, *tablename, *tabletype, represults, expresults)
+		go reporter.ShowTableInfo(wg, represults)
 
-		go dbExp.Export(wg, *selectedTableRow, database.Name, results)
+		go dbExp.Export(wg, *selectedTableRow, strings.Split(*colnames, ","), database.Name, expresults)
 		wg.Wait()
 
 		reporter.ShowPageInfo(database, uint32(*selectedPage))
