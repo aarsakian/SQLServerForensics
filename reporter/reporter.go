@@ -4,6 +4,7 @@ import (
 	db "MSSQLParser/db"
 	"MSSQLParser/page"
 	"fmt"
+	"sync"
 )
 
 type Reporter struct {
@@ -76,12 +77,16 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 
 }
 
-func (rp Reporter) ShowTableInfo(table db.Table) {
+func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
+	defer wg.Done()
 
-	table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
-		rp.TableType, rp.SelectedTableRows, rp.SkippedTableRows,
-		rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF, rp.ShowColNames)
+	for table := range tables {
 
+		table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
+			rp.TableType, rp.SelectedTableRows, rp.SkippedTableRows,
+			rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF, rp.ShowColNames)
+
+	}
 }
 
 func (rp Reporter) ShowLDFInfo(database db.Database, filterlop string) {
