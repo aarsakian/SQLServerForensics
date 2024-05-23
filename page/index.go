@@ -6,7 +6,11 @@ import (
 	"unsafe"
 )
 
+//If a clustered index is created and the index isn't defined as unique, the duplicated key values include a uniquifier  a 4-byte integer to make each nonunique key value unique.
 //clustered index root -> intermediate level rowid( child fileId+child PageId) +key value and so on
+//The leaf level of a clustered index is the data itself, the data is copied and ordered based on the clustering key r
+//Each row in the non-leaf levels has one entry for every page of the level below,  this entry includes an index key value and a 6-byte pointer to reference the page
+
 //intermediate level one row for each leaf size =key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
 
 // non clustered key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
