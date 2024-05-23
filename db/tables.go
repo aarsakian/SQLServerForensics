@@ -6,6 +6,7 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"bytes"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -275,10 +276,16 @@ func (table *Table) addLogChanges(records LDF.Records) {
 
 }
 
-func (table Table) getHeader() utils.Record {
+func (table Table) getHeader(colnames []string) utils.Record {
 	var record utils.Record
 	for _, c := range table.Schema {
-		record = append(record, c.Name)
+		for _, colname := range colnames {
+			if colname != "" && colname != c.Name {
+				continue
+			}
+			record = append(record, c.Name)
+		}
+
 	}
 	return record
 }
@@ -418,10 +425,10 @@ func (table Table) printAllocation() {
 
 }
 
-func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow int, records chan<- utils.Record) {
+func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow int, colnames []string, records chan<- utils.Record) {
 	defer wg.Done()
 
-	records <- table.getHeader()
+	records <- table.getHeader(colnames)
 
 	for rownum, row := range table.rows {
 		var record utils.Record
@@ -429,8 +436,13 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow int, records chan<
 			continue
 		}
 		for _, c := range table.Schema {
-			colData := row.ColMap[c.Name]
-			record = append(record, c.toString(colData.Content))
+			for _, colname := range colnames {
+				if colname != "" && colname != c.Name {
+					continue
+				}
+				colData := row.ColMap[c.Name]
+				record = append(record, c.toString(colData.Content))
+			}
 
 		}
 		records <- record
@@ -593,19 +605,23 @@ func (table Table) printData(showtorow int, skiprows int,
 
 }
 
-func (table *Table) updateColOffsets(column_id uint32, offset int16) {
+func (table *Table) updateColOffsets(column_id uint32, offset int16) error {
 	if len(table.Schema) < int(column_id) {
 		msg := fmt.Sprintf("Partition columnd id %d exceeds nof cols %d of table %s", column_id, len(table.Schema), table.Name)
 		mslogger.Mslogger.Warning(msg)
+		return errors.New(msg)
 	} else if column_id < 1 {
 		msg := fmt.Sprintf("Column Id is less than one %d,\n", column_id)
 		mslogger.Mslogger.Warning(msg)
+		return errors.New(msg)
 	} else if offset < 4 {
 		msg := fmt.Sprintf("Offset %d of col %s of table %s is less than the minimum allowed offset of 4", offset,
 			table.Schema[column_id-1].Name, table.Name)
 		mslogger.Mslogger.Warning(msg)
+		return errors.New(msg)
 	} else {
 		table.Schema[column_id-1].Offset = offset
+		return nil
 	}
 
 }
@@ -684,14 +700,15 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 
 	colmap := make(ColMap)
 	nofCols := len(table.Schema)
+	bitrepresentation := datarow.PrintNullBitmapToBit(nofCols)
 
 	for colnum, col := range table.Schema {
 		//schema is sorted by colorder use colnum instead of col.Order
 		if colnum+1 != int(col.Order) {
 			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
 		}
-
-		if utils.HasFlagSet(datarow.NullBitmap, colnum+1, nofCols) { //col is NULL skip when ASCII 49  (1)
+		//check only when number of cols equal to nofCols
+		if colnum < int(datarow.NumberOfCols) && utils.HasFlagSet(bitrepresentation, colnum+1) { //col is NULL skip when ASCII 49  (1)
 
 			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
 			//mslogger.Mslogger.Error(msg)
