@@ -230,7 +230,7 @@ func (db Database) GetTablesInfo() TablesInfo {
 	return db.tablesInfo
 }
 
-func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype string, tables chan<- Table) {
+func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype string, reptables chan<- Table, exptables chan<- Table) {
 	defer wg.Done()
 	for objectid, tableinfo := range db.GetTablesInfo() {
 		tname := tableinfo.GetName()
@@ -244,9 +244,11 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype
 
 		table := db.ProcessTable(objectid, tname, tableType)
 		table.AddChangesHistory(db.PagesPerAllocUnitID, db.CarvedLogRecords, db.ActiveLogRecords)
-		tables <- table
+		exptables <- table
+		reptables <- table
 	}
-	close(tables)
+	close(exptables)
+	close(reptables)
 }
 
 func (db Database) ProcessTable(objectid int32, tname string, tType string) Table {
@@ -295,8 +297,12 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string) Tabl
 
 			for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
 
-				table.updateColOffsets(sysrscols.Rscolid,
+				err := table.updateColOffsets(sysrscols.Rscolid,
 					sysrscols.GetLeafOffset()) //columnd_id ,offset
+				if err != nil {
+					msg := fmt.Sprintf("error in finding column offset rowsetid %d", partition.Rowsetid)
+					mslogger.Mslogger.Warning(msg)
+				}
 			}
 
 		}
