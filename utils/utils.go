@@ -421,7 +421,7 @@ func ToInt16(data []byte) int {
 func BitToString(bitmap []byte, bitCount int) string {
 	var bitrepresentation string
 	for valpos, val := range bitmap {
-		bitval := addMissingBits(strconv.FormatUint(uint64(val), 2), len(bitmap)*8, valpos)
+		bitval := AddMissingBits(strconv.FormatUint(uint64(val), 2), len(bitmap)*8, valpos)
 		bitrepresentation = strings.Join([]string{bitval, bitrepresentation}, "")
 	}
 
@@ -464,7 +464,7 @@ func ToUint64(data []byte) uint64 {
 	return uint64(temp)
 }
 
-func addMissingBits(bitval string, targetLen int, pos int) string {
+func AddMissingBits(bitval string, targetLen int, pos int) string {
 	// add missing zeros
 	var maxnofZeros int
 	if targetLen < 8*(pos+1) {
@@ -478,25 +478,11 @@ func addMissingBits(bitval string, targetLen int, pos int) string {
 	return bitval
 }
 
-func HasFlagSet(bitmap []byte, flagPos int, nofCols int) bool {
+func HasFlagSet(bitrepresentation string, flagPos int) bool {
 	//index starts from left to right 0-7, 8-16
 	//bitmap right to left
-	var bitflag byte
-	var bitrepresentation string
-	for valpos, val := range bitmap {
-		bitval := addMissingBits(strconv.FormatUint(uint64(val), 2), nofCols, valpos)
-		bitrepresentation = strings.Join([]string{bitval, bitrepresentation}, "")
-	}
 
-	if len(bitrepresentation) > nofCols { // remove not needed bits
-		startOffset := len(bitrepresentation) - nofCols
-		endOffset := nofCols - flagPos
-		bitflag = bitrepresentation[startOffset+endOffset-1 : startOffset+endOffset][0]
-	} else {
-		bitflag = bitrepresentation[nofCols-flagPos]
-	}
-
-	return bitflag == 49 // ascii 49 = 1
+	return bitrepresentation[len(bitrepresentation)-flagPos] == 49 // ascii 49 = 1
 
 }
 
