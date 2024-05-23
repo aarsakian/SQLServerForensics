@@ -32,8 +32,9 @@ func (exp Exporter) CreateExportPath(databaseName string, tableType string) stri
 
 }
 
-func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow int, databaseName string, tables <-chan db.Table) {
+func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow int, colnames []string, databaseName string, tables <-chan db.Table) {
 	defer expWg.Done()
+
 	var images utils.Images
 	for table := range tables {
 		expPath := exp.CreateExportPath(databaseName, table.Type)
@@ -41,7 +42,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow int, database
 		wg.Add(2)
 		records := make(chan utils.Record, 1000)
 
-		go table.GetRecords(wg, selectedTableRow, records)
+		go table.GetRecords(wg, selectedTableRow, colnames, records)
 
 		if exp.Image {
 			images = table.GetImages()
