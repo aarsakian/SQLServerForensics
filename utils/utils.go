@@ -788,6 +788,10 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			}
 			if nameType == "LSN" {
 				var lsn LSN
+				err := checkBounds(name, idx+10-len(data))
+				if err != nil {
+					return idx, err
+				}
 				Unmarshal(data[idx:idx+10], &lsn)
 				field.Set(reflect.ValueOf(lsn))
 				idx += 10
