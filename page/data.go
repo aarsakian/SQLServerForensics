@@ -174,7 +174,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
 		}
 
-		if endVarColOffset < startVarColOffset {
+		if endVarColOffset <= startVarColOffset {
 			continue
 		} else if int(startVarColOffset) > len(data) {
 			break
@@ -183,6 +183,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 		} else if int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
 			endVarColOffset = int16(8192 - 2*len(dataRow.VarLengthColOffsets))
 		}
+
 		cpy := make([]byte, endVarColOffset-startVarColOffset) // var col length
 		copy(cpy, data[startVarColOffset:endVarColOffset])
 		startVarColOffset = endVarColOffset
@@ -235,7 +236,7 @@ func (dataRow DataRow) PrintNullBitmapToBit(nofCols int) string {
 	return bitrepresentation
 }
 
-func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int16,
+func (dataRow DataRow) ProcessData(colId uint16, colsize int16, startoffset int16,
 	static bool, valorder uint16, lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]) ([]byte, error) {
 
 	if static {
@@ -269,16 +270,17 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 		}
 
 	} else {
-		if dataRow.NumberOfVarLengthCols <= valorder {
+		if dataRow.VarLenCols == nil {
+			msg := fmt.Sprintf("No var len cols found at offset %d", startoffset)
+			mslogger.Mslogger.Error(msg)
+			return nil, errors.New(msg)
+		} else if len(*dataRow.VarLenCols) <= int(valorder) {
 			// should had bitmap set to 1 however it is not expiremental
 			msg := fmt.Sprintf("Number of var len cols is less than the asked col %d col offset within datarow %d",
 				colId, startoffset)
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
-		} else if dataRow.VarLenCols == nil {
-			msg := fmt.Sprintf("No var len cols found at offset %d", startoffset)
-			mslogger.Mslogger.Error(msg)
-			return nil, errors.New(msg)
+
 		}
 
 		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
@@ -298,7 +300,7 @@ func (dataRow *DataRow) ProcessData(colId uint16, colsize int16, startoffset int
 func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 
 	dataRowSize, _ := utils.Unmarshal(data, dataRow)
-	if dataRow.HasVersionTag() {
+	if len(data) > 14 && dataRow.HasVersionTag() {
 		dataRow.VersioningInfo = new(TagVersion)
 		utils.Unmarshal(data[len(data)-14:], dataRow.VersioningInfo)
 	}
