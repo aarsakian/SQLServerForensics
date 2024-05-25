@@ -73,7 +73,9 @@ func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
 }
 
 func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
-
+	if 40 > len(bs) {
+		return
+	}
 	utils.Unmarshal(bs, lop_insert_delete_mod)
 
 	lop_insert_delete_mod.ProcessRowContents(bs[40:])
@@ -100,11 +102,17 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte
 			break
 		}
 		if bs[bsoffset] == 0x30 || bs[bsoffset] == 0x10 {
+			if int(bsoffset) > len(bs) || int(bsoffset)+int(rowlogcontentoffset) > len(bs) {
+				return
+			}
 			datarow := new(page.DataRow)
 			datarow.Parse(bs[bsoffset:bsoffset+rowlogcontentoffset], int(bsoffset)+int(rowlogcontentoffset), -1)
 
 			lop_insert_delete_mod.DataRow = datarow
 		} else {
+			if int(bsoffset) > len(bs) || int(bsoffset)+int(rowlogcontentoffset) > len(bs) {
+				return
+			}
 			rowlogcontents := make([]byte, len(bs[bsoffset:bsoffset+rowlogcontentoffset]))
 			copy(rowlogcontents, bs[bsoffset:bsoffset+rowlogcontentoffset])
 			lop_insert_delete_mod.RowLogContents = append(lop_insert_delete_mod.RowLogContents, rowlogcontents)
@@ -116,7 +124,11 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte
 }
 
 func (lop_begin *LOP_BEGIN) Process(bs []byte) {
+
 	utils.Unmarshal(bs, lop_begin)
+	if 60+int(lop_begin.TransactionNameLen) > len(bs) {
+		return
+	}
 	lop_begin.TransactionName = utils.DecodeUTF16(bs[60 : 60+lop_begin.TransactionNameLen])
 }
 
