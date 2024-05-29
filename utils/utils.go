@@ -114,6 +114,24 @@ func NumericToStr(data []byte) string {
 	return ""
 }
 
+func StringsToIntArray(stringwithcomma string) []int {
+
+	strs := strings.Split(stringwithcomma, ",")
+	ints := make([]int, len(strs))
+
+	for idx := range strs {
+		if strs[idx] == "" {
+			continue
+		}
+		val, e := strconv.ParseInt(strs[idx], 10, 32)
+		if e != nil {
+			fmt.Println("ERROR", e)
+		}
+		ints[idx] = int(val)
+	}
+	return ints
+}
+
 func LocateLDFfile(mdffile string) (string, error) {
 	dir, fname := filepath.Split(mdffile)
 	fname = strings.Split(fname, ".")[0]
