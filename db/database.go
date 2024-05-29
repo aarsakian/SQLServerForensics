@@ -230,7 +230,7 @@ func (db Database) GetTablesInfo() TablesInfo {
 	return db.tablesInfo
 }
 
-func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype string, reptables chan<- Table, exptables chan<- Table) {
+func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype string, reptables chan<- Table, exptables chan<- Table, tablePages []int) {
 	defer wg.Done()
 	for objectid, tableinfo := range db.GetTablesInfo() {
 		tname := tableinfo.GetName()
@@ -242,7 +242,7 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype
 			continue
 		}
 
-		table := db.ProcessTable(objectid, tname, tableType)
+		table := db.ProcessTable(objectid, tname, tableType, tablePages)
 		table.AddChangesHistory(db.PagesPerAllocUnitID, db.CarvedLogRecords, db.ActiveLogRecords)
 		exptables <- table
 		reptables <- table
@@ -251,7 +251,7 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype
 	close(reptables)
 }
 
-func (db Database) ProcessTable(objectid int32, tname string, tType string) Table {
+func (db Database) ProcessTable(objectid int32, tname string, tType string, tablePages []int) Table {
 	/*
 	 get objectid for each table  sysschobjs
 	 for each table using its objectid retrieve its columns from syscolpars
@@ -337,6 +337,10 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string) Tabl
 
 	sort.Sort(table_alloc_pages)
 	dataPages := table_alloc_pages.FilterByTypeToMap("DATA") // pageId -> Page
+	if tablePages[0] != 0 {
+		dataPages = dataPages.FilterByID(tablePages)
+	}
+
 	lobPages := table_alloc_pages.FilterByTypeToMap("LOB")
 	textLobPages := table_alloc_pages.FilterByTypeToMap("TEXT")
 	indexPages := table_alloc_pages.FilterByTypeToMap("Index")
