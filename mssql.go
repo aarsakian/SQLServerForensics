@@ -62,6 +62,7 @@ func main() {
 	showHeader := flag.Bool("header", false, "show page header")
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
 	tablename := flag.String("table", "", "show table (use all for all tables)")
+	tablepages := flag.String("tablepages", "", "filter rows by pages (use comm)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
@@ -265,7 +266,7 @@ func main() {
 		wg := new(sync.WaitGroup)
 		wg.Add(3)
 
-		go database.ProcessTables(wg, *tablename, *tabletype, represults, expresults)
+		go database.ProcessTables(wg, *tablename, *tabletype, represults, expresults, utils.StringsToIntArray(*tablepages))
 		go reporter.ShowTableInfo(wg, represults)
 
 		go dbExp.Export(wg, *selectedTableRow, strings.Split(*colnames, ","), database.Name, expresults)
