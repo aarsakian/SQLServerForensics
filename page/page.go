@@ -232,6 +232,25 @@ func (page Page) GetIndexType() string {
 	return page.Header.getIndexType()
 }
 
+func (page Page) Contains(pageIds []int) bool {
+	for _, pageId := range pageIds {
+		if page.Header.PageId == uint32(pageId) {
+			return true
+		}
+	}
+	return false
+}
+
+func (pages Pages) HasPage(pageId int) bool {
+	for _, page := range pages {
+		if page.Header.PageId == uint32(pageId) {
+			return true
+		}
+	}
+	return false
+
+}
+
 func (pages Pages) FilterByTypeToMap(pageType string) PagesPerId[uint32] {
 	newpagesPerID := PagesPerId[uint32]{}
 	pagesPerType := utils.Filter(pages, func(page Page) bool {
@@ -266,6 +285,20 @@ func (pagesPerID PagesPerId[K]) FilterByType(pageType string) PagesPerId[K] {
 	}
 	return newpagesPerID
 
+}
+
+func (pagesPerID PagesPerId[K]) FilterByID(pageIDs []int) PagesPerId[K] {
+	newpagesPerID := PagesPerId[K]{}
+	for allocUnitId, pagesPerIDNode := range pagesPerID.Lookup {
+		for _, page := range pagesPerIDNode.Pages {
+			if !page.Contains(pageIDs) {
+				continue
+			}
+			newpagesPerID.Add(allocUnitId, page)
+		}
+
+	}
+	return newpagesPerID
 }
 
 func (pagesPerID PagesPerId[K]) FilterBySystemTablesToList(systemTable string) Pages {
@@ -523,10 +556,12 @@ func (page *Page) parsePFS(data []byte) {
 
 func (page Page) PrintHeader(showSlots bool) {
 	header := page.Header
+	fmt.Printf("Metadata AllocUnitId %d  \n",
+		header.GetMetadataAllocUnitId())
 
-	fmt.Printf("Page Id %d type %s objectid %d slots %d free space %d Prev page %d  Next page %d \n",
-		header.PageId, page.GetType(),
-		header.ObjectId, header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
+	fmt.Printf("Page Id %d type %s objectid %d index %d, slots %d free space %d Prev page %d  Next page %d \n",
+		header.PageId, page.GetType(), header.ObjectId, header.IndexId,
+		header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 
 	if showSlots {
 
