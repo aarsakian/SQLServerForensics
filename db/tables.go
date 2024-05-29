@@ -620,6 +620,9 @@ func (table *Table) updateColOffsets(column_id uint32, offset int16) error {
 		mslogger.Mslogger.Warning(msg)
 		return errors.New(msg)
 	} else {
+		msg := fmt.Sprintf("Updated offset %d of col %s of table %s", offset,
+			table.Schema[column_id-1].Name, table.Name)
+		mslogger.Mslogger.Info(msg)
 		table.Schema[column_id-1].Offset = offset
 		return nil
 	}
