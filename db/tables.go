@@ -28,21 +28,20 @@ type TableIndex struct {
 type ColumnIndex map[int]*Row
 
 type Table struct {
-	Name              string
-	ObjectId          int32
-	Type              string
-	rows              []Row
-	carvedrows        []Row
-	loggedrows        []Row
-	PartitionIds      []uint64
-	AllocationUnitIds []uint64
-	Schema            []Column
-	Indexes           []TableIndex
-	VarLenCols        []int
-	PageIDsPerType    map[string][]uint32 //pageType ->pageID
-	indexType         string
-	indexedColumns    []*Column
-	columnIndex       map[string]*Row
+	Name                          string
+	ObjectId                      int32
+	Type                          string
+	rows                          []Row
+	carvedrows                    []Row
+	loggedrows                    []Row
+	AllocationUnitIdTopartitionId map[uint64]uint64
+	Schema                        []Column
+	Indexes                       []TableIndex
+	VarLenCols                    []int
+	PageIDsPerType                map[string][]uint32 //pageType ->pageID
+	indexType                     string
+	indexedColumns                []*Column
+	columnIndex                   map[string]*Row
 }
 
 type ByRowId []ColMap
@@ -113,7 +112,7 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 	var allocatedPages page.Pages
 
 	var candidateRecords LDF.Records
-	for _, allocUnitID := range table.AllocationUnitIds {
+	for allocUnitID := range table.AllocationUnitIdTopartitionId {
 		allocatedPages = pagesPerAllocUnitID.GetPages(allocUnitID)
 	}
 
@@ -197,7 +196,7 @@ func (table *Table) AddRow(record LDF.Record) {
 			continue
 		}
 
-		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages)
+		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID)
 		if e == nil {
 			colmap[col.Name] = ColData{Content: colval}
 		}
@@ -233,13 +232,13 @@ func (table *Table) MarkRowModified(record LDF.Record) {
 	row.LogDate = record.GetBeginCommitDateObj()
 
 	for _, c := range table.Schema {
-		if c.Offset >= int16(record.Lop_Insert_Delete.OffsetInRow) {
+		if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
 			var newcontent bytes.Buffer
 			newcontent.Grow(int(c.Size))
 
 			colData := row.ColMap[c.Name]
 			//new data from startoffset -> startoffset + modifysize
-			startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.Offset
+			startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
 
 			newcontent.Write(colData.Content[:startOffset]) //unchanged content
 			newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
@@ -314,7 +313,7 @@ func (table *Table) addColumns(columns []SysColpars) {
 	for _, col := range columns {
 		table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
 			Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
-			Precision: col.Prec, Scale: col.Scale})
+			Precision: col.Prec, Scale: col.Scale, OffsetMap: map[uint64]int16{}})
 	}
 	table.setVarLenCols()
 
@@ -347,12 +346,12 @@ func (table Table) printTableInfo() {
 	fmt.Printf("objectID %d \n",
 		table.ObjectId)
 	fmt.Printf("Partition ids:\n")
-	for _, partitionId := range table.PartitionIds {
+	for _, partitionId := range table.AllocationUnitIdTopartitionId {
 		fmt.Printf("%d \n", partitionId)
 	}
 
 	fmt.Print("Allocation unit ids \n")
-	for _, allocationUnitId := range table.AllocationUnitIds {
+	for allocationUnitId := range table.AllocationUnitIdTopartitionId {
 		fmt.Printf("%d \n", allocationUnitId)
 	}
 
@@ -360,7 +359,7 @@ func (table Table) printTableInfo() {
 
 func (table Table) Show(showSchema bool, showContent bool,
 	showAllocation string, tabletype string, showrows int, skiprows int,
-	showrow int, showcarved bool, showldf bool, showcolnames []string) {
+	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
 	fmt.Printf("\nTable %s \n", table.Name)
 	if showSchema {
@@ -368,7 +367,7 @@ func (table Table) Show(showSchema bool, showContent bool,
 	}
 	if showContent {
 		table.printHeader(showcolnames)
-		table.printData(showrows, skiprows, showrow, showcarved, showldf, showcolnames)
+		table.printData(showrows, skiprows, showrow, showcarved, showldf, showcolnames, showrawdata)
 		table.cleverPrintData()
 	}
 
@@ -532,7 +531,7 @@ func (table Table) cleverPrintData() {
 }
 
 func (table Table) printData(showtorow int, skiprows int,
-	showrow int, showcarved bool, showldf bool, showcolnames []string) {
+	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
 	for idx, row := range table.rows {
 		if skiprows != -1 && idx < skiprows {
@@ -553,6 +552,9 @@ func (table Table) printData(showtorow int, skiprows int,
 				}
 				colData := row.ColMap[c.Name]
 				c.Print(colData.Content)
+				if showrawdata {
+					fmt.Printf("%x\n", colData.Content)
+				}
 
 			}
 		}
@@ -605,7 +607,7 @@ func (table Table) printData(showtorow int, skiprows int,
 
 }
 
-func (table *Table) updateColOffsets(column_id uint32, offset int16) error {
+func (table *Table) updateColOffsets(column_id uint32, offset int16, parirtitionId uint64) error {
 	if len(table.Schema) < int(column_id) {
 		msg := fmt.Sprintf("Partition columnd id %d exceeds nof cols %d of table %s", column_id, len(table.Schema), table.Name)
 		mslogger.Mslogger.Warning(msg)
@@ -623,7 +625,7 @@ func (table *Table) updateColOffsets(column_id uint32, offset int16) error {
 		msg := fmt.Sprintf("Updated offset %d of col %s of table %s", offset,
 			table.Schema[column_id-1].Name, table.Name)
 		mslogger.Mslogger.Info(msg)
-		table.Schema[column_id-1].Offset = offset
+		table.Schema[column_id-1].OffsetMap[parirtitionId] = offset
 		return nil
 	}
 
@@ -644,6 +646,8 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 		}
 
 		table.indexType = page.GetIndexType()
+		pageAllocationUnitId := page.Header.GetMetadataAllocUnitId()
+		partitionId := table.AllocationUnitIdTopartitionId[pageAllocationUnitId]
 
 		nofCols := len(table.Schema)
 
@@ -670,7 +674,7 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 			}
 
 			table.rows = append(table.rows,
-				table.ProcessRow(rownum, datarow, lobPages, textLobPages))
+				table.ProcessRow(rownum, datarow, lobPages, textLobPages, partitionId))
 
 		}
 
@@ -690,7 +694,7 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 			rownum++
 
 			table.carvedrows = append(table.carvedrows,
-				table.ProcessRow(rownum, datarow, lobPages, textLobPages))
+				table.ProcessRow(rownum, datarow, lobPages, textLobPages, partitionId))
 
 		}
 		node = node.Next
@@ -699,7 +703,7 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 }
 
 func (table Table) ProcessRow(rownum int, datarow page.DataRow,
-	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) Row {
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], partitionId uint64) Row {
 
 	colmap := make(ColMap)
 	nofCols := len(table.Schema)
@@ -719,7 +723,7 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 		}
 
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
-		colval, e := col.addContent(datarow, lobPages, textLobPages)
+		colval, e := col.addContent(datarow, lobPages, textLobPages, partitionId)
 		if e == nil {
 			colmap[col.Name] = ColData{Content: colval}
 		}
