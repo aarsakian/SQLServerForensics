@@ -24,7 +24,7 @@ type Column struct {
 	CollationId uint32
 	Precision   uint8
 	Scale       uint8
-	Offset      int16
+	OffsetMap   map[uint64]int16 //partitionId -> offset
 }
 
 type SqlVariant struct {
@@ -157,11 +157,11 @@ func (c Column) toString(data []byte) string {
 }
 
 func (c *Column) addContent(datarow page.DataRow,
-	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32]) ([]byte, error) {
+	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64) ([]byte, error) {
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
-		return datarow.ProcessData(c.Order, c.Size, c.Offset, c.isStatic(),
+		return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.isStatic(),
 			c.VarLenOrder, lobPages, textLOBPages)
 	}
 
