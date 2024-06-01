@@ -20,9 +20,9 @@ import (
 	"unicode/utf8"
 )
 
-var LeapYear = map[int]int{1: 1, 2: 31, 3: 60, 4: 91, 5: 121, 6: 152, 7: 182, 8: 213, 9: 244, 10: 274, 11: 305, 12: 335}
+var LeapYear = map[int]int{1: 0, 2: 31, 3: 60, 4: 91, 5: 121, 6: 152, 7: 182, 8: 213, 9: 244, 10: 274, 11: 305, 12: 335}
 
-var Year = map[int]int{1: 1, 2: 31, 3: 59, 4: 90, 5: 120, 6: 151, 7: 181, 8: 212, 9: 243, 10: 273, 11: 304, 12: 334}
+var Year = map[int]int{1: 0, 2: 31, 3: 59, 4: 90, 5: 120, 6: 151, 7: 181, 8: 212, 9: 243, 10: 273, 11: 304, 12: 334}
 
 type Record []string
 type Records [][]string
@@ -217,7 +217,7 @@ func RealToStr(data []byte, precision uint8, scale uint8) string {
 // finaly multiply with exponent
 func FloatToStr(data []byte) string {
 	var bitrepresentation strings.Builder
-	for _, byteval := range Bytereverse(data[6:8]) {
+	for _, byteval := range Bytereverse(data) {
 
 		bitrepresentation.WriteString(fillPrefixWithZeros(
 			strconv.FormatUint(uint64(byteval), 2), 8))
@@ -226,19 +226,16 @@ func FloatToStr(data []byte) string {
 	intval, _ := strconv.ParseUint(bitrepresentation.String()[1:12], 2, 16)
 	exponent := math.Pow(2, float64(intval-1023))
 
-	mantissaSum := 0.0
-	var mantissa strings.Builder
-	mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(data[7]), 2), 8)[4:8])
-	for _, byteval := range Bytereverse(data[0:6]) {
+	mantissaSum := 1.0
 
-		mantissa.WriteString(fillPrefixWithZeros(strconv.FormatUint(uint64(byteval), 2), 8))
-	}
-
-	for pos, bitval := range mantissa.String() {
-		mantissaSum += float64(bitval-48) * math.Pow(2, float64(-1*(pos+1)))
+	for pos, bitval := range bitrepresentation.String()[12:] {
+		if bitval == 48 { //zero dont count
+			continue
+		}
+		mantissaSum += math.Pow(2, float64(-1*(pos+1)))
 
 	}
-	mantissaSum += 1
+
 	if data[7]&0x80 == 1 { //sing check
 		return strconv.FormatFloat(-1*exponent*mantissaSum, 'E', -1, 64)
 	} else {
@@ -308,27 +305,22 @@ func DateTimeToObj(data []byte) time.Time {
 	return time.Date(years, time.Month(month), day, hours, minutes, seconds, msecs, time.UTC)
 }
 
+// 4 bytes
 func ParseSmallDateTime(data []byte) string {
 	var day int
 	var month int
 
-	if len(data) < 8 {
-		dst := make([]byte, 8)
-		copy(dst, data)
-		data = dst
-
-	}
-	daysSince1900 := ToInt32(data[2:4])
+	daysSince1900 := int(ToUint16(data[2:4]))
 	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
 
 	nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
 	daysInTheYear := int(daysSince1900-(years-nofLeapYears)*365-nofLeapYears*366) + 1
 
 	if isLeapYear(uint(years + 1900)) {
-		month = int(float64(daysInTheYear)/30.41667 + 1)
-		day = daysInTheYear - LeapYear[month] + 1
+		month = int(math.Round(float64(daysInTheYear) / 30.41667))
+		day = daysInTheYear - LeapYear[month]
 	} else {
-		month = int(float64(daysInTheYear)/30.5 + 1)
+		month = int(math.Round(float64(daysInTheYear) / 30.5))
 		day = daysInTheYear - Year[month]
 	}
 
