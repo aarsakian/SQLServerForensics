@@ -26,6 +26,7 @@ type Reporter struct {
 	ShowCarved          bool
 	ShowLDF             bool
 	TableType           string
+	Raw                 bool
 	ShowColNames        []string
 }
 
@@ -84,7 +85,7 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
 
 		table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
 			rp.TableType, rp.SelectedTableRows, rp.SkippedTableRows,
-			rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF, rp.ShowColNames)
+			rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF, rp.ShowColNames, rp.Raw)
 
 	}
 }
