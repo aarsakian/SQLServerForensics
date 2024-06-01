@@ -89,6 +89,7 @@ func main() {
 	ldf := flag.Bool("ldf", false, "parse hardened (commited) transactions saved to the log")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|any")
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
+	raw := flag.Bool("raw", false, "show row data for each column in a table")
 
 	flag.Parse()
 
@@ -116,6 +117,7 @@ func main() {
 		ShowCarved:          *showcarved,
 		ShowLDF:             *showLDF,
 		TableType:           *tabletype,
+		Raw:                 *raw,
 		ShowColNames:        strings.Split(*colnames, ",")}
 
 	var physicalDisk disk.Disk
