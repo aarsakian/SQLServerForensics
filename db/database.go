@@ -268,6 +268,8 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 	mslogger.Mslogger.Info(msg)
 
+	table.AllocationUnitIdTopartitionId = make(map[uint64]uint64)
+
 	colsinfo := db.columnsinfo[objectid]
 	if colsinfo != nil {
 		table.addColumns(colsinfo)
@@ -282,7 +284,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	var table_alloc_pages page.Pages
 
 	for _, partition := range partitions {
-		table.PartitionIds = append(table.PartitionIds, partition.Rowsetid)
+
 		allocationUnits, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
 
 		if ok {
@@ -290,15 +292,15 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 				table_alloc_pages = append(table_alloc_pages,
 					db.PagesPerAllocUnitID.GetPages(allocationUnit.GetId())...) // find the pages the table was allocated
-				table.AllocationUnitIds = append(table.AllocationUnitIds,
-					allocationUnit.GetId())
+
+				table.AllocationUnitIdTopartitionId[allocationUnit.GetId()] = partition.Rowsetid
 
 			}
 
 			for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
 
 				err := table.updateColOffsets(sysrscols.Rscolid,
-					sysrscols.GetLeafOffset()) //columnd_id ,offset
+					sysrscols.GetLeafOffset(), partition.Rowsetid) //columnd_id ,offset
 				if err != nil {
 					msg := fmt.Sprintf("error in finding column offset rowsetid %d", partition.Rowsetid)
 					mslogger.Mslogger.Warning(msg)
