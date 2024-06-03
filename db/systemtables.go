@@ -25,9 +25,9 @@ type TablesPartitions map[int32][]SysRowSets
 
 type IndexesInfo map[int32][]SysIdxStats
 
-type TablesAllocations map[uint64][]SysAllocUnits
+type TablesAllocations map[uint64][]SysAllocUnits //OwnerId
 
-type ColumnsPartitions map[uint64][]SysRsCols
+type ColumnsPartitions map[uint64][]SysRsCols //rowsetid ->
 
 type ColumnsStatistics map[int32][]SysIsCols
 
@@ -146,6 +146,7 @@ type SysRsCols struct {
 	Olguid      []byte
 }
 
+// a row for each partition rowset for an index or a heap
 type SysRowSets struct {
 	Rowsetid   uint64
 	Ownertype  uint8
