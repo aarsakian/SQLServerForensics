@@ -20,9 +20,12 @@ type Row struct {
 }
 
 type TableIndex struct {
-	name      string
-	rootPage  uint32
-	firstPage uint32
+	id          uint32
+	name        string
+	rootPage    uint32
+	firstPage   uint32
+	isClustered bool
+	column      *Column
 }
 
 type ColumnIndex map[int]*Row
@@ -40,8 +43,7 @@ type Table struct {
 	VarLenCols                    []int
 	PageIDsPerType                map[string][]uint32 //pageType ->pageID
 	indexType                     string
-	indexedColumns                []*Column
-	columnIndex                   map[string]*Row
+	orderedRows                   []*Row
 }
 
 type ByRowId []ColMap
@@ -102,7 +104,7 @@ func (byrowid ByRowId) Swap(i, j int) {
 func (table *Table) udateColIndex(sysrscols SysRsCols) {
 	for _, col := range table.Schema {
 		if col.Order == uint16(sysrscols.Rscolid) {
-			table.indexedColumns = append(table.indexedColumns, &col)
+			table.Indexes[sysrscols.Rscolid-1].column = &col
 			break
 		}
 	}
@@ -136,26 +138,58 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 
 }
 
-func (table *Table) addIndex(indexInfo SysIdxStats, sysallocunit SysAllocUnits) {
+func (tableIndex *TableIndex) addAllocatedPages(sysallocunit SysAllocUnits) {
+	rooPageId := sysallocunit.GetRootPageId()
+	if rooPageId == 0 {
+		return
+	}
+	tableIndex.firstPage = sysallocunit.GetFirstPageId()
+	tableIndex.rootPage = rooPageId
 
-	table.Indexes = append(table.Indexes,
-		TableIndex{name: indexInfo.GetName(), rootPage: sysallocunit.GetRootPageId(),
-			firstPage: sysallocunit.GetFirstPageId()})
+}
+
+func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysallocunits []SysAllocUnits) {
+
+	tableIndex := TableIndex{id: indexInfo.Indid, name: indexInfo.GetName(), isClustered: indexInfo.Type == 1}
+
+	if hasallocunits {
+		for _, sysallocunit := range sysallocunits {
+			tableIndex.addAllocatedPages(sysallocunit)
+
+		}
+	}
+
+	table.Indexes = append(table.Indexes, tableIndex)
+
 }
 
 func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
-	for _, index := range table.Indexes {
-		pages := indexPages.Lookup[uint32(index.rootPage)]
-
+	for _, tindex := range table.Indexes {
+		pages := indexPages.Lookup[uint32(tindex.rootPage)]
+		c := tindex.column
 		for pages != nil {
 			page := pages.Pages[0]
 			for _, indexrow := range page.IndexRows {
-				if table.indexType == "Heap" {
-					if indexrow.NoNLeaf == nil {
-						continue
+
+				if indexrow.NoNLeaf == nil {
+					continue
+				}
+
+				/*	if tindex.isClustered && int(c.Size) != len(indexrow.NoNLeaf.KeyValue)-4 && //4 bytes to ensure uniqueness of cluster key
+					int(c.Size) != len(indexrow.NoNLeaf.KeyValue) {
+					break
+				}*/
+				keystr := c.toString(indexrow.NoNLeaf.KeyValue)
+				if keystr == "0" { //?
+					break
+				}
+
+				for rowid, row := range table.rows {
+					if c.toString(row.ColMap[c.Name].Content) == keystr {
+						table.orderedRows = append(table.orderedRows, &table.rows[rowid])
+						break
 					}
-					table.ProcessIndexHeap(indexrow.NoNLeaf)
 				}
 
 			}
@@ -163,24 +197,6 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 		}
 	}
 
-}
-
-func (table *Table) ProcessIndexHeap(nonleaf *page.IndexNoNLeaf) {
-	c := table.indexedColumns[0]
-	if int(c.Size) != len(nonleaf.KeyValue) {
-		return
-	}
-	keystr := c.toString(nonleaf.KeyValue)
-	if keystr == "0" { //?
-		return
-	}
-	table.columnIndex = make(map[string]*Row)
-	for rowid, row := range table.rows {
-		if c.toString(row.ColMap[c.Name].Content) == keystr {
-			table.columnIndex[keystr] = &table.rows[rowid]
-			break
-		}
-	}
 }
 
 func (table *Table) AddRow(record LDF.Record) {
@@ -358,7 +374,7 @@ func (table Table) printTableInfo() {
 }
 
 func (table Table) Show(showSchema bool, showContent bool,
-	showAllocation string, tabletype string, showrows int, skiprows int,
+	showAllocation string, showIndex bool, tabletype string, showrows int, skiprows int,
 	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
 	fmt.Printf("\nTable %s \n", table.Name)
@@ -369,6 +385,10 @@ func (table Table) Show(showSchema bool, showContent bool,
 		table.printHeader(showcolnames)
 		table.printData(showrows, skiprows, showrow, showcarved, showldf, showcolnames, showrawdata)
 		table.cleverPrintData()
+	}
+
+	if showIndex {
+		table.printIndex()
 	}
 
 	if showAllocation == "simple" {
@@ -479,6 +499,18 @@ func (table Table) printHeader(showcolnames []string) {
 	fmt.Printf("\n")
 }
 
+func (table Table) printIndex() {
+	fmt.Printf("Table Index names\n")
+	for _, tindex := range table.Indexes {
+		fmt.Printf("Index Name %s Col Name %s", tindex.name, tindex.column.Name)
+		if tindex.isClustered {
+			fmt.Printf(" Clustered Index")
+		}
+		fmt.Printf("\n")
+	}
+
+}
+
 func (table Table) cleverPrintData() {
 	groupedRowsById := make(map[string]Row)
 	var org_row Row
@@ -533,7 +565,7 @@ func (table Table) cleverPrintData() {
 func (table Table) printData(showtorow int, skiprows int,
 	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
-	for idx, row := range table.rows {
+	for idx, row := range table.orderedRows { // when no rder check?
 		if skiprows != -1 && idx < skiprows {
 			continue
 		}
