@@ -6,15 +6,22 @@ import (
 	"unsafe"
 )
 
-//If a clustered index is created and the index isn't defined as unique, the duplicated key values include a uniquifier  a 4-byte integer to make each nonunique key value unique.
-//clustered index root -> intermediate level rowid( child fileId+child PageId) +key value and so on
-//The leaf level of a clustered index is the data itself, the data is copied and ordered based on the clustering key r
-//Each row in the non-leaf levels has one entry for every page of the level below,  this entry includes an index key value and a 6-byte pointer to reference the page
+// If a clustered index is created, must be unique so that nonclustered index entries can point to exactly one specific row.
+// if the index isn't defined as unique, the duplicated key values include a uniquifier  a 4-byte integer to make each nonunique key value unique.
+// , all nonclustered index entries must refer to exactly one row. Because that pointer is the clustering key in SQL Server, the clustering key must be unique
+// clustered index root -> intermediate level rowid( child fileId+child PageId) +key value and so on
+// The leaf level of a clustered index is the data itself, the data is copied and ordered based on the clustering key r
+// Each row in the non-leaf levels has one entry for every page of the level below,  this entry includes an index key value and a 6-byte pointer to reference the page
 
-//intermediate level one row for each leaf size =key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
-
+// a table can have only one clustered index.
+// intermediate level one row for each leaf size =key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
+//
 // non clustered key value (e.g. int = 4 byte) + rid (8 bytes) + 1 overhead (fixed)
 // root->childpageID leaf level have value of 0
+//row structure of a clustered index is no different from the row structure of a heap,
+// except in one case: when the clustering key isnβ€™t defined with the UNIQUE attribute.
+//In this case, SQL Server must guarantee uniqueness internally, and to do this, each duplicate row requires an additional uniquifier value.
+
 type IndexRows []IndexRow
 
 type IndexIntermediateClustered struct {
