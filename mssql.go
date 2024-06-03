@@ -64,6 +64,7 @@ func main() {
 	tablename := flag.String("table", "", "show table (use all for all tables)")
 	tablepages := flag.String("tablepages", "", "filter rows by pages (use comm)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
+	showTableIndex := flag.Bool("showtableindex", false, "show table index contents")
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
 	showGamExtents := flag.Bool("gam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("sgam", false, "show SGAM extents for each page")
@@ -109,6 +110,7 @@ func main() {
 		ShowTableSchema:     *showTableSchema,
 		ShowTableContent:    *showTableContent,
 		ShowTableAllocation: *showTableAllocation,
+		ShowTableIndex:      *showTableIndex,
 		ShowPageStats:       *showPageStats,
 		ShowIndex:           *showIndex,
 		SelectedTableRows:   *selectedTableRows,
