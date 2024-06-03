@@ -18,6 +18,7 @@ type Reporter struct {
 	ShowTableSchema     bool
 	ShowTableContent    bool
 	ShowTableAllocation string
+	ShowTableIndex      bool
 	ShowPageStats       bool
 	ShowIndex           bool
 	SelectedTableRows   int
@@ -83,7 +84,7 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
 
 	for table := range tables {
 
-		table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation,
+		table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation, rp.ShowTableIndex,
 			rp.TableType, rp.SelectedTableRows, rp.SkippedTableRows,
 			rp.SelectedTableRow, rp.ShowCarved, rp.ShowLDF, rp.ShowColNames, rp.Raw)
 
