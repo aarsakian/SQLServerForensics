@@ -279,7 +279,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 		mslogger.Mslogger.Warning(msg)
 	}
 
-	partitions := db.tablesPartitions[objectid]
+	partitions := db.tablesPartitions[objectid] //objectid ->  sysrowsets
 
 	var table_alloc_pages page.Pages
 
@@ -312,17 +312,9 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	}
 
 	for _, indexInfo := range db.indexesInfo[objectid] {
-		if len(indexInfo.Name) == 0 {
-			continue
-		}
-		allocationUnits, ok := db.tablesAllocations[indexInfo.Rowsetid] // f
-		if ok {
-			for _, allocationUnit := range allocationUnits {
+		sysallocunits, ok := db.tablesAllocations[indexInfo.Rowsetid]
+		table.addIndex(indexInfo, ok, sysallocunits)
 
-				table.addIndex(indexInfo, allocationUnit)
-
-			}
-		}
 		for _, partition := range partitions {
 			if partition.Idminor == 0 { // no index
 				continue
