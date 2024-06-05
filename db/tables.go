@@ -171,7 +171,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
 	for _, tindex := range table.Indexes {
 		pages := indexPages.Lookup[uint32(tindex.rootPageId)]
-		c := tindex.columns[0]
+
 		for pages != nil {
 			page := pages.Pages[0]
 			for _, indexrow := range page.IndexRows {
@@ -180,20 +180,35 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 					continue
 				}
 
-				/*	if tindex.isClustered && int(c.Size) != len(indexrow.NoNLeaf.KeyValue)-4 && //4 bytes to ensure uniqueness of cluster key
-					int(c.Size) != len(indexrow.NoNLeaf.KeyValue) {
-					break
-				}*/
-				keystr := c.toString(indexrow.NoNLeaf.KeyValue)
-				if keystr == "0" { //?
-					break
-				}
+				data := indexrow.NoNLeaf.KeyValue
 
-				for rowid, row := range table.rows {
-					if c.toString(row.ColMap[c.Name].Content) == keystr {
-						table.orderedRows = append(table.orderedRows, &table.rows[rowid])
+				/*	if tindex.isClustered && int(c.Size) != len(indexrow.NoNLeaf.KeyValue)-4 && //4 bytes to ensure uniqueness of cluster key
+						int(c.Size) != len(indexrow.NoNLeaf.KeyValue) {
 						break
 					}
+					keystr := c.toString(indexrow.NoNLeaf.KeyValue)
+					if keystr == "0" { //?
+						break
+					}*/
+
+				for rowid, row := range table.rows {
+					startOffset := 0
+					located := false
+					for _, c := range tindex.columns {
+						//must match every column in the index
+						if c.toString(row.ColMap[c.Name].Content) !=
+							c.toString(data[startOffset:startOffset+int(c.Size)]) {
+
+							located = false
+							break
+						}
+						located = true
+						startOffset += int(c.Size)
+					}
+					if located {
+						table.orderedRows = append(table.orderedRows, &table.rows[rowid])
+					}
+
 				}
 
 			}
