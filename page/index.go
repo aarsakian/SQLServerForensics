@@ -79,7 +79,7 @@ func (indexRow *IndexRow) Parse(data []byte) {
 
 		utils.Unmarshal(data[len(data)-6:], indexNoNLeaf)
 
-		structSize := int(unsafe.Sizeof(indexNoNLeaf))
+		structSize := 6 //int(unsafe.Sizeof(indexNoNLeaf))
 		if len(data) > structSize {
 			indexNoNLeaf.KeyValue = make([]byte, len(data[1:len(data)-structSize]))
 			copy(indexNoNLeaf.KeyValue, data[1:len(data)-structSize])
