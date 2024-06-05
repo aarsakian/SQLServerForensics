@@ -27,9 +27,13 @@ type IndexesInfo map[int32][]SysIdxStats
 
 type TablesAllocations map[uint64][]SysAllocUnits //OwnerId
 
-type ColumnsPartitions map[uint64][]SysRsCols //rowsetid ->
+type ColumnsPartitions map[uint64]SysRsCols //rowsetid ->
 
-type ColumnsStatistics map[int32][]SysIsCols
+type ColumnsStatistics map[int32]SysIsCols
+
+type SysIsCols []SysIsCol
+
+type SysRsCols []SysRsCol
 
 type SysObjValues struct {
 	Valclass uint8
@@ -118,7 +122,7 @@ type SysIdxStats struct {
 	Rowsetid  uint64
 }
 
-type SysIsCols struct {
+type SysIsCol struct {
 	Idmajor   int32
 	Idminor   uint32
 	Subid     uint32
@@ -130,7 +134,8 @@ type SysIsCols struct {
 	Tinyprop4 uint8
 }
 
-type SysRsCols struct {
+// tracks col modifications using Rcmodified as a counter
+type SysRsCol struct {
 	Rsid        uint64 //1-8 partition id
 	Rscolid     uint32 //8-12 column id
 	Hbcolid     uint32 //12 - 16 column order in the index
@@ -221,8 +226,8 @@ func (sysschobjs Sysschobjs) GetName() string {
 	return utils.DecodeUTF16(sysschobjs.Name)
 }
 
-func (sysrscols SysRsCols) GetLeafOffset() int16 {
-	return int16(sysrscols.Offset & 0xffff)
+func (sysrscol SysRsCol) GetLeafOffset() int16 {
+	return int16(sysrscol.Offset & 0xffff)
 
 }
 
@@ -314,10 +319,10 @@ func (tablesInfo TablesInfo) Populate(datarows page.DataRows) {
 
 func (columnsStats ColumnsStatistics) Populate(datarows page.DataRows) {
 	for _, datarow := range datarows {
-		sysiscols := new(SysIsCols)
-		utils.Unmarshal(datarow.FixedLenCols, sysiscols)
-		columnsStats[sysiscols.Idmajor] = append(columnsStats[sysiscols.Idmajor],
-			*sysiscols)
+		sysiscol := new(SysIsCol)
+		utils.Unmarshal(datarow.FixedLenCols, sysiscol)
+		columnsStats[sysiscol.Idmajor] = append(columnsStats[sysiscol.Idmajor],
+			*sysiscol)
 	}
 }
 
@@ -383,18 +388,31 @@ func (tablesallocations TablesAllocations) Populate(datarows page.DataRows) {
 func (columnsPartitions ColumnsPartitions) Populate(datarows page.DataRows) {
 
 	for _, datarow := range datarows {
-		sysrscols := new(SysRsCols)
-		utils.Unmarshal(datarow.FixedLenCols, sysrscols)
+		sysrscol := new(SysRsCol)
+		utils.Unmarshal(datarow.FixedLenCols, sysrscol)
 		if datarow.VarLenCols != nil {
 			for idx, datacol := range *datarow.VarLenCols {
 				if idx == 0 {
-					sysrscols.Olguid = datacol.Content
+					sysrscol.Olguid = datacol.Content
 				}
 
 			}
 		}
 
-		columnsPartitions[sysrscols.Rsid] =
-			append(columnsPartitions[sysrscols.Rsid], *sysrscols)
+		columnsPartitions[sysrscol.Rsid] =
+			append(columnsPartitions[sysrscol.Rsid], *sysrscol)
 	}
+}
+
+func (sysiscols SysIsCols) filterByIndexId(indexid uint32) SysIsCols {
+	return utils.Filter(sysiscols, func(sysiscol SysIsCol) bool {
+		return sysiscol.Idminor == indexid
+
+	})
+}
+
+func (sysrscols SysRsCols) filterByIndexId(indexid uint32) SysRsCol {
+	return utils.Filter(sysrscols, func(sysrscol SysRsCol) bool {
+		return sysrscol.Hbcolid == indexid
+	})[0]
 }
