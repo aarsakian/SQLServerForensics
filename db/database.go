@@ -28,8 +28,8 @@ type Database struct {
 	columnsinfo         ColumnsInfo
 	tablesPartitions    TablesPartitions
 	tablesAllocations   TablesAllocations
-	columnsPartitions   ColumnsPartitions
-	columnsStatistics   ColumnsStatistics
+	columnsPartitions   ColumnsPartitions // rowsetid -> sysrscols
+	columnsStatistics   ColumnsStatistics // objectid -> sysiscols
 	indexesInfo         IndexesInfo
 }
 
@@ -310,23 +310,25 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 		}
 
 	}
-
+	sysiscols := db.columnsStatistics[objectid]
 	for _, indexInfo := range db.indexesInfo[objectid] {
 		sysallocunits, ok := db.tablesAllocations[indexInfo.Rowsetid]
 		table.addIndex(indexInfo, ok, sysallocunits)
 
-		for _, partition := range partitions {
-			if partition.Idminor == 0 { // no index
-				continue
-			}
-			for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
-				if indexInfo.Indid == sysrscols.Hbcolid { // to check normally should be equal
-					table.udateColIndex(sysrscols)
-					break
+		filteredSysIscols := sysiscols.filterByIndexId(indexInfo.Indid)
+		/*
+			for _, partition := range partitions {
+				if partition.Idminor == 0 { // no index
+					continue
 				}
+				sysrscols := db.columnsPartitions[partition.Rowsetid]
+				filteredsSysRsCol := sysrscols.filterByIndexId(indexInfo.Indid)
 
-			}
-		}
+
+
+			}*/
+
+		table.udateColIndex(filteredSysIscols)
 	}
 
 	sort.Sort(table_alloc_pages)
