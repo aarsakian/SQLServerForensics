@@ -22,10 +22,10 @@ type Row struct {
 type TableIndex struct {
 	id          uint32
 	name        string
-	rootPage    uint32
-	firstPage   uint32
+	rootPageId  uint32
+	firstPageId uint32
 	isClustered bool
-	column      *Column
+	columns     []*Column
 }
 
 type ColumnIndex map[int]*Row
@@ -101,11 +101,15 @@ func (byrowid ByRowId) Swap(i, j int) {
 	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
 }*/
 
-func (table *Table) udateColIndex(sysrscols SysRsCols) {
-	for _, col := range table.Schema {
-		if col.Order == uint16(sysrscols.Rscolid) {
-			table.Indexes[sysrscols.Rscolid-1].column = &col
-			break
+func (table *Table) udateColIndex(sysiscols SysIsCols) {
+	for _, sysiscol := range sysiscols {
+		for idx, col := range table.Schema {
+			if col.Order == uint16(sysiscol.Intprop) {
+
+				table.Indexes[sysiscol.Idminor-1].columns = append(table.Indexes[sysiscol.Idminor-1].columns,
+					&table.Schema[idx])
+			}
+
 		}
 	}
 }
@@ -143,8 +147,8 @@ func (tableIndex *TableIndex) addAllocatedPages(sysallocunit SysAllocUnits) {
 	if rooPageId == 0 {
 		return
 	}
-	tableIndex.firstPage = sysallocunit.GetFirstPageId()
-	tableIndex.rootPage = rooPageId
+	tableIndex.firstPageId = sysallocunit.GetFirstPageId()
+	tableIndex.rootPageId = rooPageId
 
 }
 
@@ -166,8 +170,8 @@ func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysalloc
 func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
 	for _, tindex := range table.Indexes {
-		pages := indexPages.Lookup[uint32(tindex.rootPage)]
-		c := tindex.column
+		pages := indexPages.Lookup[uint32(tindex.rootPageId)]
+		c := tindex.columns[0]
 		for pages != nil {
 			page := pages.Pages[0]
 			for _, indexrow := range page.IndexRows {
@@ -502,10 +506,16 @@ func (table Table) printHeader(showcolnames []string) {
 func (table Table) printIndex() {
 	fmt.Printf("Table Index names\n")
 	for _, tindex := range table.Indexes {
-		fmt.Printf("Index Name %s Col Name %s", tindex.name, tindex.column.Name)
 		if tindex.isClustered {
-			fmt.Printf(" Clustered Index")
+			fmt.Printf(" Clustered ")
+		} else {
+			fmt.Printf(" Statistics ")
 		}
+		fmt.Printf("%s Name \n cols:", tindex.name)
+		for _, c := range tindex.columns {
+			fmt.Printf("%s ", c.Name)
+		}
+
 		fmt.Printf("\n")
 	}
 
