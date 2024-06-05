@@ -323,9 +323,6 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 				}
 				sysrscols := db.columnsPartitions[partition.Rowsetid]
 				filteredsSysRsCol := sysrscols.filterByIndexId(indexInfo.Indid)
-
-
-
 			}*/
 
 		table.udateColIndex(filteredSysIscols)
