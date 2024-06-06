@@ -168,53 +168,69 @@ func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysalloc
 }
 
 func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
-
+	var pagesStack []uint32
+	var pagesToVisited []uint32
+	var pages *page.PagesPerIdNode
 	for _, tindex := range table.Indexes {
-		pages := indexPages.Lookup[uint32(tindex.rootPageId)]
+		pagesStack = append(pagesStack, tindex.rootPageId)
 
-		for pages != nil {
+		for len(pagesStack) != 0 {
+			pageId := pagesStack[0]
+			pagesStack = pagesStack[1:] //pop
+			pages = indexPages.Lookup[pageId]
 			page := pages.Pages[0]
 			for _, indexrow := range page.IndexRows {
-
-				if indexrow.NoNLeaf == nil {
-					continue
-				}
-
-				data := indexrow.NoNLeaf.KeyValue
-
-				/*	if tindex.isClustered && int(c.Size) != len(indexrow.NoNLeaf.KeyValue)-4 && //4 bytes to ensure uniqueness of cluster key
-						int(c.Size) != len(indexrow.NoNLeaf.KeyValue) {
-						break
-					}
-					keystr := c.toString(indexrow.NoNLeaf.KeyValue)
-					if keystr == "0" { //?
-						break
-					}*/
-
-				for rowid, row := range table.rows {
-					startOffset := 0
-					located := false
-					for _, c := range tindex.columns {
-						//must match every column in the index
-						if c.toString(row.ColMap[c.Name].Content) !=
-							c.toString(data[startOffset:startOffset+int(c.Size)]) {
-
-							located = false
-							break
-						}
-						located = true
-						startOffset += int(c.Size)
-					}
-					if located {
-						table.orderedRows = append(table.orderedRows, &table.rows[rowid])
-					}
-
+				_, ok := indexPages.Lookup[indexrow.NoNLeaf.ChildPageID]
+				if !ok {
+					pagesToVisited = append(pagesToVisited, indexrow.NoNLeaf.ChildPageID)
+				} else {
+					pagesStack = append(pagesStack, indexrow.NoNLeaf.ChildPageID)
 				}
 
 			}
-			pages = pages.Next
 		}
 	}
+
+	/*for _, indexrow := range page.IndexRows {
+
+		if indexrow.NoNLeaf == nil {
+			continue
+		}
+
+		data := indexrow.NoNLeaf.KeyValue
+
+			if tindex.isClustered && int(c.Size) != len(indexrow.NoNLeaf.KeyValue)-4 && //4 bytes to ensure uniqueness of cluster key
+				int(c.Size) != len(indexrow.NoNLeaf.KeyValue) {
+				break
+			}
+			keystr := c.toString(indexrow.NoNLeaf.KeyValue)
+			if keystr == "0" { //?
+				break
+			}
+
+		for rowid, row := range table.rows {
+			startOffset := 0
+			located := false
+			for _, c := range tindex.columns {
+				//must match every column in the index
+				if c.toString(row.ColMap[c.Name].Content) !=
+					c.toString(data[startOffset:startOffset+int(c.Size)]) {
+
+					located = false
+					break
+				}
+				located = true
+				startOffset += int(c.Size)
+			}
+			if located {
+				table.orderedRows = append(table.orderedRows, &table.rows[rowid])
+			}
+
+		}
+
+	}
+
+	*/
 
 }
 
