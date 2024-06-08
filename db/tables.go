@@ -26,9 +26,8 @@ type TableIndex struct {
 	firstPageId uint32
 	isClustered bool
 	columns     []*Column
+	rowMap      map[uint32]Row
 }
-
-type ColumnIndex map[int]*Row
 
 type Table struct {
 	Name                          string
@@ -86,6 +85,8 @@ func (table Table) sortByColOrder() {
 	// sort by col order
 	sort.Sort(ByColOrder(table.Schema))
 }
+
+type OrderedRows []Row
 
 /*func (byrowid ByRowId) Len() int {
 	return len(byrowid)
@@ -168,27 +169,44 @@ func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysalloc
 }
 
 func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
+
 	var pagesStack []uint32
-	var pagesToVisited []uint32
+
 	var pages *page.PagesPerIdNode
-	for _, tindex := range table.Indexes {
+
+	for idx, tindex := range table.Indexes {
+		table.Indexes[idx].rowMap = make(map[uint32]Row)
+
 		pagesStack = append(pagesStack, tindex.rootPageId)
 
-		for len(pagesStack) != 0 {
+		for len(pagesStack) != 0 && pagesStack[0] != 0 {
+
 			pageId := pagesStack[0]
+
 			pagesStack = pagesStack[1:] //pop
 			pages = indexPages.Lookup[pageId]
 			page := pages.Pages[0]
 			for _, indexrow := range page.IndexRows {
+
+				cmap := ColMap{}
+
+				startOffset := 0
+
+				for _, c := range tindex.columns {
+					cmap[c.Name] = ColData{Content: indexrow.NoNLeaf.KeyValue[startOffset : startOffset+int(c.Size)]}
+					startOffset += int(c.Size)
+				}
+
 				_, ok := indexPages.Lookup[indexrow.NoNLeaf.ChildPageID]
-				if !ok {
-					pagesToVisited = append(pagesToVisited, indexrow.NoNLeaf.ChildPageID)
-				} else {
+				if ok {
 					pagesStack = append(pagesStack, indexrow.NoNLeaf.ChildPageID)
 				}
 
+				table.Indexes[idx].rowMap[indexrow.NoNLeaf.ChildPageID] = Row{ColMap: cmap}
 			}
+
 		}
+
 	}
 
 	/*for _, indexrow := range page.IndexRows {
