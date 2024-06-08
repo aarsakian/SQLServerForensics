@@ -6,8 +6,10 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -170,43 +172,8 @@ func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysalloc
 
 func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
-	var pagesStack []uint32
-
-	var pages *page.PagesPerIdNode
-
-	for idx, tindex := range table.Indexes {
-		var rows []Row
-
-		pagesStack = append(pagesStack, tindex.rootPageId)
-
-		for len(pagesStack) != 0 && pagesStack[0] != 0 {
-
-			pageId := pagesStack[0]
-
-			pagesStack = pagesStack[1:] //pop
-			pages = indexPages.Lookup[pageId]
-			page := pages.Pages[0]
-			for _, indexrow := range page.IndexRows {
-
-				cmap := ColMap{}
-
-				startOffset := 0
-
-				for _, c := range tindex.columns {
-					cmap[c.Name] = ColData{Content: indexrow.NoNLeaf.KeyValue[startOffset : startOffset+int(c.Size)]}
-					startOffset += int(c.Size)
-				}
-
-				_, ok := indexPages.Lookup[indexrow.NoNLeaf.ChildPageID]
-				if ok {
-					pagesStack = append(pagesStack, indexrow.NoNLeaf.ChildPageID)
-				}
-
-				rows = append(rows, Row{ColMap: cmap})
-			}
-
-		}
-		table.Indexes[idx].rows = rows
+	for idx := range table.Indexes {
+		table.Indexes[idx].Populate(indexPages)
 
 	}
 
@@ -251,6 +218,59 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
 	*/
 
+}
+
+func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
+	var rows []Row
+	var pagesQueue []uint32
+
+	var pages *page.PagesPerIdNode
+	pagesQueue = append(pagesQueue, tindex.rootPageId)
+
+	for len(pagesQueue) != 0 && pagesQueue[0] != 0 {
+
+		pageId := pagesQueue[0]
+
+		pagesQueue = pagesQueue[1:] //pop
+		pages = indexPages.Lookup[pageId]
+		page := pages.Pages[0]
+		for _, indexrow := range page.IndexRows {
+
+			cmap := ColMap{}
+
+			startOffset := 0
+
+			for _, c := range tindex.columns {
+				cmap[c.Name] = ColData{Content: indexrow.NoNLeaf.KeyValue[startOffset : startOffset+int(c.Size)]}
+				startOffset += int(c.Size)
+			}
+
+			_, ok := indexPages.Lookup[indexrow.NoNLeaf.ChildPageID]
+			if ok {
+				pagesQueue = append(pagesQueue, indexrow.NoNLeaf.ChildPageID)
+			}
+
+			rows = append(rows, Row{ColMap: cmap})
+		}
+
+	}
+	//sort indexes
+	slices.SortFunc(rows, func(first, second Row) int {
+		var res int
+		for cname, fcol := range first.ColMap {
+			res = slices.CompareFunc(fcol.Content, second.ColMap[cname].Content,
+				func(fbyte byte, sbyte byte) int {
+					return cmp.Compare(fbyte, sbyte)
+				})
+			if res == 0 {
+				continue
+			}
+		}
+		return res
+
+	})
+
+	tindex.rows = rows
 }
 
 func (table *Table) AddRow(record LDF.Record) {
