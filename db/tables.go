@@ -26,7 +26,7 @@ type TableIndex struct {
 	firstPageId uint32
 	isClustered bool
 	columns     []*Column
-	rowMap      map[uint32]Row
+	rows        []Row
 }
 
 type Table struct {
@@ -175,7 +175,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 	var pages *page.PagesPerIdNode
 
 	for idx, tindex := range table.Indexes {
-		table.Indexes[idx].rowMap = make(map[uint32]Row)
+		var rows []Row
 
 		pagesStack = append(pagesStack, tindex.rootPageId)
 
@@ -202,10 +202,11 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 					pagesStack = append(pagesStack, indexrow.NoNLeaf.ChildPageID)
 				}
 
-				table.Indexes[idx].rowMap[indexrow.NoNLeaf.ChildPageID] = Row{ColMap: cmap}
+				rows = append(rows, Row{ColMap: cmap})
 			}
 
 		}
+		table.Indexes[idx].rows = rows
 
 	}
 
