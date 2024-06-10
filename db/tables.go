@@ -254,6 +254,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 		}
 
 	}
+	tindex.rows = rows
 	//sort indexes
 	slices.SortFunc(rows, func(first, second Row) int {
 		var res int
@@ -265,12 +266,12 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 			if res == 0 {
 				continue
 			}
+			return res
 		}
 		return res
 
 	})
 
-	tindex.rows = rows
 }
 
 func (table *Table) AddRow(record LDF.Record) {
@@ -587,6 +588,15 @@ func (table Table) printIndex() {
 		}
 
 		fmt.Printf("\n")
+
+		for idx, row := range tindex.rows {
+			fmt.Printf("%d: ", idx+1)
+			for _, c := range tindex.columns {
+				colData := row.ColMap[c.Name]
+				c.Print(colData.Content)
+			}
+			fmt.Printf("\n")
+		}
 	}
 
 }
@@ -645,7 +655,7 @@ func (table Table) cleverPrintData() {
 func (table Table) printData(showtorow int, skiprows int,
 	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
-	for idx, row := range table.orderedRows { // when no rder check?
+	for idx, row := range table.rows { // when no rder check?
 		if skiprows != -1 && idx < skiprows {
 			continue
 		}
@@ -656,8 +666,9 @@ func (table Table) printData(showtorow int, skiprows int,
 		if showrow != -1 && idx != showrow {
 			continue
 		}
-
+		fmt.Printf("%d: ", idx+1)
 		for _, c := range table.Schema {
+
 			for _, showcolname := range showcolnames {
 				if showcolname != "" && showcolname != c.Name {
 					continue
