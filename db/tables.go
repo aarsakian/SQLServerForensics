@@ -106,14 +106,22 @@ func (byrowid ByRowId) Swap(i, j int) {
 
 func (table *Table) udateColIndex(sysiscols SysIsCols) {
 	for _, sysiscol := range sysiscols {
-		for idx, col := range table.Schema {
-			if col.Order == uint16(sysiscol.Intprop) {
+		for indexIdx, indexInfo := range table.Indexes {
+			if indexInfo.id != sysiscol.Idminor {
+				continue
+			}
+			for idx, col := range table.Schema {
+				if col.Order != uint16(sysiscol.Intprop) {
+					continue
 
-				table.Indexes[sysiscol.Idminor-1].columns = append(table.Indexes[sysiscol.Idminor-1].columns,
+				}
+				table.Indexes[indexIdx].columns = append(table.Indexes[indexIdx].columns,
 					&table.Schema[idx])
+
 			}
 
 		}
+
 	}
 }
 
@@ -227,12 +235,17 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 	var pages *page.PagesPerIdNode
 	pagesQueue = append(pagesQueue, tindex.rootPageId)
 
+	var keyValue []byte
+
 	for len(pagesQueue) != 0 && pagesQueue[0] != 0 {
 
 		pageId := pagesQueue[0]
 
 		pagesQueue = pagesQueue[1:] //pop
 		pages = indexPages.Lookup[pageId]
+		if pages == nil {
+			break
+		}
 		page := pages.Pages[0]
 		for _, indexrow := range page.IndexRows {
 
@@ -241,10 +254,28 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 			startOffset := 0
 
 			for _, c := range tindex.columns {
-				cmap[c.Name] = ColData{Content: indexrow.NoNLeaf.KeyValue[startOffset : startOffset+int(c.Size)]}
+
+				if indexrow.NoNLeaf != nil {
+					keyValue = indexrow.NoNLeaf.KeyValue
+				} else if indexrow.IntermediateClustered != nil {
+					keyValue = indexrow.IntermediateClustered.KeyValue
+				} else {
+					break
+				}
+				if startOffset > len(keyValue) || startOffset+int(c.Size) > len(keyValue) {
+					msg := fmt.Sprintf("data length of non-leaf index is exhausted by %d at page Id %d",
+						startOffset+int(c.Size)-len(keyValue), page.Header.PageId)
+					mslogger.Mslogger.Warning(msg)
+					break
+				}
+
+				cmap[c.Name] = ColData{Content: keyValue[startOffset : startOffset+int(c.Size)]}
 				startOffset += int(c.Size)
 			}
+			if indexrow.NoNLeaf == nil {
+				break
 
+			}
 			_, ok := indexPages.Lookup[indexrow.NoNLeaf.ChildPageID]
 			if ok {
 				pagesQueue = append(pagesQueue, indexrow.NoNLeaf.ChildPageID)
