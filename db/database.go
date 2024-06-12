@@ -314,17 +314,19 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	for _, indexInfo := range db.indexesInfo[objectid] {
 		sysallocunits, ok := db.tablesAllocations[indexInfo.Rowsetid]
 		table.addIndex(indexInfo, ok, sysallocunits)
+	}
 
+	/*
+		for _, partition := range partitions {
+			if partition.Idminor == 0 { // no index
+				continue
+			}
+			sysrscols := db.columnsPartitions[partition.Rowsetid]
+			filteredsSysRsCol := sysrscols.filterByIndexId(indexInfo.Indid)
+		}*/
+
+	for _, indexInfo := range db.indexesInfo[objectid] {
 		filteredSysIscols := sysiscols.filterByIndexId(indexInfo.Indid)
-		/*
-			for _, partition := range partitions {
-				if partition.Idminor == 0 { // no index
-					continue
-				}
-				sysrscols := db.columnsPartitions[partition.Rowsetid]
-				filteredsSysRsCol := sysrscols.filterByIndexId(indexInfo.Indid)
-			}*/
-
 		table.udateColIndex(filteredSysIscols)
 	}
 
@@ -342,6 +344,10 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
 		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
 
+	if !indexPages.IsEmpty() {
+		table.setIndexContent(indexPages)
+	}
+
 	if dataPages.IsEmpty() {
 		msg := fmt.Sprintf("No pages located for table %s", table.Name)
 		mslogger.Mslogger.Warning(msg)
@@ -351,9 +357,6 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 	}
 
-	if !indexPages.IsEmpty() {
-		table.setIndexContent(indexPages)
-	}
 	return table
 
 }
