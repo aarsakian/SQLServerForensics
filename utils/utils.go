@@ -217,6 +217,7 @@ func RealToStr(data []byte, precision uint8, scale uint8) string {
 // finaly multiply with exponent
 func FloatToStr(data []byte) string {
 	var bitrepresentation strings.Builder
+	var exponent float64
 	for _, byteval := range Bytereverse(data) {
 
 		bitrepresentation.WriteString(fillPrefixWithZeros(
@@ -224,7 +225,11 @@ func FloatToStr(data []byte) string {
 	}
 
 	intval, _ := strconv.ParseUint(bitrepresentation.String()[1:12], 2, 16)
-	exponent := math.Pow(2, float64(intval-1023))
+	if intval == 0 {
+		exponent = 0.0
+	} else {
+		exponent = math.Pow(2, float64(intval-1023))
+	}
 
 	mantissaSum := 1.0
 
@@ -512,23 +517,6 @@ func Hexify(bslice []byte) string {
 
 	return hex.EncodeToString(bslice)
 
-}
-
-type SlotOffset uint16
-
-type SortedSlotsOffset []SlotOffset
-
-func (s SortedSlotsOffset) Len() int {
-	return len(s)
-
-}
-
-func (s SortedSlotsOffset) Less(i, j int) bool {
-	return s[i] < s[j]
-}
-
-func (s SortedSlotsOffset) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
 }
 
 func CopyMapToSortedMap[L any, T ~[]L, K uint64](d map[K]T, s map[K]T) {
