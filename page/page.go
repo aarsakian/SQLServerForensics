@@ -4,13 +4,11 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"reflect"
-	"sort"
 )
 
-var PAGELEN = 8192
+var PAGELEN = uint16(8192)
 
 var PageTypes = map[uint8]string{
 	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 6: "Work File", 7: "Sort", 8: "GAM", 9: "SGAM",
@@ -119,7 +117,7 @@ func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
 
 type Page struct {
 	Header             Header
-	Slots              []utils.SlotOffset
+	Slots              Slots
 	DataRows           DataRows
 	CarvedDataRows     DataRows
 	ForwardingPointers ForwardingPointers
@@ -359,21 +357,6 @@ func (page Page) GetLobData(lobPages PagesPerId[uint32], textLobPages PagesPerId
 	return bytes.Join(dataParts, []byte{})
 }
 
-func retrieveSlots(data []byte) []utils.SlotOffset {
-	var slotsOffset []utils.SlotOffset
-
-	var slot utils.SlotOffset
-	for idx := 0; idx < binary.Size(data); idx += 2 {
-		binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &slot)
-		if slot == 0 {
-			continue
-		}
-		slotsOffset = append(slotsOffset, slot)
-
-	}
-	return slotsOffset
-}
-
 func (page Page) GetType() string {
 	return PageTypes[page.Header.Type]
 }
@@ -386,7 +369,7 @@ func (page Page) ShowGAMStats() {
 func (page *Page) parseGAM(data []byte) {
 	var gamExtents GAMExtents
 	GAMLen := 4
-	for idx, entry := range data[int(page.Slots[1])+GAMLen : page.Header.FreeData] {
+	for idx, entry := range data[int(page.Slots[1].Offset)+GAMLen : page.Header.FreeData] {
 
 		for i := 0; i < 8; i++ {
 
@@ -415,29 +398,29 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 
 func (page *Page) parseLOB(data []byte) {
 	var lobs []LOB
-	for _, slotoffset := range page.Slots {
-		if slotoffset+14 > utils.SlotOffset(PAGELEN) {
-			mslogger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB slotoffset exceeds page size by %d\n",
-				slotoffset+14-utils.SlotOffset(PAGELEN)))
+	for _, slot := range page.Slots {
+		if slot.Offset+14 > PAGELEN {
+			mslogger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB slot.Offset exceeds page size by %d\n",
+				slot.Offset+14-PAGELEN))
 			continue
 		}
 
 		var lob *LOB = new(LOB)
-		utils.Unmarshal(data[slotoffset:slotoffset+14], lob) // 14 byte lob header
+		utils.Unmarshal(data[slot.Offset:slot.Offset+14], lob) // 14 byte lob header
 
-		if slotoffset+utils.SlotOffset(lob.Length) > utils.SlotOffset(PAGELEN) {
+		if slot.Offset+lob.Length > PAGELEN {
 			mslogger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB LOB length too large it exceeds page  %d\n",
-				utils.SlotOffset(lob.Length)))
+				lob.Length))
 			continue
 		}
 		if lob.Type == 3 { // data leaf
-			content := make([]byte, slotoffset+utils.SlotOffset(lob.Length)-(slotoffset+14))
-			copy(content, data[slotoffset+14:slotoffset+utils.SlotOffset(lob.Length)])
+			content := make([]byte, slot.Offset+lob.Length-(slot.Offset+14))
+			copy(content, data[slot.Offset+14:slot.Offset+lob.Length])
 			lob.Data = content
 		} else if lob.Type == 5 { // lob root
-			lob.ParseRoot(data[slotoffset+14 : slotoffset+utils.SlotOffset(lob.Length)])
+			lob.ParseRoot(data[slot.Offset+14 : slot.Offset+lob.Length])
 		} else if lob.Type == 2 { //internal
-			lob.ParseInternal(data[slotoffset+14 : slotoffset+utils.SlotOffset(lob.Length)])
+			lob.ParseInternal(data[slot.Offset+14 : slot.Offset+lob.Length])
 		}
 		lobs = append(lobs, *lob)
 	}
@@ -447,60 +430,60 @@ func (page *Page) parseLOB(data []byte) {
 
 func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
-	for slotnum, slotoffset := range page.Slots {
-		var allocatedDataRowSize utils.SlotOffset
+	page.DataRows = make(DataRows, len(page.Slots))
+	for slotnum, slot := range page.Slots {
+		var allocatedDataRowSize,
+			actualDataRowSize uint16
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
 
-		var actualDataRowSize int
-
-		msg := fmt.Sprintf("%d datarow at %d", slotnum, offset+int(slotoffset))
+		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
-		if slotoffset == 0 {
-			msg := "slotoffset is zero  potential deleted datarow \n"
+		if slot.Offset == 0 {
+			msg := "slot.Offset is zero  potential deleted datarow \n"
 			mslogger.Mslogger.Info(msg)
 			continue
 			//heuristics
 
-		} else if slotoffset < 96 { //offset starts from 96
-			msg := fmt.Sprintf("slotoffset %d cannot be less than 96 bytes \n", slotoffset)
+		} else if slot.Offset < 96 { //offset starts from 96
+			msg := fmt.Sprintf("slot.Offset %d cannot be less than 96 bytes \n", slot.Offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
 
-		if page.Header.FreeData < uint16(slotoffset) {
-			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slotoffset)
+		if page.Header.FreeData < uint16(slot.Offset) {
+			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slot.Offset)
 			mslogger.Mslogger.Warning(msg)
 			continue
 		}
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
-			allocatedDataRowSize = page.Slots[slotnum+1] - slotoffset //find allocated legnth
+			allocatedDataRowSize = page.Slots[slotnum+1].Offset - slot.Offset //find allocated legnth
 		} else { //last slot
-			allocatedDataRowSize = utils.SlotOffset(page.Header.FreeData) - slotoffset
+			allocatedDataRowSize = page.Header.FreeData - slot.Offset
 		}
 
-		if GetRowType(data[slotoffset]) == "Forwarding Record" { // forward pointer header
-			utils.Unmarshal(data[slotoffset:slotoffset+allocatedDataRowSize],
+		if GetRowType(data[slot.Offset]) == "Forwarding Record" { // forward pointer header
+			utils.Unmarshal(data[slot.Offset:slot.Offset+uint16(allocatedDataRowSize)],
 				forwardingPointer)
 			page.ForwardingPointers = append(page.ForwardingPointers, *forwardingPointer)
 
-		} else if GetRowType(data[slotoffset]) == "Primary Record" {
-			actualDataRowSize = dataRow.Parse(data[slotoffset:slotoffset+allocatedDataRowSize],
-				int(slotoffset)+offset, page.Header.ObjectId)
+		} else if GetRowType(data[slot.Offset]) == "Primary Record" {
+			actualDataRowSize = uint16(dataRow.Parse(data[slot.Offset:slot.Offset+allocatedDataRowSize],
+				int(slot.Offset)+offset, page.Header.ObjectId))
 
-			page.DataRows = append(page.DataRows, *dataRow)
+			page.DataRows[slot.Order] = *dataRow
 		}
 		//// this section is experimental
 		// found area that is unallocated?
-		unallocatedArea := allocatedDataRowSize - utils.SlotOffset(actualDataRowSize)
+		unallocatedArea := allocatedDataRowSize - actualDataRowSize
 		if unallocatedArea > 0 && carve {
 			//calculate size of unallocate cols
-			slotoffset += utils.SlotOffset(actualDataRowSize) // add last row size
+			slot.Offset += actualDataRowSize // add last row size
 			//carve only when there is unallocated space in datarow
-			if slotoffset < utils.SlotOffset(page.Header.FreeData) &&
-				slotoffset+unallocatedArea <= utils.SlotOffset(page.Header.FreeData) {
-				page.CarveDataRows(data[slotoffset:slotoffset+unallocatedArea], offset+int(slotoffset))
+			if slot.Offset < page.Header.FreeData &&
+				slot.Offset+unallocatedArea <= page.Header.FreeData {
+				page.CarveDataRows(data[slot.Offset:slot.Offset+unallocatedArea], offset+int(slot.Offset))
 			}
 
 		}
@@ -511,19 +494,19 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
 	var carvedDataRow *DataRow = new(DataRow)
-	slotoffset := 0
-	for slotoffset < len(unallocatedData) && slotoffset > 0 {
+	slotOffset := 0
+	for slotOffset < len(unallocatedData) && slotOffset > 0 {
 		// second condition for negative offsets in var cols offsets
 
 		msg := fmt.Sprintf("unallocated space discovered at %d",
 			offset+len(unallocatedData))
 		mslogger.Mslogger.Warning(msg)
-		if GetRowType(unallocatedData[slotoffset]) != "Primary Record" {
+		if GetRowType(unallocatedData[slotOffset]) != "Primary Record" {
 			break
 		}
-		dataRowSize := carvedDataRow.Parse(unallocatedData[slotoffset:],
-			int(slotoffset)+offset, page.Header.ObjectId)
-		slotoffset += dataRowSize
+		dataRowSize := carvedDataRow.Parse(unallocatedData[slotOffset:],
+			int(slotOffset)+offset, page.Header.ObjectId)
+		slotOffset += dataRowSize
 
 		page.CarvedDataRows = append(page.CarvedDataRows, *carvedDataRow)
 
@@ -533,7 +516,7 @@ func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
 func (page *Page) parseSGAM(data []byte) {
 	var sgamExtents SGAMExtents
 	SGAMLen := 4
-	for idx, entry := range data[int(page.Slots[1])+SGAMLen : page.Header.FreeData] {
+	for idx, entry := range data[int(page.Slots[1].Offset)+SGAMLen : page.Header.FreeData] {
 
 		for i := 0; i < 8; i++ {
 
@@ -547,7 +530,7 @@ func (page *Page) parseSGAM(data []byte) {
 
 func (page *Page) parsePFS(data []byte) {
 	var pfsPage PFSPage
-	for idx, entry := range data[page.Slots[0]:page.Header.FreeData] {
+	for idx, entry := range data[page.Slots[0].Offset:page.Header.FreeData] {
 		pfsPage = append(pfsPage, PFS{uint32(idx), PFSStatus[uint8(entry)]})
 	}
 
@@ -600,7 +583,7 @@ func (page Page) ShowIndexRows() {
 
 func (page *Page) parseIAM(data []byte) {
 	var iams IAMExtents
-	for idx, entry := range data[page.Slots[1]:page.Header.FreeData] {
+	for idx, entry := range data[page.Slots[1].Offset:page.Header.FreeData] {
 		for i := 0; i < 8; i++ {
 			iams = append(iams, IAMExtent{i + idx*8, entry>>i&1 == 0})
 		}
@@ -610,94 +593,94 @@ func (page *Page) parseIAM(data []byte) {
 }
 
 func (page *Page) parseIndex(data []byte, offset int) {
-	var indexRows IndexRows
-	for slotnum, slotoffset := range page.Slots {
-		msg := fmt.Sprintf("%d index row at %d", slotnum, offset+int(slotoffset))
+	page.IndexRows = make(IndexRows, len(page.Slots))
+	for slotnum, slot := range page.Slots {
+		msg := fmt.Sprintf("%d index row at %d", slotnum, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
 
-		if slotoffset < 96 { //offset starts from 96
-			msg := fmt.Sprintf("slotoffset %d less than header size \n", slotoffset)
+		if slot.Offset < 96 { //offset starts from 96
+			msg := fmt.Sprintf("slot.Offset %d less than header size \n", slot.Offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
 
-		var indexRowLen utils.SlotOffset
+		var indexRowLen uint16
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
-			indexRowLen = page.Slots[slotnum+1] - slotoffset //find legnth
-		} else if page.Header.FreeData < uint16(slotoffset) {
-			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slotoffset)
+			indexRowLen = page.Slots[slotnum+1].Offset - slot.Offset //find legnth
+		} else if page.Header.FreeData < uint16(slot.Offset) {
+			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slot.Offset)
 			mslogger.Mslogger.Warning(msg)
 			continue
 		} else { //last slot
-			indexRowLen = utils.SlotOffset(page.Header.FreeData) - slotoffset
+			indexRowLen = page.Header.FreeData - slot.Offset
 		}
 
-		if int(indexRowLen+slotoffset) >= len(data) {
-			msg := fmt.Sprintf("exceeded buffer length %d by %d", len(data), len(data)-int(indexRowLen+slotoffset))
+		if int(indexRowLen+slot.Offset) >= len(data) {
+			msg := fmt.Sprintf("exceeded buffer length %d by %d", len(data), len(data)-int(indexRowLen+slot.Offset))
 			mslogger.Mslogger.Warning(msg)
 			break
 		}
 		indexRow := new(IndexRow)
-		indexRow.Parse(data[slotoffset : slotoffset+indexRowLen])
+		indexRow.Parse(data[slot.Offset : slot.Offset+indexRowLen])
 
 		/*dst := make([]byte, page.Header.PMinLen-1)                                     // allocate memory for fixed len cols
-		copy(dst, data[slotoffset+1:slotoffset+utils.SlotOffset(page.Header.PMinLen)]) //first always statusA
+		copy(dst, data[slot.Offset+1:slot.Offset+Slots(page.Header.PMinLen)]) //first always statusA
 		indexRow.FixedLenCols = dst
-		if utils.HasNullBitmap(data[slotoffset]) {
-			utils.Unmarshal(data[slotoffset:slotoffset+indexRowLen], indexRow)
+		if utils.HasNullBitmap(data[slot.Offset]) {
+			utils.Unmarshal(data[slot.Offset:slot.Offset+indexRowLen], indexRow)
 
-			indexRow.ProcessVaryingCols(data[slotoffset:], offset+int(slotoffset))
+			indexRow.ProcessVaryingCols(data[slot.Offset:], offset+int(slot.Offset))
 
 		}*/
 
-		indexRows = append(indexRows, *indexRow)
+		page.IndexRows[slot.Order] = *indexRow
 
 	}
-	page.IndexRows = indexRows
+
 }
 
 func (page *Page) parseFileHeader(data []byte) {
 	//Svar fileHeader *FileHeader
-	for slotnum, slotoffset := range page.Slots {
-		msg := fmt.Sprintf("%d file header row at %d", slotnum, int(slotoffset))
+	for slotnum, slot := range page.Slots {
+		msg := fmt.Sprintf("%d file header row at %d", slotnum, slot.Offset)
 		mslogger.Mslogger.Info(msg)
 
-		if slotoffset < 96 { //offset starts from 96
-			msg := fmt.Sprintf("slotoffset %d less than header size \n", slotoffset)
+		if slot.Offset < 96 { //offset starts from 96
+			msg := fmt.Sprintf("slot.Offset %d less than header size \n", slot.Offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
 
 		var dataRow *DataRow = new(DataRow)
-		var allocatedDataRowSize utils.SlotOffset
+		var allocatedDataRowSize uint16
 
-		if slotoffset == 0 {
-			msg := "slotoffset is zero  potential deleted datarow \n"
+		if slot.Offset == 0 {
+			msg := "slot.Offset is zero  potential deleted datarow \n"
 			mslogger.Mslogger.Info(msg)
 			continue
 			//heuristics
 
-		} else if slotoffset < 96 { //offset starts from 96
-			msg := fmt.Sprintf("slotoffset %d cannot be less than 96 bytes \n", slotoffset)
+		} else if slot.Offset < 96 { //offset starts from 96
+			msg := fmt.Sprintf("slot.Offset %d cannot be less than 96 bytes \n", slot.Offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
 
-		if page.Header.FreeData < uint16(slotoffset) {
-			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slotoffset)
+		if page.Header.FreeData < slot.Offset {
+			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slot.Offset)
 			mslogger.Mslogger.Warning(msg)
 			continue
 		}
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
-			allocatedDataRowSize = page.Slots[slotnum+1] - slotoffset //find allocated legnth
+			allocatedDataRowSize = page.Slots[slotnum+1].Offset - slot.Offset //find allocated legnth
 		} else { //last slot
-			allocatedDataRowSize = utils.SlotOffset(page.Header.FreeData) - slotoffset
+			allocatedDataRowSize = page.Header.FreeData - slot.Offset
 		}
 
-		dataRow.Parse(data[slotoffset:slotoffset+allocatedDataRowSize],
-			int(slotoffset), page.Header.ObjectId)
+		dataRow.Parse(data[slot.Offset:slot.Offset+allocatedDataRowSize],
+			int(slot.Offset), page.Header.ObjectId)
 
 	}
 }
@@ -713,14 +696,12 @@ func (page *Page) Process(data []byte, offset int, carve bool) {
 		mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
 			header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
 
-		slots := retrieveSlots(data[PAGELEN-int(2*header.SlotCnt):]) //starts from end of page
-		sort.Sort(utils.SortedSlotsOffset(slots))
+		page.Slots = retrieveSortedSlots(data[PAGELEN-2*header.SlotCnt:]) //starts from end of page
 
-		if len(slots) != int(header.SlotCnt) {
-			mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d", header.SlotCnt, len(slots)))
+		if len(page.Slots) != int(header.SlotCnt) {
+			mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d",
+				header.SlotCnt, len(page.Slots)))
 		}
-
-		page.Slots = slots
 
 		switch page.GetType() {
 		case "PFS":
