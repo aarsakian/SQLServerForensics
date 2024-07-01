@@ -6,10 +6,8 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"bytes"
-	"cmp"
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -286,7 +284,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 
 	}
 	tindex.rows = rows
-	//sort indexes
+	/*sort indexes
 	slices.SortFunc(rows, func(first, second Row) int {
 		var res int
 		for cname, fcol := range first.ColMap {
@@ -302,6 +300,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 		return res
 
 	})
+	*/
 
 }
 
@@ -613,7 +612,7 @@ func (table Table) printIndex() {
 		} else {
 			fmt.Printf(" Statistics ")
 		}
-		fmt.Printf("%s Name \n cols:", tindex.name)
+		fmt.Printf("%s \n cols:", tindex.name)
 		for _, c := range tindex.columns {
 			fmt.Printf("%s ", c.Name)
 		}
