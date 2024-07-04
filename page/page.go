@@ -285,6 +285,24 @@ func (pagesPerID PagesPerId[K]) FilterByType(pageType string) PagesPerId[K] {
 
 }
 
+func (pagesPerID PagesPerId[K]) FilterByIDSortedByInput(pageIDs []uint32) PagesPerId[K] {
+	newpagesPerID := PagesPerId[K]{}
+
+	for _, pageId := range pageIDs {
+		for allocUnitId, pagesPerIDNode := range pagesPerID.Lookup {
+			for _, page := range pagesPerIDNode.Pages {
+
+				if page.Header.PageId != uint32(pageId) {
+					continue
+				}
+				newpagesPerID.Add(allocUnitId, page)
+			}
+		}
+	}
+
+	return newpagesPerID
+}
+
 func (pagesPerID PagesPerId[K]) FilterByID(pageIDs []int) PagesPerId[K] {
 	newpagesPerID := PagesPerId[K]{}
 	for allocUnitId, pagesPerIDNode := range pagesPerID.Lookup {
