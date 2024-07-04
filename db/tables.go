@@ -42,7 +42,6 @@ type Table struct {
 	VarLenCols                    []int
 	PageIDsPerType                map[string][]uint32 //pageType ->pageID
 	indexType                     string
-	orderedRows                   []*Row
 }
 
 type ByRowId []ColMap
@@ -176,12 +175,17 @@ func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysalloc
 
 }
 
-func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
-
+func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32 {
+	var indexedDataPages []uint32
 	for idx := range table.Indexes {
-		table.Indexes[idx].Populate(indexPages)
+		if !table.Indexes[idx].isClustered {
+			continue
+		}
+		indexedDataPages = table.Indexes[idx].Populate(indexPages)
 
 	}
+
+	return indexedDataPages
 
 	/*for _, indexrow := range page.IndexRows {
 
@@ -226,7 +230,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) {
 
 }
 
-func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
+func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
 	var rows []Row
 	var pagesQueue []uint32
 
@@ -235,6 +239,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 
 	var keyValue []byte
 
+	var indexedDataPages []uint32
 	for len(pagesQueue) != 0 && pagesQueue[0] != 0 {
 
 		pageId := pagesQueue[0]
@@ -246,20 +251,21 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 		}
 		page := pages.Pages[0]
 		for _, indexrow := range page.IndexRows {
+			if indexrow.NoNLeaf != nil {
+				indexedDataPages = append(indexedDataPages, indexrow.NoNLeaf.ChildPageID)
 
+				keyValue = indexrow.NoNLeaf.KeyValue
+			} else if indexrow.IntermediateClustered != nil {
+				keyValue = indexrow.IntermediateClustered.KeyValue
+			} else {
+				continue
+			}
 			cmap := ColMap{}
 
 			startOffset := 0
 
 			for _, c := range tindex.columns {
 
-				if indexrow.NoNLeaf != nil {
-					keyValue = indexrow.NoNLeaf.KeyValue
-				} else if indexrow.IntermediateClustered != nil {
-					keyValue = indexrow.IntermediateClustered.KeyValue
-				} else {
-					break
-				}
 				if startOffset > len(keyValue) || startOffset+int(c.Size) > len(keyValue) {
 					msg := fmt.Sprintf("data length of non-leaf index is exhausted by %d at page Id %d",
 						startOffset+int(c.Size)-len(keyValue), page.Header.PageId)
@@ -270,10 +276,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 				cmap[c.Name] = ColData{Content: keyValue[startOffset : startOffset+int(c.Size)]}
 				startOffset += int(c.Size)
 			}
-			if indexrow.NoNLeaf == nil {
-				break
 
-			}
 			_, ok := indexPages.Lookup[indexrow.NoNLeaf.ChildPageID]
 			if ok {
 				pagesQueue = append(pagesQueue, indexrow.NoNLeaf.ChildPageID)
@@ -284,6 +287,8 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) {
 
 	}
 	tindex.rows = rows
+
+	return indexedDataPages
 	/*sort indexes
 	slices.SortFunc(rows, func(first, second Row) int {
 		var res int
@@ -496,11 +501,12 @@ func (table Table) Show(showSchema bool, showContent bool,
 		table.printIndex()
 	}
 
-	if showAllocation == "simple" {
-
-		table.printAllocation()
+	if showAllocation == "sorted" {
+		table.printAllocationSorted()
 	} else if showAllocation == "links" {
 		table.printAllocationWithLinks()
+	} else {
+		table.printAllocation()
 	}
 
 }
@@ -528,6 +534,25 @@ func (table Table) printAllocationWithLinks() {
 }
 
 func (table Table) printAllocation() {
+	table.printTableInfo()
+
+	fmt.Print("Page Ids\n")
+
+	for pageType, pagesType := range table.PageIDsPerType {
+
+		if len(pagesType) == 0 {
+			continue
+		}
+		fmt.Printf("%s", pageType)
+		for _, pageId := range pagesType {
+			fmt.Printf(" %d\n", pageId)
+		}
+		fmt.Print("\n")
+	}
+
+}
+
+func (table Table) printAllocationSorted() {
 	table.printTableInfo()
 
 	fmt.Print("Page Ids\n")
