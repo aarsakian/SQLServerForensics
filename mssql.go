@@ -61,7 +61,7 @@ func main() {
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
-	tablename := flag.String("table", "", "show table (use all for all tables)")
+	tablenames := flag.String("tables", "", "show table (use all for all tables, comma for individual tables)")
 	tablepages := flag.String("tablepages", "", "filter rows by pages (use comm)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableIndex := flag.Bool("showtableindex", false, "show table index contents")
@@ -75,7 +75,7 @@ func main() {
 	showIndex := flag.Bool("showindex", false, "show index contents")
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
 	showTableAllocation := flag.String("showTableAllocation", "",
-		"show pages that the table has been allocated write 'simple' or 'links' to see the linked page structure")
+		"show pages that the table has been allocated write 'sorted' or 'links' to see the linked page structure")
 	selectedTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
 	selectedTableRow := flag.Int("row", -1, "Show only the selected row")
@@ -270,7 +270,7 @@ func main() {
 		wg := new(sync.WaitGroup)
 		wg.Add(3)
 
-		go database.ProcessTables(wg, *tablename, *tabletype, represults, expresults, utils.StringsToIntArray(*tablepages))
+		go database.ProcessTables(wg, strings.Split(*tablenames, ","), *tabletype, represults, expresults, utils.StringsToIntArray(*tablepages))
 		go reporter.ShowTableInfo(wg, represults)
 
 		go dbExp.Export(wg, *selectedTableRow, strings.Split(*colnames, ","), database.Name, expresults)
