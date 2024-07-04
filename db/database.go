@@ -230,25 +230,43 @@ func (db Database) GetTablesInfo() TablesInfo {
 	return db.tablesInfo
 }
 
-func (db Database) ProcessTables(wg *sync.WaitGroup, tablename string, tabletype string, reptables chan<- Table, exptables chan<- Table, tablePages []int) {
+func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tabletype string, reptables chan<- Table, exptables chan<- Table, tablePages []int) {
 	defer wg.Done()
-	for objectid, tableinfo := range db.GetTablesInfo() {
-		tname := tableinfo.GetName()
-		tableType := tableinfo.GetTableType()
+	tablesFound := make(map[string]bool)
+	for _, tablename := range tablenames {
+		tablesFound[tablename] = false
+		for objectid, tableinfo := range db.GetTablesInfo() {
 
-		if tablename != "all" && tablename != tname || tabletype != "" && tabletype != tableType {
-			msg := fmt.Sprintf("table %s not processed", tname)
-			mslogger.Mslogger.Info(msg)
+			tname := tableinfo.GetName()
+
+			tableType := tableinfo.GetTableType()
+
+			if tablename != "all" && tablename != tname || tabletype != "" && tabletype != tableType {
+				msg := fmt.Sprintf("table %s not processed", tname)
+				mslogger.Mslogger.Info(msg)
+				continue
+			}
+
+			table := db.ProcessTable(objectid, tname, tableType, tablePages)
+			table.AddChangesHistory(db.PagesPerAllocUnitID, db.CarvedLogRecords, db.ActiveLogRecords)
+			exptables <- table
+			reptables <- table
+
+			tablesFound[tname] = true
+
+		}
+	}
+
+	for tablename, found := range tablesFound {
+		if found {
 			continue
 		}
-
-		table := db.ProcessTable(objectid, tname, tableType, tablePages)
-		table.AddChangesHistory(db.PagesPerAllocUnitID, db.CarvedLogRecords, db.ActiveLogRecords)
-		exptables <- table
-		reptables <- table
+		fmt.Printf("Table %s not found", tablename)
 	}
+
 	close(exptables)
 	close(reptables)
+
 }
 
 func (db Database) ProcessTable(objectid int32, tname string, tType string, tablePages []int) Table {
@@ -261,6 +279,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	*/
 
 	//	fmt.Printf("Processing table %s\n", tname)
+
 	table := Table{Name: tname, ObjectId: objectid, Type: tType,
 		PageIDsPerType: map[string][]uint32{}}
 
@@ -345,8 +364,18 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
 
 	if !indexPages.IsEmpty() {
-		table.setIndexContent(indexPages)
+		msg := fmt.Sprintf("No index pages located for table %s", table.Name)
+		mslogger.Mslogger.Warning(msg)
+
 	}
+
+	indexedDataPages := table.setIndexContent(indexPages)
+
+	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
+		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(),
+		"IAM": iamPages.GetIDs(), "IndexedDATA": indexedDataPages}
+
+	dataPages = dataPages.FilterByIDSortedByInput(indexedDataPages)
 
 	if dataPages.IsEmpty() {
 		msg := fmt.Sprintf("No pages located for table %s", table.Name)
