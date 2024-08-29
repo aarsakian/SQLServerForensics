@@ -505,7 +505,7 @@ func (table Table) Show(showSchema bool, showContent bool,
 		table.printAllocationSorted()
 	} else if showAllocation == "links" {
 		table.printAllocationWithLinks()
-	} else {
+	} else if showAllocation == "simple" {
 		table.printAllocation()
 	}
 
@@ -676,12 +676,12 @@ func (table Table) cleverPrintData() {
 
 	fmt.Printf("\nGrouped By First col all changes carved and logged oldest first\n")
 	sort.Sort(ByActionDate(table.loggedrows))
-	for _, row := range table.loggedrows {
+	for _, loggedRow := range table.loggedrows {
 		for cid, c := range table.Schema {
-			loggedCol := row.ColMap[c.Name]
+			loggedCol := loggedRow.ColMap[c.Name]
 			if cid == 0 {
 
-				org_row = groupedRowsById[c.toString(loggedCol.Content)]
+				org_row = groupedRowsById[c.toString(loggedCol.Content)] //to check arbitrary
 			}
 			if org_row.ColMap != nil {
 				orgData := c.toString(org_row.ColMap[c.Name].Content)
@@ -702,7 +702,7 @@ func (table Table) cleverPrintData() {
 
 		}
 
-		fmt.Printf("%s \n", row.LoggedOperation)
+		fmt.Printf("%s \n", loggedRow.LoggedOperation)
 
 	}
 }
