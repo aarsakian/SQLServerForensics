@@ -11,7 +11,7 @@ import (
 var SystemTablesFlags = map[string]int32{
 	"syscolpars": 0x00000029, "sysrowsets": 0x00000005, "sysiscols": 0x00000037,
 	"sysallocationunits": 0x00000007, "sysidxstats": 0x000036,
-	"sysschobjs": 0x00000022, "sysrscols": 0x00000003}
+	"sysschobjs": 0x00000022, "sysrscols": 0x00000003, "sysfiles": 0x00000008}
 
 var TableType = map[string]string{"AF": "Aggregate function (CLR)", "U": "User Table", "S": "System Table",
 	"V": "View", "P": "Stored Procedure", "TT": "Table Type", "UQ": "Unique Constraint", "C": "Check constraint",
@@ -35,6 +35,8 @@ type SysIsCols []SysIsCol
 
 type SysRsCols []SysRsCol
 
+type SysFiles []SysFile
+
 type SysObjValues struct {
 	Valclass uint8
 	Objid    int32
@@ -42,6 +44,13 @@ type SysObjValues struct {
 	Valnum   int32
 	Value    SqlVariant
 	Imageval []byte
+}
+
+type SysFile struct {
+	Status   int32
+	FileId   uint16
+	Name     [256]byte
+	Filename [256]byte
 }
 
 type SysObjects struct { //view
@@ -214,6 +223,14 @@ func (sysidxstats SysIdxStats) GetName() string {
 
 }
 
+func (sysfile SysFile) GetName() string {
+	return utils.DecodeUTF16(sysfile.Name[:])
+}
+
+func (sysfile SysFile) GetFileName() string {
+	return utils.DecodeUTF16(sysfile.Filename[:])
+}
+
 func (sysallocationunits SysAllocUnits) GetRootPageId() uint32 {
 	return utils.ToUint32(sysallocationunits.Pgroot[:4])
 }
@@ -324,6 +341,15 @@ func (columnsStats ColumnsStatistics) Populate(datarows page.DataRows) {
 		columnsStats[sysiscol.Idmajor] = append(columnsStats[sysiscol.Idmajor],
 			*sysiscol)
 	}
+}
+
+func (sysfiles SysFiles) Populate(datarows page.DataRows) {
+	for idx, datarow := range datarows {
+		sysfile := new(SysFile)
+		utils.Unmarshal(datarow.FixedLenCols, sysfile)
+		sysfiles[idx] = *sysfile
+	}
+
 }
 
 func (sysallocunits SysAllocUnits) GetId() uint64 {
