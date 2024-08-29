@@ -7,6 +7,7 @@ import (
 	"MSSQLParser/utils"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -31,21 +32,11 @@ type Database struct {
 	columnsPartitions   ColumnsPartitions // rowsetid -> sysrscols
 	columnsStatistics   ColumnsStatistics // objectid -> sysiscols
 	indexesInfo         IndexesInfo
+	sysfiles            SysFiles //info about files of db mdf, ldf
 }
 
 type SystemTable interface {
 	Process(page.DataRows)
-}
-
-func (db *Database) Process(selectedPage int, fromPage int, toPage int, carve bool) int {
-
-	totalProcessedPages := db.ProcessMDF(selectedPage, fromPage, toPage, carve)
-
-	if db.Lname != "" {
-		db.ProcessLDF()
-	}
-	return totalProcessedPages
-
 }
 
 func (db *Database) ProcessSystemTables() {
@@ -57,6 +48,7 @@ func (db *Database) ProcessSystemTables() {
 	db.columnsPartitions = make(ColumnsPartitions) //partitionid ->  sysrscols
 	db.indexesInfo = make(IndexesInfo)             //objectid -> index info
 	db.columnsStatistics = make(ColumnsStatistics) //objectid ->
+	db.sysfiles = make(SysFiles, 2)                // mdf, ldf
 
 	for node != nil { //for every alloc unit go over pages
 
@@ -89,6 +81,8 @@ func (db *Database) ProcessSystemTables() {
 				db.columnsStatistics.Populate(page.DataRows)
 			} else if pageType == SystemTablesFlags["sysidxstats"] {
 				db.indexesInfo.Populate(page.DataRows)
+			} else if pageType == SystemTablesFlags["sysfiles"] {
+				db.sysfiles.Populate(page.DataRows)
 			}
 
 			/*	else if pageType == -0x69 { // view object not reached
@@ -174,7 +168,9 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 
 func (db *Database) ProcessLDF() {
 	fmt.Printf("about to process database log file %s \n", db.Lname)
-	file, err := os.Open(db.Lname) //
+	ldfname := db.GetLDFName()
+	dir, _ := filepath.Split(db.Fname)
+	file, err := os.Open(dir + ldfname + ".ldf")
 
 	if err != nil {
 		// handle the error here
@@ -426,4 +422,8 @@ func (db *Database) LocateRecords() {
 	db.ActiveLogRecords = records.FilterByGreaterLSN(minLSN)
 	db.CarvedLogRecords = records.FilterByLessLSN(minLSN)
 
+}
+
+func (db Database) GetLDFName() string {
+	return strings.TrimSpace(db.sysfiles[1].GetName())
 }
