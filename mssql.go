@@ -75,7 +75,7 @@ func main() {
 	showIndex := flag.Bool("showindex", false, "show index contents")
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
 	showTableAllocation := flag.String("showTableAllocation", "",
-		"show pages that the table has been allocated write 'sorted' or 'links' to see the linked page structure")
+		"show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure")
 	selectedTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
 	selectedTableRow := flag.Int("row", -1, "Show only the selected row")
@@ -215,27 +215,14 @@ func main() {
 
 	for _, inputFile := range mdffiles {
 
-		if *ldf {
-			ldffilepath, e := utils.LocateLDFfile(inputFile)
-			if e != nil {
-				mslogger.Mslogger.Error(e)
-				continue
-			}
-
-			database = db.Database{Fname: inputFile, Lname: ldffilepath, Name: filepath.Base(inputFile)}
-
-		} else {
-			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
-		}
+		database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
 
 		/*processing pages stage */
-		totalProcessedPages := database.Process(*selectedPage, *fromPage, *toPage, *showcarved)
+		totalProcessedPages := database.ProcessMDF(*selectedPage, *fromPage, *toPage, *showcarved)
 		if totalProcessedPages == -1 {
 			continue
 		}
-		if len(ldffiles) != 0 {
-			database.LocateRecords()
-		}
+
 		fmt.Printf("Processed %d pages.\n", totalProcessedPages)
 
 		if totalProcessedPages <= 0 {
@@ -245,6 +232,13 @@ func main() {
 
 		database.ProcessSystemTables()
 		fmt.Printf("Processed system tables \n")
+
+		if *ldf {
+			database.ProcessLDF()
+
+			database.LocateRecords()
+
+		}
 
 		if *pageType != "" {
 			database.FilterPagesByType(*pageType) //mutable
