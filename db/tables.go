@@ -253,10 +253,18 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 		for _, indexrow := range page.IndexRows {
 			if indexrow.NoNLeaf != nil {
 				indexedDataPages = append(indexedDataPages, indexrow.NoNLeaf.ChildPageID)
+				pagesQueue = append(pagesQueue, indexrow.NoNLeaf.ChildPageID)
 
 				keyValue = indexrow.NoNLeaf.KeyValue
-			} else if indexrow.IntermediateClustered != nil {
-				keyValue = indexrow.IntermediateClustered.KeyValue
+			} else if indexrow.NoNLeafClustered != nil {
+				keyValue = indexrow.NoNLeafClustered.KeyValue
+
+				indexedDataPages = append(indexedDataPages, indexrow.NoNLeafClustered.ChildPageID)
+				pagesQueue = append(pagesQueue, indexrow.NoNLeafClustered.ChildPageID)
+			} else if indexrow.LeafClustered != nil {
+				keyValue = indexrow.LeafClustered.KeyValue
+			} else if indexrow.LeafNoNClustered != nil {
+				keyValue = indexrow.LeafNoNClustered.KeyValue
 			} else {
 				continue
 			}
@@ -275,11 +283,6 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 
 				cmap[c.Name] = ColData{Content: keyValue[startOffset : startOffset+int(c.Size)]}
 				startOffset += int(c.Size)
-			}
-
-			_, ok := indexPages.Lookup[indexrow.NoNLeaf.ChildPageID]
-			if ok {
-				pagesQueue = append(pagesQueue, indexrow.NoNLeaf.ChildPageID)
 			}
 
 			rows = append(rows, Row{ColMap: cmap})
