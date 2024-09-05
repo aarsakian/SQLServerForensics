@@ -291,7 +291,7 @@ func DateToStr(data []byte) string {
 		month = int(math.Round(float64(daysInTheYear)/30.5 + 1))
 		day = daysInTheYear - Year[month]
 	}
-	return fmt.Sprintf("%d-%d-%d", day, month, years)
+	return fmt.Sprintf("%d-%d-%d", years, month, day)
 
 }
 
@@ -302,7 +302,7 @@ the date) being the number of days before or after the base date of January 1, 1
 */
 func DateTimeTostr(data []byte) string {
 	day, month, years, hours, minutes, seconds, msecs := parseDateTime(data)
-	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d.%03d", day, month, years, hours, minutes, seconds, msecs)
+	return fmt.Sprintf("%d-%d-%d %d:%02d:%02d.%03d", day, month, years, hours, minutes, seconds, msecs)
 }
 
 func DateTimeToObj(data []byte) time.Time {
