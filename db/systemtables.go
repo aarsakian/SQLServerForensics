@@ -307,6 +307,8 @@ func (syscolpars SysColpars) GetType() string {
 		return "nvarchar"
 	} else if syscolpars.Xtype == 0xEF {
 		return "nchar"
+	} else if syscolpars.Xtype == 0xF0 {
+		return "hierarchyid"
 	} else if syscolpars.Xtype == 0xF1 {
 		return "xml"
 	} else {
