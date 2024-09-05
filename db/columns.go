@@ -112,7 +112,7 @@ func (c Column) toString(data []byte) string {
 			return string(data)
 		}
 
-	} else if c.Type == "nvarchar" || c.Type == "ntext" { //n implies unicode
+	} else if c.Type == "nvarchar" || c.Type == "ntext" || c.Type == "nchar" { //n implies unicode
 		return utils.DecodeUTF16(data)
 	} else if c.Type == "datetime2" {
 		return utils.DateTime2Tostr(data)
@@ -150,9 +150,23 @@ func (c Column) toString(data []byte) string {
 		return c.parseReal(data)
 	} else if c.Type == "smalldatetime" {
 		return utils.ParseSmallDateTime(data)
+	} else if c.Type == "hierarchyid" {
+		return fmt.Sprintf("%x", data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
+	}
+}
+
+func (c Column) Parse(data []byte) interface{} {
+	if c.Type == "int" {
+		return utils.ToInt32(data)
+	} else if c.Type == "smallint" {
+		return utils.ToInt16(data)
+	} else if c.Type == "tinyint" {
+		return utils.ToInt8(data)
+	} else {
+		return nil
 	}
 }
 
