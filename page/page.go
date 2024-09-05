@@ -640,7 +640,7 @@ func (page *Page) parseIndex(data []byte, offset int) {
 			break
 		}
 		indexRow := new(IndexRow)
-		indexRow.Parse(data[slot.Offset : slot.Offset+indexRowLen])
+		indexRow.Parse(data[slot.Offset:slot.Offset+indexRowLen], offset+int(slot.Offset))
 
 		/*dst := make([]byte, page.Header.PMinLen-1)                                     // allocate memory for fixed len cols
 		copy(dst, data[slot.Offset+1:slot.Offset+Slots(page.Header.PMinLen)]) //first always statusA
