@@ -9,6 +9,6 @@ require (
 
 require (
 	github.com/aarsakian/EWF_Reader v0.0.0-20240502065940-177fb8dd4a6d // indirect
-	github.com/aarsakian/VMDK_Reader v0.0.0-20231217080854-ce376de06cd6 // indirect
+	github.com/aarsakian/VMDK_Reader v0.0.0-20240906091525-c4dffaa4a3c3 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )
