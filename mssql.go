@@ -40,12 +40,14 @@ import (
 	"github.com/aarsakian/MFTExtractor/FS/NTFS/MFT"
 	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
 	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
+	mtf "github.com/aarsakian/MTF_Reader/mtf"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
 )
 
 func main() {
 
 	dbfile := flag.String("db", "", "absolute path to the MDF file")
+	mtffile := flag.String("mtf", "", "path to bak file (TAPE format)")
 	physicalDrive := flag.Int("physicaldrive", -1,
 		"select the physical disk number to look for MDF file (requires admin rights!)")
 	evidencefile := flag.String("evidence", "", "path to image file")
@@ -211,6 +213,13 @@ func main() {
 	} else if *dbfile != "" {
 		mdffiles = append(mdffiles, *dbfile)
 
+	}
+
+	if *mtffile != "" {
+		mtf_s := mtf.MTF{Fname: *mtffile}
+		mtf_s.Process()
+		mtf_s.Export("MDF")
+		mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
 	}
 
 	for _, inputFile := range mdffiles {
