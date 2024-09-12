@@ -68,6 +68,8 @@ github.com/aarsakian/MFTExtractor v0.0.0-20240912064728-cc45f94fca96 h1:+aqJlEEH
 github.com/aarsakian/MFTExtractor v0.0.0-20240912064728-cc45f94fca96/go.mod h1:w8ufgCXdbZNoJqaOjJUdIU0gNY4TSW+QN8fO3e5szS4=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912062215-3da74c83e76e h1:eEmrGNi5b8Plc1ljOfcESC9kN69CKx6DAec+xeM3gxo=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912062215-3da74c83e76e/go.mod h1:H4lDtodU1rKkPZEJXUQLaYqdCJmPWuK0cD6+qj/tD7A=
+github.com/aarsakian/MTF_Reader v0.0.0-20240912075451-66400020e5c6 h1:tjx29MJ98vgYJM/KgKcwad28Pb0VLSo9ELTYrbpYrAo=
+github.com/aarsakian/MTF_Reader v0.0.0-20240912075451-66400020e5c6/go.mod h1:H4lDtodU1rKkPZEJXUQLaYqdCJmPWuK0cD6+qj/tD7A=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125163925-d7953de7ce7a h1:G6ncNUUxPwSdpEaL5V7ORcUt970XkPkQOlLt3z/cpD4=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125163925-d7953de7ce7a/go.mod h1:a+SYNiPvKba0NMg3g9BXlLVZflohz06h4veLf0gyySY=
 github.com/aarsakian/VMDK_Reader v0.0.0-20231125200246-0c62ab001ed4 h1:/o/ulz5PtMlh1E9/t3e2qWsy8/EpfxRspE+kiEbCNvE=
