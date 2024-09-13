@@ -22,9 +22,7 @@ type Exporter struct {
 func (exp Exporter) CreateExportPath(databaseName string, tableType string) string {
 	expPath := filepath.Join(exp.Path, databaseName, tableType)
 
-	//err = os.RemoveAll(filepath.Join(exp.Path, database.Name))
-
-	err := os.MkdirAll(expPath, 0750)
+	err := os.Mkdir(expPath, 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
@@ -36,6 +34,20 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow int, colnames
 	defer expWg.Done()
 
 	var images utils.Images
+	err := os.MkdirAll(exp.Path, 0750)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.RemoveAll(filepath.Join(exp.Path, databaseName))
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = os.Mkdir(filepath.Join(exp.Path, databaseName), 0750)
+	if err != nil && !os.IsExist(err) {
+		log.Fatal(err)
+	}
+
 	for table := range tables {
 		expPath := exp.CreateExportPath(databaseName, table.Type)
 		wg := new(sync.WaitGroup)
