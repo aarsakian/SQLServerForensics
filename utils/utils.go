@@ -395,7 +395,7 @@ func DecimalToStr(data []byte, precision uint8, scale uint8) string {
 
 	dotPos := len(val) - int(scale)
 	if dotPos < 0 {
-		mslogger.Mslogger.Warning(fmt.Sprintf("scale %d less than value length %d", scale, len(val)))
+		mslogger.Mslogger.Warning(fmt.Sprintf("Decimal scale %d less than value length %d", scale, len(val)))
 		return fmt.Sprintf("%s%s", sign, val)
 	} else {
 		return fmt.Sprintf("%s%s.%s", sign, val[:dotPos], val[dotPos:])
@@ -682,7 +682,7 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
 		if idx >= reflect.ValueOf(data).Len() {
 			mslogger.Mslogger.Error("data exhausted no remaining data to parse")
-			return idx, errors.New("data exhausted no remaining data to parse")
+			return idx, errors.New("no data to parse")
 		}
 		field := structValPtr.Elem().Field(i) //StructField type
 		name := structType.Elem().Field(i).Name
