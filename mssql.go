@@ -40,6 +40,7 @@ import (
 	"github.com/aarsakian/MFTExtractor/FS/NTFS/MFT"
 	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
 	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
+	mtfLogger "github.com/aarsakian/MTF_Reader/logger"
 	mtf "github.com/aarsakian/MTF_Reader/mtf"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
 )
@@ -101,6 +102,7 @@ func main() {
 	mslogger.InitializeLogger(*logactive, logfilename)
 	MFTExtractorLogger.InitializeLogger(*logactive, logfilename)
 	VMDKLogger.InitializeLogger(*logactive, logfilename)
+	mtfLogger.InitializeLogger(*logactive, logfilename)
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
 		ShowSGamExtents:     *showSGamExtents,
