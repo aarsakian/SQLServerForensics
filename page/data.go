@@ -304,11 +304,12 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
 		dataRow.VersioningInfo = new(TagVersion)
 		utils.Unmarshal(data[len(data)-14:], dataRow.VersioningInfo)
 	}
-	if len(dataRow.VarLengthColOffsets) == 0 {
+	if dataRow.HasVarLenCols() && len(dataRow.VarLengthColOffsets) != 0 {
+		return dataRow.ProcessVaryingCols(data, offset)
+
+	} else {
 		mslogger.Mslogger.Info("No var len col offsets found")
 		return dataRowSize
-	} else {
-		return dataRow.ProcessVaryingCols(data, offset)
 	}
 
 }
