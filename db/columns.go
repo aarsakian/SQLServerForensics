@@ -100,7 +100,7 @@ func (c Column) parseSqlVariant(data []byte) SqlVariant {
 
 func (c Column) toString(data []byte) string {
 	if len(data) == 0 {
-		mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
+		//mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
 		return ""
 	}
 	if c.Type == "varchar" || c.Type == "text" { //ansi
