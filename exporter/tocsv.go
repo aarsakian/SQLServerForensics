@@ -22,7 +22,9 @@ func writeCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, 
 	defer file.Close()
 	w := csv.NewWriter(file)
 
-	fmt.Printf("Exporting table %s contents to %s\n", filename, fpath)
+	msg := fmt.Sprintf("Exporting table %s total rows %d", filename, len(records))
+	fmt.Printf(msg + " ")
+	mslogger.Mslogger.Info(msg)
 
 	for record := range records {
 		w.Write(record)
@@ -34,7 +36,8 @@ func writeCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, 
 		log.Fatal(err)
 	}
 	//len(records) - header
-	msg := fmt.Sprintf("Exported %d rows to %s", len(records)-1, fpath)
+	msg = fmt.Sprintf("to %s", fpath)
 	mslogger.Mslogger.Info(msg)
+	fmt.Printf(msg + "\n")
 
 }
