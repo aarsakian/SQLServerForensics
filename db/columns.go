@@ -25,6 +25,7 @@ type Column struct {
 	Precision   uint8
 	Scale       uint8
 	OffsetMap   map[uint64]int16 //partitionId -> offset
+	Properties  string
 }
 
 type SqlVariant struct {
@@ -103,7 +104,7 @@ func (c Column) toString(data []byte) string {
 		//mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
 		return ""
 	}
-	if c.Type == "varchar" || c.Type == "text" { //ansi
+	if c.Type == "varchar" || c.Type == "text" || c.Type == "char" { //ansi
 		if c.CollationId == 872468488 { //SQL_Latin1_General_CP1_CI_AS
 			return string(data)
 		} else if c.CollationId == 53255 { // Greek_CI_AS
