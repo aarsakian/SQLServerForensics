@@ -319,6 +319,93 @@ func (syscolpars SysColpars) GetType() string {
 
 }
 
+func (syscolpars SysColpars) isColNullable() bool {
+	if 1-(syscolpars.Status&1) == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (syscolpars SysColpars) isAnsiPadded() bool {
+	if syscolpars.Status&2 == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (syscolpars SysColpars) isIdentity() bool {
+	if syscolpars.Status&4 == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (syscolpars SysColpars) isRowGUIDCol() bool {
+	if syscolpars.Status&8 == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (syscolpars SysColpars) isComputed() bool {
+	if syscolpars.Status&16 == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (syscolpars SysColpars) isFilestream() bool {
+	if syscolpars.Status&32 == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (syscolpars SysColpars) GetAdditionalAttributes() string {
+	var attributes strings.Builder
+	if syscolpars.isComputed() {
+		attributes.WriteString("Computed ")
+	}
+	if syscolpars.isColNullable() {
+		attributes.WriteString("Nullable ")
+	}
+
+	if syscolpars.isIdentity() {
+		attributes.WriteString("Identity ")
+	}
+
+	if syscolpars.isRowGUIDCol() {
+		attributes.WriteString("Row GUID")
+	}
+
+	if syscolpars.isAnsiPadded() {
+		attributes.WriteString("ANSI Padded ")
+	}
+
+	if syscolpars.isFilestream() {
+		attributes.WriteString("Filestream ")
+	}
+	return attributes.String()
+}
+
+/*sysconv(bit, c.status & 0x020000)                                AS is_replicated,-- CPM_REPLICAT
+sysconv(bit, c.status & 0x040000)                                AS is_non_sql_subscribed,-- CPM_NONSQSSUB
+sysconv(bit, c.status & 0x080000)                                AS is_merge_published,-- CPM_MERGEREPL
+sysconv(bit, c.status & 0x100000)                                AS is_dts_replicated,-- CPM_REPLDTS
+sysconv(bit, c.status & 2048)                                    AS is_xml_document,-- CPM_XML_DOC
+c.xmlns                                                          AS xml_collection_id,
+c.dflt                                                           AS default_object_id,
+c.chk                                                            AS rule_object_id,
+sysconv(bit, c.status & 0x1000000)                               AS is_sparse,-- CPM_SPARSE
+sysconv(bit, c.status & 0x2000000)                               AS is_column_set -- CPM_SPARSECOLUMNSET
+*/
+
 func (tablesInfo TablesInfo) Populate(datarows page.DataRows) {
 	for _, datarow := range datarows {
 		sysschobjs := new(Sysschobjs)
