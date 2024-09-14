@@ -33,17 +33,16 @@ func (exp Exporter) CreateExportPath(databaseName string, tableType string) stri
 func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow int, colnames []string, databaseName string, tables <-chan db.Table) {
 	defer expWg.Done()
 
+	if exp.Path == "" {
+		return
+	}
 	var images utils.Images
-	err := os.MkdirAll(exp.Path, 0750)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	err = os.RemoveAll(filepath.Join(exp.Path, databaseName))
+	err := os.RemoveAll(filepath.Join(exp.Path, databaseName))
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = os.Mkdir(filepath.Join(exp.Path, databaseName), 0750)
+	err = os.MkdirAll(filepath.Join(exp.Path, databaseName), 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
