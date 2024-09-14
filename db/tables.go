@@ -442,7 +442,7 @@ func (table *Table) addColumns(columns []SysColpars) {
 	for _, col := range columns {
 		table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
 			Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
-			Precision: col.Prec, Scale: col.Scale, OffsetMap: map[uint64]int16{}})
+			Precision: col.Prec, Scale: col.Scale, OffsetMap: map[uint64]int16{}, Properties: col.GetAdditionalAttributes()})
 	}
 	table.setVarLenCols()
 
@@ -456,14 +456,14 @@ func (table Table) printSchema() {
 			if !col.isStatic() {
 				continue
 			}
-			fmt.Printf(" | %s %s", col.Name, col.Type)
+			fmt.Printf(" | %s %s %s", col.Name, col.Type, col.Properties)
 		}
 		fmt.Printf("\nDynamic cols\n")
 		for _, col := range table.Schema {
 			if col.isStatic() {
 				continue
 			}
-			fmt.Printf("| %s %s", col.Name, col.Type)
+			fmt.Printf("| %s %s %s", col.Name, col.Type, col.Properties)
 		}
 		fmt.Printf("\n")
 	}
