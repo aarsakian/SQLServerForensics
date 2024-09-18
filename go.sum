@@ -66,6 +66,8 @@ github.com/aarsakian/MFTExtractor v0.0.0-20240910073845-f313991be7d8 h1:1u4wtokv
 github.com/aarsakian/MFTExtractor v0.0.0-20240910073845-f313991be7d8/go.mod h1:VQmcUenVhwZRRMyRaIZhbbKFbidPR3IAenZGm82+9A0=
 github.com/aarsakian/MFTExtractor v0.0.0-20240912064728-cc45f94fca96 h1:+aqJlEEHunA094Jtgk8VVSWx8qqXT6PfN5NsFBqp8Mg=
 github.com/aarsakian/MFTExtractor v0.0.0-20240912064728-cc45f94fca96/go.mod h1:w8ufgCXdbZNoJqaOjJUdIU0gNY4TSW+QN8fO3e5szS4=
+github.com/aarsakian/MFTExtractor v0.0.0-20240918064318-11ea58b57ceb h1:V7ip6wxSqH4sDjuAeg++VezNQEtutlurtPx12Tp0MGw=
+github.com/aarsakian/MFTExtractor v0.0.0-20240918064318-11ea58b57ceb/go.mod h1:w8ufgCXdbZNoJqaOjJUdIU0gNY4TSW+QN8fO3e5szS4=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912062215-3da74c83e76e h1:eEmrGNi5b8Plc1ljOfcESC9kN69CKx6DAec+xeM3gxo=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912062215-3da74c83e76e/go.mod h1:H4lDtodU1rKkPZEJXUQLaYqdCJmPWuK0cD6+qj/tD7A=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912075451-66400020e5c6 h1:tjx29MJ98vgYJM/KgKcwad28Pb0VLSo9ELTYrbpYrAo=

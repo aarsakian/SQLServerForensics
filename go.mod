@@ -5,7 +5,7 @@ go 1.21.5
 toolchain go1.21.12
 
 require (
-	github.com/aarsakian/MFTExtractor v0.0.0-20240912064728-cc45f94fca96
+	github.com/aarsakian/MFTExtractor v0.0.0-20240918064318-11ea58b57ceb
 	golang.org/x/sys v0.17.0
 )
 
