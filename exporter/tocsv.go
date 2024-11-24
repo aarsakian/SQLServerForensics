@@ -22,7 +22,7 @@ func writeCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, 
 	defer file.Close()
 	w := csv.NewWriter(file)
 
-	msg := fmt.Sprintf("Exporting table %s total rows %d", filename, len(records))
+	msg := fmt.Sprintf("Exporting %d rows from %s", len(records), filename)
 	fmt.Printf(msg + " ")
 	mslogger.Mslogger.Info(msg)
 
