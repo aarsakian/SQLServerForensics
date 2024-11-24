@@ -36,9 +36,10 @@ import (
 	"sync"
 	"time"
 
-	disk "github.com/aarsakian/MFTExtractor/Disk"
-	"github.com/aarsakian/MFTExtractor/FS/NTFS/MFT"
+	"github.com/aarsakian/MFTExtractor/disk"
 	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
+	"github.com/aarsakian/MFTExtractor/filtermanager"
+	"github.com/aarsakian/MFTExtractor/filters"
 	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
 	mtfLogger "github.com/aarsakian/MTF_Reader/logger"
 	mtf "github.com/aarsakian/MTF_Reader/mtf"
@@ -48,6 +49,7 @@ import (
 func main() {
 
 	dbfile := flag.String("db", "", "absolute path to the MDF file")
+	ldbfile := flag.String("ldb", "", "absolute path to the LDF file")
 	mtffile := flag.String("mtf", "", "path to bak file (TAPE format)")
 	physicalDrive := flag.Int("physicaldrive", -1,
 		"select the physical disk number to look for MDF file (requires admin rights!)")
@@ -64,8 +66,9 @@ func main() {
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("header", false, "show page header")
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
-	tablenames := flag.String("tables", "", "show table (use all for all tables, comma for individual tables)")
+	tablenames := flag.String("tables", "", "process selectively tables (use comma for each table name)")
 	tablepages := flag.String("tablepages", "", "filter rows by pages (use comm)")
+	processTables := flag.Bool("processtables", false, "process tables")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableIndex := flag.Bool("showtableindex", false, "show table index contents")
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
@@ -86,10 +89,11 @@ func main() {
 	exportPath := flag.String("export", "", "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 	logactive := flag.Bool("log", false, "log activity")
+	bakactive := flag.Bool("bak", false, "parse bak files found in images")
 	tabletype := flag.String("tabletype", "", "filter tables by type e.g. User Table for user tables")
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
-	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
+	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	ldf := flag.Bool("ldf", false, "parse hardened (commited) transactions saved to the log")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|any")
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
@@ -126,77 +130,73 @@ func main() {
 		Raw:                 *raw,
 		ShowColNames:        strings.Split(*colnames, ",")}
 
-	var physicalDisk disk.Disk
-	var recordsPerPartition map[int]MFT.Records
 	var mdffiles, ldffiles []string
 
 	var mdffile, basepath string
 	var database db.Database
-
-	var dbExp exporter.Exporter
 
 	if *stopService {
 		servicer.StopService()
 		defer servicer.StartService()
 	}
 
-	if *exportPath != "" {
-		dbExp = exporter.Exporter{Format: *exportFormat, Image: *exportImage, Path: *exportPath}
-
-	}
+	dbExp := exporter.Exporter{Format: *exportFormat, Image: *exportImage, Path: *exportPath}
 
 	exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id"}
 
-	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" ||
-		*low && *dbfile != "" {
+	flm := filtermanager.FilterManager{}
 
-		if *evidencefile != "" {
-			physicalDisk = disk.InitiliazeEvidence(*evidencefile)
-		} else if *physicalDrive != -1 {
-			physicalDisk = disk.InitializePhysicalDisk(*physicalDrive)
-		} else if *low {
-			physicalDisk = disk.InitializePhysicalDisk(0)
-		} else if *vmdkfile != "" {
-			physicalDisk = disk.InitalizeVMDKDisk(*vmdkfile)
+	/*if len(fileNamesToExport) != 0 {
+		flm.Register(filters.FoldersFilter{Include: false})
+		flm.Register(filters.NameFilter{Filenames: fileNamesToExport})
+	}*/
+
+	if *bakactive {
+		flm.Register(filters.ExtensionsFilter{Extensions: []string{"bak"}})
+	}
+
+	if *ldf {
+		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF", "LDF"}})
+
+	} else {
+		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF"}})
+	}
+
+	if *dbfile != "" {
+		basepath, mdffile = utils.SplitPath(*dbfile)
+
+		if mdffile != "" && !*ldf {
+
+			flm.Register(filters.NameFilter{Filenames: []string{mdffile}})
 		}
 
+		if len(basepath) > 0 {
+			flm.Register(filters.PathFilter{NamePath: basepath})
+		}
+
+	}
+
+	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
+		physicalDisk := new(disk.Disk)
+		physicalDisk.Initialize(*evidencefile, *physicalDrive, *vmdkfile)
+
+		recordsPerPartition := physicalDisk.Process(*partitionNum, []int{}, -1, math.MaxUint32)
 		defer physicalDisk.Close()
-		physicalDisk.DiscoverPartitions()
-
-		physicalDisk.ProcessPartitions(*partitionNum, []int{}, -1, math.MaxUint32)
-		recordsPerPartition = physicalDisk.GetFileSystemMetadata(*partitionNum)
-
-		if *dbfile != "" {
-			basepath, mdffile = utils.SplitPath(*dbfile)
-
-		}
 
 		for partitionId, records := range recordsPerPartition {
 			if len(records) == 0 {
 				continue
 			}
-
-			if len(basepath) > 0 {
-				records = records.FilterByPath(basepath)
-			}
-
-			if *ldf {
-				records = records.FilterByExtensions([]string{"MDF", "LDF"})
-			} else {
-				records = records.FilterByExtensions([]string{"MDF"})
-			}
+			records = flm.ApplyFilters(records)
 
 			records = records.FilterOutDeleted()
 
-			if mdffile != "" && !*ldf {
-
-				records = records.FilterByName(mdffile)
-			} else if mdffile != "" {
+			if mdffile != "" && *ldf {
 				records = records.FilterByPrefixesSuffixes(strings.Split(mdffile, ".")[0], "ldf",
 					strings.Split(mdffile, ".")[0], "mdf")
 			}
 
-			exp.ExportRecords(records, physicalDisk, partitionId)
+			exp.ExportRecords(records, *physicalDisk, partitionId)
 
 			for _, record := range records {
 
@@ -214,6 +214,9 @@ func main() {
 
 	} else if *dbfile != "" {
 		mdffiles = append(mdffiles, *dbfile)
+		if *ldbfile != "" {
+			ldffiles = append(ldffiles, *ldbfile)
+		}
 
 	}
 
@@ -224,9 +227,12 @@ func main() {
 		mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
 	}
 
-	for _, inputFile := range mdffiles {
-
-		database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
+	for idx, inputFile := range mdffiles {
+		if len(ldffiles) > 0 {
+			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile), Lname: ldffiles[idx]}
+		} else {
+			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
+		}
 
 		/*processing pages stage */
 		totalProcessedPages := database.ProcessMDF(*selectedPage, *fromPage, *toPage, *showcarved)
@@ -245,9 +251,11 @@ func main() {
 		fmt.Printf("Processed system tables \n")
 
 		if *ldf {
-			database.ProcessLDF()
+			ldfRecordsProcessed, err := database.ProcessLDF()
 
-			database.LocateRecords()
+			if err != nil && ldfRecordsProcessed > 0 {
+				database.LocateRecords()
+			}
 
 		}
 
@@ -265,6 +273,9 @@ func main() {
 			database.FilterPagesBySystemTables("sysschobjs")
 		}
 
+		if !*processTables {
+			return
+		}
 		fmt.Println("Table Reconstruction - Report - Export Stage")
 
 		/*retrieving schema and table contents */
