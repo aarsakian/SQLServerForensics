@@ -7,7 +7,6 @@ import (
 	"MSSQLParser/utils"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -166,11 +165,10 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 	return totalProcessedPages
 }
 
-func (db *Database) ProcessLDF() {
+func (db *Database) ProcessLDF() (int, error) {
 	fmt.Printf("about to process database log file %s \n", db.Lname)
-	ldfname := db.GetLDFName()
-	dir, _ := filepath.Split(db.Fname)
-	file, err := os.Open(dir + ldfname + ".ldf")
+
+	file, err := os.Open(db.Lname)
 
 	if err != nil {
 		// handle the error here
@@ -182,8 +180,8 @@ func (db *Database) ProcessLDF() {
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 	_, err = file.ReadAt(bs, int64(offset))
 	if err != nil {
-		fmt.Printf("error reading log page ---\n")
-		return
+		fmt.Printf("error reading log page at offset %d\n", offset)
+		return 0, err
 	}
 
 	db.LogPage = db.ProcessPage(bs, offset, carve)
@@ -191,6 +189,8 @@ func (db *Database) ProcessLDF() {
 	db.VLFs = new(LDF.VLFs)
 	recordsProcessed := db.VLFs.Process(*file)
 	fmt.Printf("LDF processing completed %d log records processed\n", recordsProcessed)
+
+	return recordsProcessed, nil
 }
 
 func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
@@ -237,7 +237,7 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tablet
 
 			tableType := tableinfo.GetTableType()
 
-			if tablename != "all" && tablename != tname || tabletype != "" && tabletype != tableType {
+			if tablename != "" && tablename != tname || tabletype != "" && tabletype != tableType {
 				msg := fmt.Sprintf("table %s not processed", tname)
 				mslogger.Mslogger.Info(msg)
 				continue
