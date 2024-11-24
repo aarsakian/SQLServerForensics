@@ -125,7 +125,7 @@ func (vlfs *VLFs) Process(file os.File) int {
 		defer file.Close()
 
 		if err != nil {
-			fmt.Printf("error reading log page ---\n")
+			fmt.Printf("error reading at %d \n", offset)
 			return recordsProcessed
 		}
 		vlfheader := new(VLFHeader)
@@ -139,7 +139,7 @@ func (vlfs *VLFs) Process(file os.File) int {
 			bs = make([]byte, 72)
 			_, err = file.ReadAt(bs, offset+logBlockoffset)
 			if err != nil {
-				fmt.Printf("error reading log page ---\n")
+				fmt.Printf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
 				return recordsProcessed
 			}
 			logBlock := new(LogBlock)
