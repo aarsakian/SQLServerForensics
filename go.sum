@@ -10,6 +10,8 @@ github.com/aarsakian/EWF_Reader v0.0.0-20231026173415-3241290767de h1:3jBsoBzzLd
 github.com/aarsakian/EWF_Reader v0.0.0-20231026173415-3241290767de/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/EWF_Reader v0.0.0-20240502065940-177fb8dd4a6d h1:nK1DDH7y0900PlXqtaBwzQWqtvc2Ttm16PUvm0/IlW0=
 github.com/aarsakian/EWF_Reader v0.0.0-20240502065940-177fb8dd4a6d/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
+github.com/aarsakian/EWF_Reader v0.0.0-20241127191603-5f70e9999f43 h1:qxoaKJbmcxKeO7BQOWYdK8UyR0KZlqzCpurhkM45o/U=
+github.com/aarsakian/EWF_Reader v0.0.0-20241127191603-5f70e9999f43/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379 h1:T2lSAVpvGsE2O7olYbLIFoRWTZF02aIZWgqymfKv8c8=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379/go.mod h1:5rDBrKabUaUjAXOiPmJm8AdPAKkKcXit89TF48U8bBE=
 github.com/aarsakian/MFTExtractor v0.0.0-20231012164709-8e3d94c6a208 h1:s0GOggLWGsUMioWpEJG873BaNvSQk2VIXUH0s3Fi5mM=
@@ -72,6 +74,8 @@ github.com/aarsakian/MFTExtractor v0.0.0-20241020180454-5daaf7dd677e h1:1kPyvy4X
 github.com/aarsakian/MFTExtractor v0.0.0-20241020180454-5daaf7dd677e/go.mod h1:w8ufgCXdbZNoJqaOjJUdIU0gNY4TSW+QN8fO3e5szS4=
 github.com/aarsakian/MFTExtractor v0.0.0-20241120164732-0e686a99cfd1 h1:KXvw5vMWiqnS+vgegX2TGQCYTaW3h8xOJ22USuljTS0=
 github.com/aarsakian/MFTExtractor v0.0.0-20241120164732-0e686a99cfd1/go.mod h1:w8ufgCXdbZNoJqaOjJUdIU0gNY4TSW+QN8fO3e5szS4=
+github.com/aarsakian/MFTExtractor v0.0.0-20241127191803-15f4d58a0c56 h1:nanQb1ijPhx8+3cAADASt0CeCbkjbRdpgj98lKr4xwo=
+github.com/aarsakian/MFTExtractor v0.0.0-20241127191803-15f4d58a0c56/go.mod h1:keANYXM8CybQfeUrUX6EzcaQSNLYTXyxXt0LNGOvEgo=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912062215-3da74c83e76e h1:eEmrGNi5b8Plc1ljOfcESC9kN69CKx6DAec+xeM3gxo=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912062215-3da74c83e76e/go.mod h1:H4lDtodU1rKkPZEJXUQLaYqdCJmPWuK0cD6+qj/tD7A=
 github.com/aarsakian/MTF_Reader v0.0.0-20240912075451-66400020e5c6 h1:tjx29MJ98vgYJM/KgKcwad28Pb0VLSo9ELTYrbpYrAo=

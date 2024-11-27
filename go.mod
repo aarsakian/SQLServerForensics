@@ -5,12 +5,12 @@ go 1.21.5
 toolchain go1.21.12
 
 require (
-	github.com/aarsakian/MFTExtractor v0.0.0-20241120164732-0e686a99cfd1
+	github.com/aarsakian/MFTExtractor v0.0.0-20241127191803-15f4d58a0c56
 	golang.org/x/sys v0.17.0
 )
 
 require (
-	github.com/aarsakian/EWF_Reader v0.0.0-20240502065940-177fb8dd4a6d // indirect
+	github.com/aarsakian/EWF_Reader v0.0.0-20241127191603-5f70e9999f43 // indirect
 	github.com/aarsakian/MTF_Reader v0.0.0-20240912075451-66400020e5c6 // indirect
 	github.com/aarsakian/VMDK_Reader v0.0.0-20240910071554-9d72aac7f6b9 // indirect
 	golang.org/x/sync v0.9.0 // indirect
