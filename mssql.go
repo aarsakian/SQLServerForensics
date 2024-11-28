@@ -36,6 +36,7 @@ import (
 	"sync"
 	"time"
 
+	EWFLogger "github.com/aarsakian/EWF_Reader/logger"
 	"github.com/aarsakian/MFTExtractor/disk"
 	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
 	"github.com/aarsakian/MFTExtractor/filtermanager"
@@ -107,6 +108,7 @@ func main() {
 	MFTExtractorLogger.InitializeLogger(*logactive, logfilename)
 	VMDKLogger.InitializeLogger(*logactive, logfilename)
 	mtfLogger.InitializeLogger(*logactive, logfilename)
+	EWFLogger.InitializeLogger(*logactive, logfilename)
 
 	reporter := reporter.Reporter{ShowGamExtents: *showGamExtents,
 		ShowSGamExtents:     *showSGamExtents,
@@ -162,6 +164,12 @@ func main() {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF"}})
 	}
 
+	if mdffile != "" && *ldf {
+		flm.Register(filters.PrefixesSuffixesFilter{Prefixes: []string{strings.Split(mdffile, ".")[0], strings.Split(mdffile, ".")[0]},
+			Suffixes: []string{"ldf", "mdf"}})
+
+	}
+
 	if *dbfile != "" {
 		basepath, mdffile = utils.SplitPath(*dbfile)
 
@@ -190,11 +198,6 @@ func main() {
 			records = flm.ApplyFilters(records)
 
 			records = records.FilterOutDeleted()
-
-			if mdffile != "" && *ldf {
-				records = records.FilterByPrefixesSuffixes(strings.Split(mdffile, ".")[0], "ldf",
-					strings.Split(mdffile, ".")[0], "mdf")
-			}
 
 			exp.ExportRecords(records, *physicalDisk, partitionId)
 
