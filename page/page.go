@@ -458,19 +458,19 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
 		if slot.Offset == 0 {
-			msg := "slot.Offset is zero  potential deleted datarow \n"
+			msg := "slot.Offset is zero  potential deleted datarow"
 			mslogger.Mslogger.Info(msg)
 			continue
 			//heuristics
 
 		} else if slot.Offset < 96 { //offset starts from 96
-			msg := fmt.Sprintf("slot.Offset %d cannot be less than 96 bytes \n", slot.Offset)
+			msg := fmt.Sprintf("slot.Offset %d cannot be less than 96 bytes", slot.Offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
 
 		if page.Header.FreeData < uint16(slot.Offset) {
-			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slot.Offset)
+			msg := fmt.Sprintf(" slot offset %d exceeds free area  %d ", slot.Offset, page.Header.FreeData)
 			mslogger.Mslogger.Warning(msg)
 			continue
 		}
