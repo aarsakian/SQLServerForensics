@@ -370,8 +370,9 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
 		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(),
 		"IAM": iamPages.GetIDs(), "IndexedDATA": indexedDataPages}
-
-	dataPages = dataPages.FilterByIDSortedByInput(indexedDataPages)
+	if len(indexedDataPages) != 0 {
+		dataPages = dataPages.FilterByIDSortedByInput(indexedDataPages)
+	}
 
 	if dataPages.IsEmpty() {
 		msg := fmt.Sprintf("No pages located for table %s", table.Name)
@@ -406,7 +407,7 @@ func (db Database) DetermineMinLSN(records LDF.Records) utils.LSN {
 func (db Database) FindPageChanges() {
 }
 
-func (db *Database) LocateRecords() {
+func (db *Database) LocateLogRecords() {
 	var records LDF.Records
 	for _, vlf := range *db.VLFs {
 
