@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package comms;
+
+option go_package = "mssqlparser/comms";
+
+message FileDetails {
+    string mdf_file = 1;
+    string ldf_file = 2;
+}
+
+message Table {
+    string name = 1;
+}
+
+message TablesMSG {
+    repeated Table Tables = 1;
+}
+
+service FileProcessor {
+    rpc Process(FileDetails)
+    returns (TablesMSG){}
+}
