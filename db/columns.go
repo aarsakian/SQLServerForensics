@@ -172,12 +172,12 @@ func (c Column) Parse(data []byte) interface{} {
 }
 
 func (c *Column) addContent(datarow page.DataRow,
-	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64) ([]byte, error) {
+	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64, nofNullCols int) ([]byte, error) {
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
 		return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.isStatic(),
-			c.VarLenOrder, lobPages, textLOBPages)
+			c.VarLenOrder-uint16(nofNullCols), lobPages, textLOBPages)
 	}
 
 }
