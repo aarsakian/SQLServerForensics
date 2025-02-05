@@ -302,7 +302,7 @@ the date) being the number of days before or after the base date of January 1, 1
 */
 func DateTimeTostr(data []byte) string {
 	day, month, years, hours, minutes, seconds, msecs := parseDateTime(data)
-	return fmt.Sprintf("%d-%d-%d %d:%02d:%02d.%03d", day, month, years, hours, minutes, seconds, msecs)
+	return fmt.Sprintf("%d-%d-%d %d:%02d:%02d.%03d", years, month, day, hours, minutes, seconds, msecs)
 }
 
 func DateTimeToObj(data []byte) time.Time {
@@ -333,7 +333,7 @@ func ParseSmallDateTime(data []byte) string {
 	hours := int(float64((timePart / (300 * 60 * 60)) % 24))
 	minutes := int(float64((timePart / (300 * 60)) % 60))
 	seconds := 0
-	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d", day, month, years+1900, hours, minutes, seconds)
+	return fmt.Sprintf("%d/%d/%d %d:%02d:%02d", years+1900, month, day, hours, minutes, seconds)
 
 }
 
