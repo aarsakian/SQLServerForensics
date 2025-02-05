@@ -152,9 +152,10 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 
 func (tableIndex *TableIndex) addAllocatedPages(sysallocunit SysAllocUnits) {
 	rooPageId := sysallocunit.GetRootPageId()
-	if rooPageId == 0 {
+	if rooPageId == 0 || sysallocunit.GetDescription() != "IN_ROW_DATA" {
 		return
 	}
+
 	tableIndex.firstPageId = sysallocunit.GetFirstPageId()
 	tableIndex.rootPageId = rooPageId
 
@@ -317,7 +318,7 @@ func (table *Table) AddRow(record LDF.Record) {
 	lobPages := page.PagesPerId[uint32]{}
 	textLobPages := page.PagesPerId[uint32]{}
 	colmap := make(ColMap)
-
+	nofNullCols := 0
 	for _, col := range table.Schema {
 		if record.Lop_Insert_Delete.DataRow == nil {
 			msg := fmt.Sprintf("Lop Insert Record missing DataRow %s", record.CurrentLSN.ToStr())
@@ -325,7 +326,7 @@ func (table *Table) AddRow(record LDF.Record) {
 			continue
 		}
 
-		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID)
+		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID, nofNullCols)
 		if e == nil {
 			colmap[col.Name] = ColData{Content: colval}
 		}
@@ -890,6 +891,8 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 	nofCols := len(table.Schema)
 	bitrepresentation := datarow.PrintNullBitmapToBit(nofCols)
 
+	nofNullCols := 0 // only null var cols
+
 	for colnum, col := range table.Schema {
 		//schema is sorted by colorder use colnum instead of col.Order
 		if colnum+1 != int(col.Order) {
@@ -900,11 +903,13 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 
 			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
 			//mslogger.Mslogger.Error(msg)
+
+			nofNullCols++
 			continue
 		}
 
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
-		colval, e := col.addContent(datarow, lobPages, textLobPages, partitionId)
+		colval, e := col.addContent(datarow, lobPages, textLobPages, partitionId, nofNullCols)
 		if e == nil {
 			colmap[col.Name] = ColData{Content: colval}
 		}
