@@ -13,6 +13,10 @@ var SystemTablesFlags = map[string]int32{
 	"sysallocationunits": 0x00000007, "sysidxstats": 0x000036,
 	"sysschobjs": 0x00000022, "sysrscols": 0x00000003, "sysfiles": 0x00000008}
 
+var AllocationUnitTypes = map[uint8]string{
+	1: "IN_ROW_DATA", 2: "ROW_OVERFLOW_DATA", 3: "LOB_DATA",
+}
+
 var TableType = map[string]string{"AF": "Aggregate function (CLR)", "U": "User Table", "S": "System Table",
 	"V": "View", "P": "Stored Procedure", "TT": "Table Type", "UQ": "Unique Constraint", "C": "Check constraint",
 	"F": "Foreign Key", "FS": "Assembly (CLR) Scalar function", "FN": "Scalar Function", "FT": "Assembly (CLR) Table-Valued function"}
@@ -233,6 +237,10 @@ func (sysfile SysFile) GetFileName() string {
 
 func (sysallocationunits SysAllocUnits) GetRootPageId() uint32 {
 	return utils.ToUint32(sysallocationunits.Pgroot[:4])
+}
+
+func (sysallocationunits SysAllocUnits) GetDescription() string {
+	return AllocationUnitTypes[sysallocationunits.Type]
 }
 
 func (sysallocationunits SysAllocUnits) GetFirstPageId() uint32 {
