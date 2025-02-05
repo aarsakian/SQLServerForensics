@@ -22,6 +22,7 @@ package main
 
 import (
 	pb "MSSQLParser/comms"
+	msegrpc "MSSQLParser/grpc"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/servicer"
 	"MSSQLParser/utils"
@@ -41,16 +42,13 @@ import (
 	"github.com/aarsakian/MFTExtractor/filtermanager"
 	"github.com/aarsakian/MFTExtractor/filters"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
 	mtfLogger "github.com/aarsakian/MTF_Reader/logger"
 	mtf "github.com/aarsakian/MTF_Reader/mtf"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
 )
-
-type CommsServer struct {
-	pb.UnimplementedFileProcessorServer
-}
 
 func main() {
 
@@ -132,9 +130,11 @@ func main() {
 		}
 
 		s := grpc.NewServer()
-		pb.RegisterFileProcessorServer(s, &CommsServer{})
-
-		mslogger.Mslogger.Info(fmt.Sprintf("Listening server at %v", lis.Addr()))
+		pb.RegisterFileProcessorServer(s, &msegrpc.CommsServer{})
+		reflection.Register(s)
+		msg := fmt.Sprintf("Listening server at %v", lis.Addr())
+		fmt.Printf("%s\n", msg)
+		mslogger.Mslogger.Info(msg)
 
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("failed to server: %v", err)
