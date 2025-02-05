@@ -24,6 +24,7 @@ import (
 	pb "MSSQLParser/comms"
 	msegrpc "MSSQLParser/grpc"
 	mslogger "MSSQLParser/logger"
+	"MSSQLParser/manager"
 	"MSSQLParser/servicer"
 	"MSSQLParser/utils"
 	"log"
@@ -228,7 +229,7 @@ func main() {
 		mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
 	}
 
-	pm := ProcessManager{}
+	pm := manager.ProcessManager{}
 	//essential if we want reporting & exporting functionality
 	pm.Initialize(*showGamExtents, *showSGamExtents, *showIAMExtents,
 		*showDataCols, *showPFS, *showHeader, *showSlots, *showTableSchema,
