@@ -254,10 +254,10 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tablet
 	}
 
 	for tablename, found := range tablesFound {
-		if found {
-			continue
+		if !found {
+			fmt.Printf("Table %s not found", tablename)
 		}
-		fmt.Printf("Table %s not found", tablename)
+
 	}
 
 	close(exptables)
@@ -359,7 +359,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
 		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
 
-	if !indexPages.IsEmpty() {
+	if indexPages.IsEmpty() {
 		msg := fmt.Sprintf("No index pages located for table %s", table.Name)
 		mslogger.Mslogger.Warning(msg)
 
@@ -370,6 +370,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
 		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(),
 		"IAM": iamPages.GetIDs(), "IndexedDATA": indexedDataPages}
+
 	if len(indexedDataPages) != 0 {
 		dataPages = dataPages.FilterByIDSortedByInput(indexedDataPages)
 	}
