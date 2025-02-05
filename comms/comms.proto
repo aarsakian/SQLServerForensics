@@ -9,6 +9,10 @@ message FileDetails {
     string ldf_file = 2;
 }
 
+message MTFDetails {
+    string mtf_file = 1;
+}
+
 message Table {
     string name = 1;
 }
@@ -18,6 +22,8 @@ message TablesMSG {
 }
 
 service FileProcessor {
-    rpc Process(FileDetails)
-    returns (TablesMSG){}
+    rpc Process(FileDetails) returns (TablesMSG){}
+    rpc ProcessMTF(MTFDetails) returns (TablesMSG){}
+   
 }
+
