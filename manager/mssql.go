@@ -1,4 +1,4 @@
-package main
+package manager
 
 import (
 	"MSSQLParser/db"
@@ -132,6 +132,14 @@ func (PM ProcessManager) ProcessDBTables(tablenames []string, tabletype string, 
 
 	}
 
+}
+
+func (PM ProcessManager) GetDatabaseNames() []string {
+	var databaseNames []string
+	for _, db := range PM.databases {
+		databaseNames = append(databaseNames, db.Name)
+	}
+	return databaseNames
 }
 
 func (PM ProcessManager) ShowInfo(selectedPage int, filterlop string) {
