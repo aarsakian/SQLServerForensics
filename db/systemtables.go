@@ -265,7 +265,7 @@ func (syscolpars SysColpars) GetType() string {
 		return "uniqueidentifier"
 	} else if syscolpars.Xtype == 0x28 {
 		return "date"
-	} else if syscolpars.Xtype == 0x20 {
+	} else if syscolpars.Xtype == 0x29 {
 		return "time"
 	} else if syscolpars.Xtype == 0x2A {
 		return "datetime2"
@@ -295,7 +295,7 @@ func (syscolpars SysColpars) GetType() string {
 		return "bit"
 	} else if syscolpars.Xtype == 0x6A {
 		return "decimal"
-	} else if syscolpars.Xtype == 0x06 {
+	} else if syscolpars.Xtype == 0x6C {
 		return "numeric"
 	} else if syscolpars.Xtype == 0x7A {
 		return "smallmoney"
@@ -322,7 +322,7 @@ func (syscolpars SysColpars) GetType() string {
 	} else {
 		msg := fmt.Sprintf("Type Not found 0x%x ", syscolpars.Xtype)
 		mslogger.Mslogger.Warning(msg)
-		return "Type not Found"
+		return msg
 	}
 
 }
