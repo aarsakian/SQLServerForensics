@@ -86,7 +86,7 @@ func main() {
 	showPFS := flag.Bool("pfs", false, "show pfm page allocation")
 	showIndex := flag.Bool("showindex", false, "show index contents")
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
-	showTableAllocation := flag.String("showTableAllocation", "",
+	showTableAllocation := flag.String("showtableallocation", "",
 		"show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure")
 	selectedTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
