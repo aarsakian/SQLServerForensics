@@ -129,7 +129,7 @@ func (c Column) toString(data []byte) string {
 		return fmt.Sprintf("%d", utils.ToInt64(data))
 	} else if c.Type == "varbinary" {
 		return fmt.Sprintf("%x", data)
-	} else if c.Type == "decimal" {
+	} else if c.Type == "decimal" || c.Type == "numeric" { //synonyms
 		return c.parseDecimal(data)
 	} else if c.Type == "sql_variant" {
 		sqlVariant := c.parseSqlVariant(data)
@@ -153,6 +153,8 @@ func (c Column) toString(data []byte) string {
 		return utils.ParseSmallDateTime(data)
 	} else if c.Type == "hierarchyid" {
 		return fmt.Sprintf("%x", data)
+	} else if c.Type == "time" {
+		return c.ParseTime(data)
 	} else {
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
@@ -169,6 +171,10 @@ func (c Column) Parse(data []byte) interface{} {
 	} else {
 		return nil
 	}
+}
+
+func (c Column) ParseTime(data []byte) string {
+	return utils.ParseTime(data, int(c.Precision))
 }
 
 func (c *Column) addContent(datarow page.DataRow,
