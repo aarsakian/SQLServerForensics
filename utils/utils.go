@@ -20,9 +20,9 @@ import (
 	"unicode/utf8"
 )
 
-var LeapYear = map[int]int{1: 0, 2: 31, 3: 60, 4: 91, 5: 121, 6: 152, 7: 182, 8: 213, 9: 244, 10: 274, 11: 305, 12: 335}
+var LeapYear = []int{0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
 
-var Year = map[int]int{1: 0, 2: 31, 3: 59, 4: 90, 5: 120, 6: 151, 7: 181, 8: 212, 9: 243, 10: 273, 11: 304, 12: 334}
+var Year = []int{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365}
 
 type Record []string
 type Records [][]string
@@ -310,6 +310,23 @@ func DateTimeToObj(data []byte) time.Time {
 	return time.Date(years, time.Month(month), day, hours, minutes, seconds, msecs, time.UTC)
 }
 
+// TIME(7) => 864,000,000,000 values prec 100ns 24hrs
+func ParseTime(data []byte, precision int) string {
+	if len(data) < 8 {
+		dst := make([]byte, 8)
+		copy(dst, data)
+		data = dst
+
+	}
+
+	elapsedTime := ToUint64(data)
+	hrs := elapsedTime / uint64(36000000000) % 24
+	mn := elapsedTime / uint64(600000000) % 60
+	secs := elapsedTime / uint64(10000000) % 60
+
+	return fmt.Sprintf("%02d:%02d:%02d", hrs, mn, secs)
+}
+
 // 4 bytes
 func ParseSmallDateTime(data []byte) string {
 	var day int
@@ -350,16 +367,40 @@ func parseDateTime(data []byte) (int, int, int, int, int, int, int) {
 	}
 	daysSince1900 := ToInt32(data[4:8])
 	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
-
-	nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
-	daysInTheYear := int(daysSince1900-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+	// leap year occurs every 4 years expect years divisble by 100 and not 400
 
 	if isLeapYear(uint(years + 1900)) {
-		month = int(float64(daysInTheYear)/30.41667 + 1)
-		day = daysInTheYear - LeapYear[month] + 1
+		nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400) - 1 // -1 current leap year
+		daysInTheYear := int(daysSince1900 - (years-nofLeapYears)*365 - nofLeapYears*366)
+		for month_idx, totaldays := range LeapYear {
+			if daysInTheYear >= totaldays {
+				continue
+			}
+			month = month_idx
+			break
+
+		}
+		if month >= 1 {
+			day = daysInTheYear - LeapYear[month-1] + 1 //?
+		} else {
+			day = daysInTheYear
+		}
 	} else {
-		month = int(float64(daysInTheYear)/30.5 + 1)
-		day = daysInTheYear - Year[month]
+		nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
+		daysInTheYear := int(daysSince1900 - (years-nofLeapYears)*365 - nofLeapYears*366)
+		for month_idx, totaldays := range Year {
+			if daysInTheYear >= totaldays {
+				continue
+			}
+			month = month_idx
+			break
+
+		}
+		if month >= 1 {
+			day = daysInTheYear - Year[month-1] + 1
+		} else {
+			day = daysInTheYear
+		}
 	}
 
 	timePart := ToUint32(data[0:4])
