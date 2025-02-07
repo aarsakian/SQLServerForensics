@@ -373,7 +373,7 @@ func (syscolpars SysColpars) GetType() string {
 	} else {
 		msg := fmt.Sprintf("Type Not found 0x%x ", syscolpars.Xtype)
 		mslogger.Mslogger.Warning(msg)
-		return "Type not Found"
+		return msg
 	}
 
 }
