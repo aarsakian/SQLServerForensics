@@ -441,9 +441,25 @@ func (table *Table) setVarLenCols() {
 func (table *Table) addColumns(columns []SysColpars) {
 
 	for _, col := range columns {
-		table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
-			Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
-			Precision: col.Prec, Scale: col.Scale, OffsetMap: map[uint64]int16{}, Properties: col.GetAdditionalAttributes()})
+
+		codepage, _, err := utils.LocateEncoding(fmt.Sprintf("%d", col.Collationid))
+
+		if err == nil {
+
+			table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
+				Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
+				Charmap:   utils.LocateWindowsCharmap(codepage),
+				CodePage:  codepage,
+				Precision: col.Prec, Scale: col.Scale,
+				OffsetMap: map[uint64]int16{}, Properties: col.GetAdditionalAttributes()})
+
+		} else {
+			table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
+				Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
+				Precision: col.Prec, Scale: col.Scale,
+				OffsetMap: map[uint64]int16{}, Properties: col.GetAdditionalAttributes()})
+		}
+
 	}
 	table.setVarLenCols()
 

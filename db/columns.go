@@ -6,6 +6,8 @@ import (
 	"MSSQLParser/utils"
 	b64 "encoding/base64"
 	"fmt"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 type ColData struct {
@@ -24,6 +26,8 @@ type Column struct {
 	CollationId uint32
 	Precision   uint8
 	Scale       uint8
+	Charmap     *charmap.Charmap
+	CodePage    string
 	OffsetMap   map[uint64]int16 //partitionId -> offset
 	Properties  string
 }
@@ -104,16 +108,10 @@ func (c Column) toString(data []byte) string {
 		//mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
 		return ""
 	}
-	if c.Type == "varchar" || c.Type == "text" || c.Type == "char" { //ansi
-		if c.CollationId == 872468488 { //SQL_Latin1_General_CP1_CI_AS
-			return string(data)
-		} else if c.CollationId == 53255 { // Greek_CI_AS
-			return utils.FromGreekCIToString(data)
-		} else {
-			return string(data)
-		}
+	if c.Type == "varchar" || c.Type == "text" || c.Type == "char" { //always defines number of bytes n never defines number of characters stored
+		return utils.Decode(data, c.Charmap, c.CodePage)
 
-	} else if c.Type == "nvarchar" || c.Type == "ntext" || c.Type == "nchar" { //n implies unicode
+	} else if c.Type == "nvarchar" || c.Type == "ntext" || c.Type == "nchar" { //n = number of byte pairs (10=10x2 20bytes in Latin1_Gen.... SC_UTF8)
 		return utils.DecodeUTF16(data)
 	} else if c.Type == "datetime2" {
 		return utils.DateTime2Tostr(data)
