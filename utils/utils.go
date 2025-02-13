@@ -2,13 +2,17 @@ package utils
 
 import (
 	mslogger "MSSQLParser/logger"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"time"
 
+	"golang.org/x/text/encoding/charmap"
+
 	"bytes"
 	"encoding/binary"
+	"encoding/csv"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -270,6 +274,7 @@ func Bytereverse(barray []byte) []byte { //work with indexes
 
 }
 
+// needs check
 func DateToStr(data []byte) string {
 	/*DATE is the byte-reversed number of days since the year 0001-01-01, stored as three bytes. */
 	var day int
@@ -281,15 +286,41 @@ func DateToStr(data []byte) string {
 	b.Write([]byte{0x00})
 	daysSince0001 := ToInt32(b.Bytes())
 	years := int(math.Floor(float64(daysSince0001) / float64(365.24)))
-	nofLeapYears := years/4 - years/100 + years/400
-	daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+
 	years = years + 1
+
 	if isLeapYear(uint(years)) {
-		month = int(float64(daysInTheYear)/30.41667 + 1)
-		day = daysInTheYear - LeapYear[month]
+		nofLeapYears := years/4 - years/100 + years/400 - 1 // -1 current leap year
+		daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+		for month_idx, totaldays := range LeapYear {
+			if daysInTheYear >= totaldays {
+				continue
+			}
+			month = month_idx
+			break
+
+		}
+		if month >= 1 {
+			day = daysInTheYear - LeapYear[month-1] + 1 //?
+		} else {
+			day = daysInTheYear
+		}
 	} else {
-		month = int(math.Round(float64(daysInTheYear)/30.5 + 1))
-		day = daysInTheYear - Year[month]
+		nofLeapYears := years/4 - years/100 + years/400
+		daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+		for month_idx, totaldays := range Year {
+			if daysInTheYear >= totaldays {
+				continue
+			}
+			month = month_idx
+			break
+
+		}
+		if month >= 1 {
+			day = daysInTheYear - Year[month-1] + 1
+		} else {
+			day = daysInTheYear
+		}
 	}
 	return fmt.Sprintf("%d-%d-%d", years, month, day)
 
@@ -335,15 +366,38 @@ func ParseSmallDateTime(data []byte) string {
 	daysSince1900 := int(ToUint16(data[2:4]))
 	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
 
-	nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
-	daysInTheYear := int(daysSince1900-(years-nofLeapYears)*365-nofLeapYears*366) + 1
-
 	if isLeapYear(uint(years + 1900)) {
-		month = int(math.Round(float64(daysInTheYear) / 30.41667))
-		day = daysInTheYear - LeapYear[month]
+		nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400) - 1 // -1 current leap year
+		daysInTheYear := int(daysSince1900 - (years-nofLeapYears)*365 - nofLeapYears*366)
+		for month_idx, totaldays := range LeapYear {
+			if daysInTheYear >= totaldays {
+				continue
+			}
+			month = month_idx
+			break
+
+		}
+		if month >= 1 {
+			day = daysInTheYear - LeapYear[month-1] + 1 //?
+		} else {
+			day = daysInTheYear
+		}
 	} else {
-		month = int(math.Round(float64(daysInTheYear) / 30.5))
-		day = daysInTheYear - Year[month]
+		nofLeapYears := (years+1900)/4 - (years+1900)/100 + (years+1900)/400 - (1900/4 - 1900/100 + 1900/400)
+		daysInTheYear := int(daysSince1900 - (years-nofLeapYears)*365 - nofLeapYears*366)
+		for month_idx, totaldays := range Year {
+			if daysInTheYear >= totaldays {
+				continue
+			}
+			month = month_idx
+			break
+
+		}
+		if month >= 1 {
+			day = daysInTheYear - Year[month-1] + 1
+		} else {
+			day = daysInTheYear
+		}
 	}
 
 	timePart := ToUint32(data[0:2])
@@ -944,4 +998,63 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 
 	}
 	return idx, nil
+}
+
+func LocateWindowsCharmap(dbcodepage string) *charmap.Charmap {
+
+	for _, enc := range charmap.All {
+		cmap, ok := enc.(*charmap.Charmap)
+
+		if ok && cmap.String() == "Windows "+dbcodepage {
+			return cmap
+
+		}
+	}
+	return nil
+
+}
+
+func Decode(data []byte, cmap *charmap.Charmap, codepage string) string {
+	if cmap != nil {
+		d := cmap.NewDecoder()
+		out, _ := d.Bytes(data)
+		return string(out)
+	} else if codepage == "65001" { //utf8
+		return string(data)
+	} else {
+		msg := fmt.Sprintf("codepage %s not supported", codepage)
+		mslogger.Mslogger.Error(msg)
+		return msg
+	}
+
+}
+
+func LocateEncoding(collationId string) (string, string, error) {
+	file, err := os.Open("collations.csv")
+
+	if err != nil {
+		log.Fatal("Error while reaading the file", err)
+	}
+
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.Comma = ';'
+
+	collations, err := reader.ReadAll()
+
+	if err != nil {
+		mslogger.Mslogger.Error(err)
+		log.Fatal(err)
+	}
+
+	for idx, collation := range collations {
+		if idx == 0 { //header
+			continue
+		}
+		if collation[1] == collationId {
+			return collation[0], collation[2], nil
+		}
+	}
+	return "", "", errors.New("collation not found")
 }
