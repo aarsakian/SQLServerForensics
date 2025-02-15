@@ -461,7 +461,6 @@ func (table *Table) addColumns(columns []SysColpars) {
 		}
 
 	}
-	table.setVarLenCols()
 
 }
 

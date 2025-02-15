@@ -287,8 +287,11 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 	colsinfo := db.columnsinfo[objectid]
 	if colsinfo != nil {
+
 		table.addColumns(colsinfo)
 		table.sortByColOrder()
+		table.setVarLenCols()
+
 	} else {
 		msg := fmt.Sprintf("No columns located for table %s", table.Name)
 		mslogger.Mslogger.Warning(msg)
