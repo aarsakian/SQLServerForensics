@@ -129,6 +129,7 @@ type Page struct {
 	PrevPage           *Page
 	NextPage           *Page
 	IndexRows          IndexRows
+	Boot               *Boot
 }
 
 type Header struct {
@@ -448,7 +449,6 @@ func (page *Page) parseLOB(data []byte) {
 
 func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
-	page.DataRows = make(DataRows, len(page.Slots))
 	for slotnum, slot := range page.Slots {
 		var allocatedDataRowSize,
 			actualDataRowSize uint16
@@ -490,7 +490,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 			actualDataRowSize = uint16(dataRow.Parse(data[slot.Offset:slot.Offset+allocatedDataRowSize],
 				int(slot.Offset)+offset, page.Header.ObjectId))
 
-			page.DataRows[slot.Order] = *dataRow
+			page.DataRows = append(page.DataRows, *dataRow)
 		}
 		//// this section is experimental
 		// found area that is unallocated?
@@ -658,6 +658,16 @@ func (page *Page) parseIndex(data []byte, offset int) {
 
 }
 
+func (page *Page) parseBoot(data []byte) {
+
+	slot := page.Slots[0] //only one slot at boot page
+
+	boot := &Boot{}
+
+	utils.Unmarshal(data[slot.Offset+4:], boot)
+	page.Boot = boot
+}
+
 func (page *Page) parseFileHeader(data []byte) {
 	//Svar fileHeader *FileHeader
 	for slotnum, slot := range page.Slots {
@@ -740,6 +750,8 @@ func (page *Page) Process(data []byte, offset int, carve bool) {
 			page.parseIAM(data)
 		case "File Header":
 			page.parseFileHeader(data)
+		case "Boot":
+			page.parseBoot(data)
 		}
 
 	}
