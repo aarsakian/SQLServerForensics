@@ -291,7 +291,7 @@ func DateToStr(data []byte) string {
 
 	if isLeapYear(uint(years)) {
 		nofLeapYears := years/4 - years/100 + years/400 - 1 // -1 current leap year
-		daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+		daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 365
 		for month_idx, totaldays := range LeapYear {
 			if daysInTheYear >= totaldays {
 				continue
@@ -307,7 +307,7 @@ func DateToStr(data []byte) string {
 		}
 	} else {
 		nofLeapYears := years/4 - years/100 + years/400
-		daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 1
+		daysInTheYear := int(daysSince0001-(years-nofLeapYears)*365-nofLeapYears*366) + 365
 		for month_idx, totaldays := range Year {
 			if daysInTheYear >= totaldays {
 				continue
@@ -600,6 +600,7 @@ func DecodeUTF16(b []byte) string {
 	utf := make([]uint16, (len(b)+(2-1))/2) // utf-16 2 bytes for each char
 	for i := 0; i+(2-1) < len(b); i += 2 {
 		utf[i/2] = binary.LittleEndian.Uint16(b[i:])
+
 	}
 	if len(b)/2 < len(utf) { // the "error" Rune or "Unicode replacement character"
 		utf[len(utf)-1] = utf8.RuneError
