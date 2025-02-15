@@ -108,7 +108,9 @@ func (c Column) toString(data []byte) string {
 		//mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
 		return ""
 	}
-	if c.Type == "varchar" || c.Type == "text" || c.Type == "char" { //always defines number of bytes n never defines number of characters stored
+	//always defines number of bytes n never defines number of characters stored
+	//<2019 sql server versions save in cp codepages
+	if c.Type == "varchar" || c.Type == "text" || c.Type == "char" {
 		return utils.Decode(data, c.Charmap, c.CodePage)
 
 	} else if c.Type == "nvarchar" || c.Type == "ntext" || c.Type == "nchar" { //n = number of byte pairs (10=10x2 20bytes in Latin1_Gen.... SC_UTF8)
