@@ -79,7 +79,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		if ldf {
 			ldfRecordsProcessed, err := database.ProcessLDF()
 
-			if err != nil && ldfRecordsProcessed > 0 {
+			if err == nil && ldfRecordsProcessed > 0 {
 				database.LocateLogRecords()
 			}
 
