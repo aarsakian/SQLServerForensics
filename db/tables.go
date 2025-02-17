@@ -342,65 +342,68 @@ func (table *Table) AddRow(record LDF.Record) {
 }
 
 func (table *Table) MarkRowDeleted(record LDF.Record) {
+
 	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
-	loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
-		fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	row := table.rows[rowid]
-	row.LoggedOperation = loggedOperation
-	row.LogDate = record.GetBeginCommitDateObj()
+	if len(table.rows) > rowid {
+		loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
+			fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	table.loggedrows = append(table.loggedrows, row)
+		row := table.rows[rowid]
+		row.LoggedOperation = loggedOperation
+		row.LogDate = record.GetBeginCommitDateObj()
+
+		table.loggedrows = append(table.loggedrows, row)
+
+	}
 
 }
 
 func (table *Table) MarkRowModified(record LDF.Record) {
 
 	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
-	row := table.rows[rowid]
-	row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
-	row.LogDate = record.GetBeginCommitDateObj()
+	if len(table.rows) > rowid {
+		row := table.rows[rowid]
+		row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+		row.LogDate = record.GetBeginCommitDateObj()
 
-	for _, c := range table.Schema {
-		if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
-			var newcontent bytes.Buffer
-			newcontent.Grow(int(c.Size))
+		for _, c := range table.Schema {
+			if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
+				var newcontent bytes.Buffer
+				newcontent.Grow(int(c.Size))
 
-			colData := row.ColMap[c.Name]
-			//new data from startoffset -> startoffset + modifysize
-			startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
+				colData := row.ColMap[c.Name]
+				//new data from startoffset -> startoffset + modifysize
+				startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
 
-			newcontent.Write(colData.Content[:startOffset]) //unchanged content
-			newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
-			newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
+				newcontent.Write(colData.Content[:startOffset]) //unchanged content
+				newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
+				newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
 
-			colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
-			row.ColMap[c.Name] = colData
+				colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
+				row.ColMap[c.Name] = colData
 
-			break
+				break
+			}
+
 		}
-
+		table.loggedrows = append(table.loggedrows, row)
 	}
-	table.loggedrows = append(table.loggedrows, row)
 
 }
 
 func (table *Table) addLogChanges(records LDF.Records) {
-	for rowid := range table.rows {
-		for _, record := range records {
-			if uint16(rowid) != record.Lop_Insert_Delete.RowId.SlotNumber {
-				continue
-			}
 
-			if record.GetOperationType() == "LOP_INSERT_ROW" {
-				table.AddRow(record)
-			} else if record.GetOperationType() == "LOP_DELETE_ROW" {
-				table.MarkRowDeleted(record)
-			} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
-				table.MarkRowModified(record)
-			}
+	for _, record := range records {
 
+		if record.GetOperationType() == "LOP_DELETE_ROW" {
+			table.MarkRowDeleted(record)
+		} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
+			table.MarkRowModified(record)
+		} else if record.GetOperationType() == "LOP_INSERT_ROW" {
+			table.AddRow(record)
 		}
+
 	}
 
 }
@@ -779,27 +782,25 @@ func (table Table) printData(showtorow int, skiprows int,
 		}
 	}
 
-	if showldf {
-		fmt.Printf("\n** = logged row\n")
+	fmt.Printf("\n** = logged row\n")
 
-		for _, row := range table.loggedrows {
-			for cid, c := range table.Schema {
+	for _, row := range table.loggedrows {
+		for cid, c := range table.Schema {
 
-				colData := row.ColMap[c.Name]
-				if cid == 0 {
-					fmt.Printf("** ")
-				}
-
-				if colData.LoggedColData != nil {
-					fmt.Printf(" -> ")
-					c.Print(colData.LoggedColData.Content)
-				}
-				c.Print(colData.Content)
-
+			colData := row.ColMap[c.Name]
+			if cid == 0 {
+				fmt.Printf("** ")
 			}
 
-			fmt.Printf("%s \n", row.LoggedOperation)
+			if colData.LoggedColData != nil {
+				fmt.Printf(" -> ")
+				c.Print(colData.LoggedColData.Content)
+			}
+			c.Print(colData.Content)
+
 		}
+
+		fmt.Printf("%s \n", row.LoggedOperation)
 	}
 
 }
