@@ -241,14 +241,13 @@ func main() {
 
 	pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldf, *showcarved)
 
-	if !*processTables {
-		return
-	}
-
 	pm.FilterDatabases(*pageType, *systemTables, *userTable)
 
-	pm.ProcessDBTables(strings.Split(*tablenames, ","), *tabletype,
-		utils.StringsToIntArray(*tablepages), *selectedTableRow, strings.Split(*colnames, ","))
+	if *processTables {
+		pm.ProcessDBTables(strings.Split(*tablenames, ","), *tabletype,
+			utils.StringsToIntArray(*tablepages), *selectedTableRow, strings.Split(*colnames, ","))
+	}
 
 	pm.ShowInfo(*selectedPage, *filterlop)
+
 }
