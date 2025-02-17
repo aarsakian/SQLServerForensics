@@ -78,6 +78,9 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
 	}
 	utils.Unmarshal(bs, lop_insert_delete_mod)
 
+	mslogger.Mslogger.Info(fmt.Sprintf("processing lop insert/del rec row %d page %d",
+		lop_insert_delete_mod.RowId.SlotNumber, lop_insert_delete_mod.RowId.PageId))
+
 	lop_insert_delete_mod.ProcessRowContents(bs[40:])
 
 }
@@ -101,8 +104,10 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte
 				bsoffset+rowlogcontentoffset, len(bs)))
 			break
 		}
-		if bs[bsoffset] == 0x30 || bs[bsoffset] == 0x10 {
+		if bs[bsoffset] == 0x30 || bs[bsoffset] == 0x10 || bs[bsoffset] == 0x70 {
 			if int(bsoffset) > len(bs) || int(bsoffset)+int(rowlogcontentoffset) > len(bs) {
+				mslogger.Mslogger.Info(fmt.Sprintf("exiting exceeded log block size by %d block size %d pageID",
+					bsoffset, len(bs)))
 				return
 			}
 			datarow := new(page.DataRow)
