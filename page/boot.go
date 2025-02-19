@@ -1,6 +1,9 @@
 package page
 
-import "MSSQLParser/utils"
+import (
+	"MSSQLParser/utils"
+	"strings"
+)
 
 type Boot struct {
 	Dbi_Version             uint16
@@ -104,4 +107,9 @@ type Boot struct {
 	  Dbi_verDbOption	0
 	  Dbi_logReplicaQuorumHardenedBlock	0
 	  Dbi_status_2	0x00000000*/
+}
+
+func (boot Boot) GetDBName() string {
+	return strings.TrimSpace(utils.DecodeUTF16(boot.Dbi_dbname[:]))
+
 }
