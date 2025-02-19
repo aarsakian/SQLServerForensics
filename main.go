@@ -239,13 +239,19 @@ func main() {
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportImage, *exportPath)
 
-	pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldf, *showcarved)
+	start := time.Now()
+	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldf, *showcarved)
+
+	fmt.Printf("Processed %d pages %d MB in %f secs \n",
+		processedPages, processedPages*8192/1000*1024, time.Since(start).Seconds())
 
 	pm.FilterDatabases(*pageType, *systemTables, *userTable)
 
 	if *processTables {
+		start := time.Now()
 		pm.ProcessDBTables(strings.Split(*tablenames, ","), *tabletype,
 			utils.StringsToIntArray(*tablepages), *selectedTableRow, strings.Split(*colnames, ","))
+		fmt.Printf("Finished in %f secs", time.Since(start).Seconds())
 	}
 
 	pm.ShowInfo(*selectedPage, *filterlop)
