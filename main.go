@@ -22,6 +22,7 @@ package main
 
 import (
 	pb "MSSQLParser/comms"
+	"MSSQLParser/db"
 	msegrpc "MSSQLParser/grpc"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/manager"
@@ -29,6 +30,7 @@ import (
 	"MSSQLParser/utils"
 	"log"
 	"net"
+	"sync"
 
 	"flag"
 	"fmt"
@@ -249,8 +251,22 @@ func main() {
 
 	if *processTables {
 		start := time.Now()
-		pm.ProcessDBTables(strings.Split(*tablenames, ","), *tabletype,
-			utils.StringsToIntArray(*tablepages), *selectedTableRow, strings.Split(*colnames, ","))
+
+		represults := make(map[string]chan db.Table) //max number of tables for report
+		expresults := make(map[string]chan db.Table)
+
+		wg := new(sync.WaitGroup)
+		wg.Add(3)
+
+		pm.ProcessDBTables(wg, strings.Split(*tablenames, ","), *tabletype,
+			utils.StringsToIntArray(*tablepages), strings.Split(*colnames, ","),
+			represults, expresults)
+
+		pm.ExportDBs(wg, *selectedTableRow, strings.Split(*colnames, ","), expresults)
+
+		pm.ShowDBs(wg, represults)
+
+		wg.Wait()
 		fmt.Printf("Finished in %f secs", time.Since(start).Seconds())
 	}
 

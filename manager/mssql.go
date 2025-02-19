@@ -108,27 +108,34 @@ func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, 
 
 }
 
-func (PM ProcessManager) ProcessDBTables(tablenames []string, tabletype string, tablepages []int,
-	selectedTableRow int, colnames []string) {
-
-	fmt.Println("Table Reconstruction - Report - Export Stage")
+func (PM ProcessManager) ProcessDBTables(wg *sync.WaitGroup,
+	tablenames []string, tabletype string, tablepages []int,
+	colnames []string, represults map[string]chan db.Table,
+	expresults map[string]chan db.Table) {
 
 	for _, database := range PM.databases {
-
+		represults[database.Name] = make(chan db.Table, 10000)
+		expresults[database.Name] = make(chan db.Table, 10000)
 		/*retrieving schema and table contents */
 
-		represults := make(chan db.Table, 100) //max number of tables for report
-		expresults := make(chan db.Table, 100)
+		go database.ProcessTables(wg, tablenames, tabletype,
+			represults[database.Name], expresults[database.Name], tablepages)
 
-		wg := new(sync.WaitGroup)
-		wg.Add(3)
+	}
 
-		go database.ProcessTables(wg, tablenames, tabletype, represults, expresults, tablepages)
-		go PM.reporter.ShowTableInfo(wg, represults)
+}
 
-		go PM.exporter.Export(wg, selectedTableRow, colnames, database.Name, expresults)
-		wg.Wait()
+func (PM ProcessManager) ExportDBs(wg *sync.WaitGroup,
+	selectedTableRow int, colnames []string, expresults map[string]chan db.Table) {
+	for _, database := range PM.databases {
+		go PM.exporter.Export(wg, selectedTableRow, colnames, database.Name,
+			expresults[database.Name])
+	}
+}
 
+func (PM ProcessManager) ShowDBs(wg *sync.WaitGroup, represults map[string]chan db.Table) {
+	for _, database := range PM.databases {
+		go PM.reporter.ShowTableInfo(wg, represults[database.Name])
 	}
 
 }
