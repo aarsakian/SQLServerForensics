@@ -5,7 +5,6 @@ import (
 	"MSSQLParser/exporter"
 	"MSSQLParser/reporter"
 	"fmt"
-	"path/filepath"
 	"sync"
 )
 
@@ -49,32 +48,30 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 }
 
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
-	selectedPage int, fromPage int, toPage int, ldf bool, showcarved bool) {
+	selectedPage int, fromPage int, toPage int, ldf bool, showcarved bool) int {
 
 	var database db.Database
 
+	processedPages := 0
 	for idx, inputFile := range mdffiles {
 		if len(ldffiles) > 0 {
-			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile), Lname: ldffiles[idx]}
+			database = db.Database{Fname: inputFile, Lname: ldffiles[idx]}
 		} else {
-			database = db.Database{Fname: inputFile, Name: filepath.Base(inputFile)}
+			database = db.Database{Fname: inputFile}
 		}
 
 		/*processing pages stage */
-		totalProcessedPages := database.ProcessMDF(selectedPage, fromPage, toPage, showcarved)
-		if totalProcessedPages == -1 {
+		totalProcessedPages, err := database.ProcessMDF(selectedPage, fromPage, toPage, showcarved)
+		if err != nil {
 			continue
 		}
 
-		fmt.Printf("Processed %d pages.\n", totalProcessedPages)
-
-		if totalProcessedPages <= 0 {
+		if totalProcessedPages == 0 {
 			fmt.Printf("no pages found skipped processing\n")
 			continue
 		}
 
 		database.ProcessSystemTables()
-		fmt.Printf("Processed system tables \n")
 
 		if ldf {
 			ldfRecordsProcessed, err := database.ProcessLDF()
@@ -85,8 +82,10 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		}
 
+		processedPages += totalProcessedPages
 		PM.databases = append(PM.databases, database)
 	}
+	return processedPages
 
 }
 
