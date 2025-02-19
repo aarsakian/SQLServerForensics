@@ -97,23 +97,27 @@ func (db *Database) ProcessSystemTables() {
 
 		node = node.Next
 	}
+
+	msg := fmt.Sprintf("Processed system tables of %s .", db.Name)
+	mslogger.Mslogger.Info(msg)
+	fmt.Printf("msg %s\n", msg)
 }
 
-func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve bool) int {
-	fmt.Printf("about to process database file %s \n", db.Fname)
+func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve bool) (int, error) {
+
 	file, err := os.Open(db.Fname) //
 	if err != nil {
 		// handle the error here
 		fmt.Printf("err %s reading the mdf file. \n", err)
 		fmt.Printf("If you still want to read the mdf file using low level API use -low. This action will copy the file to the temp folder\n")
 		fmt.Printf("If you still want to read the mdf use -stopservice to stop sql server running! Please note that that uncommited data migh be lost.\n")
-		return -1
+		return 0, err
 	}
 
 	fsize, err := file.Stat() //file descriptor
 	if err != nil {
 		mslogger.Mslogger.Error(err)
-		return -1
+		return 0, err
 	}
 	// read the file
 
@@ -123,15 +127,15 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 
 	pages := page.PagesPerId[uint64]{}
 
-	fmt.Println("Processing pages...")
 	totalProcessedPages := 0
+
 	for offset := 0; offset < int(fsize.Size()); offset += PAGELEN {
 		_, err := file.ReadAt(bs, int64(offset))
 
 		if err != nil {
 			fmt.Printf("error reading file --->%s prev offset %d  mod %d",
 				err, offset/PAGELEN, offset%PAGELEN)
-			break
+			return 0, err
 		}
 
 		if selectedPage != -1 && (offset/PAGELEN < selectedPage ||
@@ -150,6 +154,10 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 		mslogger.Mslogger.Info(msg)
 		page := db.ProcessPage(bs, offset, carve)
 
+		if db.Name == "" && page.Boot != nil {
+			db.Name = page.Boot.GetDBName()
+		}
+
 		allocUnitID := page.Header.GetMetadataAllocUnitId()
 		if allocUnitID == 0 {
 			msg := fmt.Sprintf("Skipped Processing page at offset %d no alloc unit", offset)
@@ -161,8 +169,12 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 		totalProcessedPages++
 
 	}
+	msg := fmt.Sprintf("Processing pages of %s completed ", db.Name)
+	mslogger.Mslogger.Info(msg)
+	fmt.Printf("%s\n", msg)
+
 	db.PagesPerAllocUnitID = pages
-	return totalProcessedPages
+	return totalProcessedPages, nil
 }
 
 func (db *Database) ProcessLDF() (int, error) {
