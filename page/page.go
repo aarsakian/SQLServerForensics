@@ -119,7 +119,6 @@ type Page struct {
 	Header             Header
 	Slots              Slots
 	DataRows           DataRows
-	CarvedDataRows     DataRows
 	ForwardingPointers ForwardingPointers
 	LOBS               LOBS
 	PFSPage            *PFSPage
@@ -455,6 +454,8 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
 
+		dataRow.Carved = false
+
 		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
 		if slot.Offset == 0 {
@@ -525,8 +526,8 @@ func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
 		dataRowSize := carvedDataRow.Parse(unallocatedData[slotOffset:],
 			int(slotOffset)+offset, page.Header.ObjectId)
 		slotOffset += dataRowSize
-
-		page.CarvedDataRows = append(page.CarvedDataRows, *carvedDataRow)
+		carvedDataRow.Carved = true
+		page.DataRows = append(page.DataRows, *carvedDataRow)
 
 	}
 }
@@ -579,15 +580,20 @@ func (page Page) printSlots() {
 }
 
 func (page Page) ShowCarvedDataRows() {
-	for _, datarow := range page.CarvedDataRows {
-		datarow.ShowData()
+	for _, datarow := range page.DataRows {
+		if datarow.Carved {
+			datarow.ShowData()
+		}
+
 	}
 }
 
 func (page Page) ShowRowData() {
 
 	for _, datarow := range page.DataRows {
-
+		if datarow.Carved {
+			continue
+		}
 		datarow.ShowData()
 	}
 }
