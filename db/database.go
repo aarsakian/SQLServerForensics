@@ -238,7 +238,9 @@ func (db Database) GetTablesInfo() TablesInfo {
 	return db.tablesInfo
 }
 
-func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tabletype string, reptables chan<- Table, exptables chan<- Table, tablePages []int) {
+func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tabletype string,
+	reptables chan<- Table, exptables chan<- Table, tablePages []int) {
+
 	defer wg.Done()
 	tablesFound := make(map[string]bool)
 	for _, tablename := range tablenames {
@@ -404,6 +406,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 }
 
 func (db Database) DetermineMinLSN(records LDF.Records) utils.LSN {
+	//locating latest LOP_END_CKPT lop
 	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
 	latestDate := utils.DateTimeToObj(lop_end_records[0].Lop_End_CKPT.EndTime[:])
 	recordId := 0
