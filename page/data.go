@@ -73,6 +73,7 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 	VarLengthColOffsets   []int16
 	VersioningInfo        *TagVersion
 	VarLenCols            *DataCols
+	Carved                bool
 	SystemTable           SystemTable
 }
 
