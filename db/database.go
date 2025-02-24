@@ -293,7 +293,6 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	table := Table{Name: tname, ObjectId: objectid, Type: tType,
 		PageIDsPerType: map[string][]uint32{}}
 
-	fmt.Printf("reconstructing table %s id %d type %s\n", table.Name, table.ObjectId, table.Type)
 	msg := fmt.Sprintf("reconstructing table %s  objectId %d type %s", table.Name, table.ObjectId, table.Type)
 	mslogger.Mslogger.Info(msg)
 
