@@ -245,7 +245,7 @@ func main() {
 	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldf, *showcarved)
 
 	fmt.Printf("Processed %d pages %d MB in %f secs \n",
-		processedPages, processedPages*8192/1000*1024, time.Since(start).Seconds())
+		processedPages, processedPages*8192/1000/1024, time.Since(start).Seconds())
 
 	pm.FilterDatabases(*pageType, *systemTables, *userTable)
 
