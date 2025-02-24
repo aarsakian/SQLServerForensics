@@ -447,10 +447,12 @@ func (page *Page) parseLOB(data []byte) {
 }
 
 func (page *Page) parseDATA(data []byte, offset int, carve bool) {
+	var allocatedDataRowSize,
+		actualDataRowSize,
+		slotOffset uint16
 
 	for slotnum, slot := range page.Slots {
-		var allocatedDataRowSize,
-			actualDataRowSize uint16
+
 		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
 		var dataRow *DataRow = new(DataRow)
 
@@ -493,19 +495,21 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 			page.DataRows = append(page.DataRows, *dataRow)
 		}
-		//// this section is experimental
-		// found area that is unallocated?
-		unallocatedArea := allocatedDataRowSize - actualDataRowSize
-		if unallocatedArea > 0 && carve {
-			//calculate size of unallocate cols
-			slot.Offset += actualDataRowSize // add last row size
-			//carve only when there is unallocated space in datarow
-			if slot.Offset < page.Header.FreeData &&
-				slot.Offset+unallocatedArea <= page.Header.FreeData {
-				page.CarveDataRows(data[slot.Offset:slot.Offset+unallocatedArea], offset+int(slot.Offset))
-			}
+		slotOffset += slot.Offset
 
-		}
+	}
+	//// this section is experimental
+	// found area that is unallocated?
+	//calculate size of unallocate cols
+	unallocatedArea := allocatedDataRowSize - actualDataRowSize
+	//start from
+	slotOffset += actualDataRowSize
+	if carve && unallocatedArea > 0 && unallocatedArea <= page.Header.FreeData && slotOffset < page.Header.FreeData &&
+		slotOffset+unallocatedArea <= page.Header.FreeData {
+
+		//carve only when there is unallocated space in datarow
+
+		page.CarveDataRows(data[slotOffset:slotOffset+unallocatedArea], offset+int(slotOffset))
 
 	}
 
@@ -514,20 +518,26 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
 	var carvedDataRow *DataRow = new(DataRow)
 	slotOffset := 0
-	for slotOffset < len(unallocatedData) && slotOffset > 0 {
+	dataRowSize := 0
+	for slotOffset < len(unallocatedData) {
 		// second condition for negative offsets in var cols offsets
 
 		msg := fmt.Sprintf("unallocated space discovered at %d",
 			offset+len(unallocatedData))
 		mslogger.Mslogger.Warning(msg)
-		if GetRowType(unallocatedData[slotOffset]) != "Primary Record" {
+
+		if GetRowType(unallocatedData[slotOffset]) == "Primary Record" {
+			dataRowSize = carvedDataRow.Parse(unallocatedData[slotOffset:],
+				int(slotOffset)+offset, page.Header.ObjectId)
+			carvedDataRow.Carved = true
+			page.DataRows = append(page.DataRows, *carvedDataRow)
+		}
+
+		slotOffset += dataRowSize
+
+		if slotOffset <= 0 || dataRowSize == 0 {
 			break
 		}
-		dataRowSize := carvedDataRow.Parse(unallocatedData[slotOffset:],
-			int(slotOffset)+offset, page.Header.ObjectId)
-		slotOffset += dataRowSize
-		carvedDataRow.Carved = true
-		page.DataRows = append(page.DataRows, *carvedDataRow)
 
 	}
 }
