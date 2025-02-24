@@ -34,7 +34,7 @@ type RowIds []utils.RowId
 
 type DataCols []DataCol //holds varying len cols
 
-var DataRecord = map[uint8]string{
+var DataRecordType = map[uint8]string{
 	0: "Primary Record", 2: "Forwarded Record", 4: "Forwarding Record", 6: "Index Record",
 	8: "BLOB Fragment", 10: "Ghost Index Record", 12: "Ghost Data Record",
 	14: "Ghost Version Record",
@@ -79,7 +79,7 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 
 func GetRowType(statusA byte) string {
 
-	for flagbyte, flagname := range DataRecord {
+	for flagbyte, flagname := range DataRecordType {
 		if flagbyte == 0 {
 			continue //cannot compare with zero bitmask
 		}
@@ -88,11 +88,16 @@ func GetRowType(statusA byte) string {
 
 		}
 	}
-	return DataRecord[0] // Primary Record
+	if statusA != 0 {
+		return DataRecordType[0] // Primary Record
+	} else {
+		return "record type not found"
+	}
+
 }
 
 func (dataRow DataRow) GetFlags() string {
-	recordType := DataRecord[dataRow.StatusA&14]
+	recordType := DataRecordType[dataRow.StatusA&14]
 	nullBitmap := (map[bool]string{true: "NULL Bitmap"})[dataRow.HasNullBitmap()]
 	varLenCols := (map[bool]string{true: "Var length Cols"})[dataRow.HasVarLenCols()]
 	return strings.Join([]string{recordType, nullBitmap, varLenCols}, " ")
