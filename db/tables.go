@@ -522,7 +522,6 @@ func (table Table) Show(showSchema bool, showContent bool,
 	showAllocation string, showIndex bool, tabletype string, showrows int, skiprows int,
 	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
-	fmt.Printf("\nTable %s \n", table.Name)
 	if showSchema {
 		table.printSchema()
 	}
