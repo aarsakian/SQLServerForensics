@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"sort"
 )
 
 var PAGELEN = uint16(8192)
@@ -118,6 +119,7 @@ func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
 type Page struct {
 	Header             Header
 	Slots              Slots
+	OrderedSlots       Slots
 	DataRows           DataRows
 	ForwardingPointers ForwardingPointers
 	LOBS               LOBS
@@ -453,16 +455,15 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 	for slotnum, slot := range page.Slots {
 
-		var forwardingPointer *ForwardingPointer = new(ForwardingPointer)
-		var dataRow *DataRow = new(DataRow)
-
-		dataRow.Carved = false
+		forwardingPointer := new(ForwardingPointer)
+		dataRow := &DataRow{Carved: false}
 
 		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
 		if slot.Offset == 0 {
 			msg := "slot.Offset is zero  potential deleted datarow"
 			mslogger.Mslogger.Info(msg)
+			page.Slots[slotnum].Deleted = true
 			continue
 			//heuristics
 
@@ -494,52 +495,66 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 				int(slot.Offset)+offset, page.Header.ObjectId))
 
 			page.DataRows = append(page.DataRows, *dataRow)
+
+			page.Slots[slotnum].ActualDataRowSize = actualDataRowSize
+			page.Slots[slotnum].AllocatedDataRowSize = allocatedDataRowSize
 		}
 		slotOffset += slot.Offset
 
+		if actualDataRowSize != allocatedDataRowSize {
+			msg := fmt.Sprintf(" actual row size %d is less than allocated %d", actualDataRowSize, allocatedDataRowSize)
+			mslogger.Mslogger.Warning(msg)
+		}
+
 	}
+
+	if !carve {
+		return
+	}
+
+	//returns slice copies pointer need to copy values
+	copy(page.OrderedSlots, page.Slots)
+	sort.Sort(SortedSlotsByOrder(page.OrderedSlots))
+
 	//// this section is experimental
 	// found area that is unallocated?
 	//calculate size of unallocate cols
-	unallocatedArea := allocatedDataRowSize - actualDataRowSize
-	//start from
-	slotOffset += actualDataRowSize
-	if carve && unallocatedArea > 0 && unallocatedArea <= page.Header.FreeData && slotOffset < page.Header.FreeData &&
-		slotOffset+unallocatedArea <= page.Header.FreeData {
 
-		//carve only when there is unallocated space in datarow
+	for slotnum, slot := range page.OrderedSlots {
+		var slotOffset,
+			allocatedDataRowSize uint16
 
-		page.CarveDataRows(data[slotOffset:slotOffset+unallocatedArea], offset+int(slotOffset))
+		if slot.Deleted { //slot offset is zero get previous allocated size
+			slotOffset = page.OrderedSlots[slotnum-1].Offset +
+				page.OrderedSlots[slotnum-1].ActualDataRowSize
+			allocatedDataRowSize = page.OrderedSlots[slotnum+1].Offset
 
-	}
+		} else {
+			slotOffset = slot.Offset + slot.ActualDataRowSize
+			allocatedDataRowSize = page.OrderedSlots[slotnum].AllocatedDataRowSize
 
-}
-
-func (page *Page) CarveDataRows(unallocatedData []byte, offset int) {
-	var carvedDataRow *DataRow = new(DataRow)
-	slotOffset := 0
-	dataRowSize := 0
-	for slotOffset < len(unallocatedData) {
-		// second condition for negative offsets in var cols offsets
-
-		msg := fmt.Sprintf("unallocated space discovered at %d",
-			offset+len(unallocatedData))
-		mslogger.Mslogger.Warning(msg)
-
-		if GetRowType(unallocatedData[slotOffset]) == "Primary Record" {
-			dataRowSize = carvedDataRow.Parse(unallocatedData[slotOffset:],
-				int(slotOffset)+offset, page.Header.ObjectId)
-			carvedDataRow.Carved = true
-			page.DataRows = append(page.DataRows, *carvedDataRow)
 		}
 
-		slotOffset += dataRowSize
+		// if slot has slack carve and has available space
+		for slotOffset < allocatedDataRowSize &&
+			int(slotOffset+allocatedDataRowSize) < int(PAGELEN)-2*len(page.Slots) {
 
-		if slotOffset <= 0 || dataRowSize == 0 {
-			break
+			dataRow := &DataRow{Carved: true}
+			actualDataRowSize = uint16(dataRow.Parse(
+				data[slotOffset:slotOffset+allocatedDataRowSize],
+				int(slotOffset)+offset, page.Header.ObjectId))
+			// accept only primary records
+			if GetRowType(data[slotOffset]) == "Primary Record" {
+				page.DataRows = append(page.DataRows, *dataRow)
+			}
+
+			slotOffset += actualDataRowSize
+			allocatedDataRowSize -= actualDataRowSize
+
 		}
 
 	}
+
 }
 
 func (page *Page) parseSGAM(data []byte) {
@@ -740,7 +755,7 @@ func (page *Page) Process(data []byte, offset int, carve bool) {
 		mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
 			header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
 
-		page.Slots = retrieveSortedSlots(data[PAGELEN-2*header.SlotCnt:]) //starts from end of page
+		page.PopulateSlots(data[PAGELEN-2*header.SlotCnt:])
 
 		if len(page.Slots) != int(header.SlotCnt) {
 			mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d",
@@ -771,6 +786,15 @@ func (page *Page) Process(data []byte, offset int, carve bool) {
 		}
 
 	}
+
+}
+
+func (page *Page) PopulateSlots(data []byte) {
+	slots := retrieveSlots(data) //starts from end of page
+	sort.Sort(SortedSlotsByOffset(slots))
+	page.Slots = slots
+
+	page.OrderedSlots = make(Slots, len(slots))
 
 }
 
