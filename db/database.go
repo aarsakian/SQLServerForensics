@@ -269,7 +269,7 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tablet
 
 	for tablename, found := range tablesFound {
 		if !found && tablename != "" {
-			fmt.Printf("Table %s not found", tablename)
+			fmt.Printf("Table %s not found\n", tablename)
 		}
 
 	}
