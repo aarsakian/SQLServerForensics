@@ -79,20 +79,16 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 
 func GetRowType(statusA byte) string {
 
-	for flagbyte, flagname := range DataRecordType {
-		if flagbyte == 0 {
-			continue //cannot compare with zero bitmask
-		}
-		if statusA&flagbyte == flagbyte {
-			return flagname
+	res := strconv.FormatUint(uint64(statusA), 2)
 
-		}
+	if len(res) > 4 {
+		flag, _ := strconv.ParseUint(res[len(res)-4:], 10, 4)
+		return DataRecordType[uint8(flag)]
+	} else if len(res) > 1 {
+		flag, _ := strconv.ParseUint(res[:], 10, 4)
+		return DataRecordType[uint8(flag)]
 	}
-	if statusA != 0 {
-		return DataRecordType[0] // Primary Record
-	} else {
-		return "record type not found"
-	}
+	return "record type not found"
 
 }
 
