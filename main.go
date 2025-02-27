@@ -30,6 +30,7 @@ import (
 	"MSSQLParser/utils"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 
 	"flag"
@@ -90,9 +91,9 @@ func main() {
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
 	showTableAllocation := flag.String("showtableallocation", "",
 		"show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure")
-	selectedTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
+	toTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
-	selectedTableRow := flag.Int("row", -1, "Show only the selected row")
+	selectedTableRows := flag.String("rows", "-1", "use comma for the selected rows")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	exportPath := flag.String("export", "", "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
@@ -231,13 +232,24 @@ func main() {
 		mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
 	}
 
+	var selectedTableRowsInt []int
+	for _, val := range strings.Split(*selectedTableRows, ",") {
+		val, e := strconv.ParseInt(val, 10, 0)
+		if e != nil {
+			continue
+		}
+
+		selectedTableRowsInt = append(selectedTableRowsInt, int(val))
+	}
+
 	pm := manager.ProcessManager{}
 	//essential if we want reporting & exporting functionality
 	pm.Initialize(*showGamExtents, *showSGamExtents, *showIAMExtents,
 		*showDataCols, *showPFS, *showHeader, *showSlots, *showTableSchema,
 		*showTableContent, *showTableAllocation,
-		*showTableIndex, *showPageStats, *showIndex, *selectedTableRows,
-		*skippedTableRows, *selectedTableRow, *showcarved,
+		*showTableIndex, *showPageStats, *showIndex, *toTableRows,
+		*skippedTableRows, selectedTableRowsInt,
+		*showcarved,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportImage, *exportPath)
 
@@ -262,7 +274,7 @@ func main() {
 			utils.StringsToIntArray(*tablepages), strings.Split(*colnames, ","),
 			represults, expresults)
 
-		pm.ExportDBs(wg, *selectedTableRow, strings.Split(*colnames, ","), expresults)
+		pm.ExportDBs(wg, selectedTableRowsInt, strings.Split(*colnames, ","), expresults)
 
 		pm.ShowDBs(wg, represults)
 

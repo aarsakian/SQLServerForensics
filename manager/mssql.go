@@ -17,8 +17,8 @@ type ProcessManager struct {
 func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, showIAMExtents bool,
 	showDataCols bool, showPFS bool, showHeader bool, showSlots bool, showTableSchema bool,
 	showTableContent bool, showTableAllocation string,
-	showTableIndex bool, showPageStats bool, showIndex bool, selectedTableRows int,
-	skippedTableRows int, selectedTableRow int, showcarved bool,
+	showTableIndex bool, showPageStats bool, showIndex bool, toTableRow int,
+	skippedTableRows int, selectedTableRows []int, showcarved bool,
 	showLDF bool, tabletype string, raw bool, colnames []string,
 	exportFormat string, exportImage bool, exportPath string) {
 
@@ -35,9 +35,9 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 		ShowTableIndex:      showTableIndex,
 		ShowPageStats:       showPageStats,
 		ShowIndex:           showIndex,
-		SelectedTableRows:   selectedTableRows,
+		ToTableRow:          toTableRow,
 		SkippedTableRows:    skippedTableRows,
-		SelectedTableRow:    selectedTableRow,
+		SelectedTableRows:   selectedTableRows,
 		ShowCarved:          showcarved,
 		ShowLDF:             showLDF,
 		TableType:           tabletype,
@@ -126,7 +126,7 @@ func (PM ProcessManager) ProcessDBTables(wg *sync.WaitGroup,
 }
 
 func (PM ProcessManager) ExportDBs(wg *sync.WaitGroup,
-	selectedTableRow int, colnames []string, expresults map[string]chan db.Table) {
+	selectedTableRow []int, colnames []string, expresults map[string]chan db.Table) {
 	for _, database := range PM.databases {
 		go PM.exporter.Export(wg, selectedTableRow, colnames, database.Name,
 			expresults[database.Name])
