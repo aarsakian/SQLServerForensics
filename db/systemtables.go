@@ -416,6 +416,9 @@ sysconv(bit, c.status & 0x2000000)                               AS is_column_se
 
 func (tablesInfo TablesInfo) Populate(datarows page.DataRows) {
 	for _, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
 		sysschobjs := new(Sysschobjs)
 		utils.Unmarshal(datarow.FixedLenCols, sysschobjs)
 		if datarow.VarLenCols != nil {
@@ -433,6 +436,10 @@ func (tablesInfo TablesInfo) Populate(datarows page.DataRows) {
 
 func (columnsStats ColumnsStatistics) Populate(datarows page.DataRows) {
 	for _, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
+
 		sysiscol := new(SysIsCol)
 		utils.Unmarshal(datarow.FixedLenCols, sysiscol)
 		columnsStats[sysiscol.Idmajor] = append(columnsStats[sysiscol.Idmajor],
@@ -442,6 +449,10 @@ func (columnsStats ColumnsStatistics) Populate(datarows page.DataRows) {
 
 func (sysfiles SysFiles) Populate(datarows page.DataRows) {
 	for idx, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
+
 		sysfile := new(SysFile)
 		utils.Unmarshal(datarow.FixedLenCols, sysfile)
 		sysfiles[idx] = *sysfile
@@ -455,6 +466,10 @@ func (sysallocunits SysAllocUnits) GetId() uint64 {
 
 func (indexesInfo IndexesInfo) Populate(datarows page.DataRows) {
 	for _, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
+
 		sysidxstats := new(SysIdxStats)
 		utils.Unmarshal(datarow.FixedLenCols, sysidxstats)
 		if datarow.VarLenCols != nil {
@@ -471,6 +486,10 @@ func (indexesInfo IndexesInfo) Populate(datarows page.DataRows) {
 
 func (columnsinfo ColumnsInfo) Populate(datarows page.DataRows) {
 	for _, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
+
 		syscolpars := new(SysColpars)
 		utils.Unmarshal(datarow.FixedLenCols, syscolpars)
 		if datarow.VarLenCols != nil {
@@ -491,6 +510,10 @@ func (columnsinfo ColumnsInfo) Populate(datarows page.DataRows) {
 func (tablespartitions TablesPartitions) Populate(datarows page.DataRows) {
 
 	for _, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
+
 		sysrowsets := new(SysRowSets)
 		utils.Unmarshal(datarow.FixedLenCols, sysrowsets)
 		tablespartitions[sysrowsets.Idmajor] = append(tablespartitions[sysrowsets.Idmajor],
@@ -501,6 +524,10 @@ func (tablespartitions TablesPartitions) Populate(datarows page.DataRows) {
 func (tablesallocations TablesAllocations) Populate(datarows page.DataRows) {
 
 	for _, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
+
 		sysallocunits := new(SysAllocUnits)
 		utils.Unmarshal(datarow.FixedLenCols, sysallocunits)
 		tablesallocations[sysallocunits.OwnerId] = append(tablesallocations[sysallocunits.OwnerId],
@@ -511,6 +538,10 @@ func (tablesallocations TablesAllocations) Populate(datarows page.DataRows) {
 func (columnsPartitions ColumnsPartitions) Populate(datarows page.DataRows) {
 
 	for _, datarow := range datarows {
+		if datarow.Carved {
+			continue
+		}
+
 		sysrscol := new(SysRsCol)
 		utils.Unmarshal(datarow.FixedLenCols, sysrscol)
 		if datarow.VarLenCols != nil {
