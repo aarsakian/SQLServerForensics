@@ -388,13 +388,15 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 				colData := row.ColMap[c.Name]
 				//new data from startoffset -> startoffset + modifysize
 				startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
+				if startOffset > 0 {
+					newcontent.Write(colData.Content[:startOffset]) //unchanged content
+					newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
+					newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
 
-				newcontent.Write(colData.Content[:startOffset]) //unchanged content
-				newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
-				newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
+					colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
+					row.ColMap[c.Name] = colData
 
-				colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
-				row.ColMap[c.Name] = colData
+				}
 
 				break
 			}
@@ -519,15 +521,15 @@ func (table Table) printTableInfo() {
 }
 
 func (table Table) Show(showSchema bool, showContent bool,
-	showAllocation string, showIndex bool, tabletype string, showrows int, skiprows int,
-	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
+	showAllocation string, showIndex bool, tabletype string, showtorow int, skiprows int,
+	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
 	if showSchema {
 		table.printSchema()
 	}
 	if showContent {
 		table.printHeader(showcolnames)
-		table.printData(showrows, skiprows, showrow, showcarved, showldf, showcolnames, showrawdata)
+		table.printData(showtorow, skiprows, showrows, showcarved, showldf, showcolnames, showrawdata)
 		table.cleverPrintData()
 	}
 
@@ -608,14 +610,23 @@ func (table Table) printAllocationSorted() {
 
 }
 
-func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow int, colnames []string, records chan<- utils.Record) {
+func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow []int, colnames []string, records chan<- utils.Record) {
 	defer wg.Done()
 
 	records <- table.getHeader(colnames)
-
-	for rownum, row := range table.rows {
+	locatedRow := true
+	for rowidx, row := range table.rows {
 		var record utils.Record
-		if selectedRow != -1 && selectedRow != rownum {
+		for _, rownum := range selectedRow {
+			if rowidx+1 == rownum {
+				locatedRow = true
+				break
+			} else {
+				locatedRow = false
+			}
+		}
+
+		if !locatedRow {
 			continue
 		}
 		for _, c := range table.Schema {
@@ -742,9 +753,11 @@ func (table Table) cleverPrintData() {
 }
 
 func (table Table) printData(showtorow int, skiprows int,
-	showrow int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
+	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
 	for idx, row := range table.rows { // when no rder check?
+		locatedRow := true
+
 		if skiprows != -1 && idx < skiprows {
 			continue
 		}
@@ -752,10 +765,18 @@ func (table Table) printData(showtorow int, skiprows int,
 			break
 		}
 
-		if showrow != -1 && idx != showrow {
-			continue
+		for _, rownum := range showrows {
+
+			if idx+1 == rownum {
+				locatedRow = true
+				break
+			} else {
+				locatedRow = false
+			}
+
 		}
-		if !showcarved && row.Carved {
+
+		if !locatedRow || !showcarved && row.Carved {
 			continue
 		} else if showcarved && row.Carved {
 			fmt.Printf(" (d) ")
@@ -777,6 +798,7 @@ func (table Table) printData(showtorow int, skiprows int,
 			}
 		}
 		fmt.Printf("\n")
+
 	}
 
 	fmt.Printf("\nlogged rows\n")

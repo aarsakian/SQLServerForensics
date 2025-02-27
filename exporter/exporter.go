@@ -30,7 +30,7 @@ func (exp Exporter) CreateExportPath(databaseName string, tableType string) stri
 
 }
 
-func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow int, colnames []string, databaseName string, tables <-chan db.Table) {
+func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnames []string, databaseName string, tables <-chan db.Table) {
 	defer expWg.Done()
 
 	if exp.Path == "" {
