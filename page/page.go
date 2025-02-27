@@ -10,6 +10,7 @@ import (
 )
 
 var PAGELEN = uint16(8192)
+var HEADERLEN = uint16(96)
 
 var PageTypes = map[uint8]string{
 	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 6: "Work File", 7: "Sort", 8: "GAM", 9: "SGAM",
@@ -477,7 +478,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 				page.Slots[slotnum].AllocatedDataRowSize = page.Header.FreeData - page.Slots[slotnum].Offset
 			}
 			continue
-		} else if slot.Offset < 96 { //offset starts from 96
+		} else if slot.Offset < HEADERLEN { //offset starts from 96
 			msg := fmt.Sprintf("slot.Offset %d cannot be less than the header size (96B)", slot.Offset)
 			mslogger.Mslogger.Info(msg)
 			continue
@@ -518,10 +519,14 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 	}
 
-	if !carve {
-		return
+	if carve {
+		page.CarveData(data, offset)
 	}
+}
 
+func (page *Page) CarveData(data []byte, offset int) {
+	actualDataRowSize := uint16(0)
+	slotOffset := HEADERLEN
 	//returns slice copies pointer need to copy values
 	copy(page.OrderedSlots, page.Slots)
 	sort.Sort(SortedSlotsByOrder(page.OrderedSlots))
@@ -535,9 +540,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 	for slotnum, slot := range page.OrderedSlots {
 
 		if slot.Deleted { //slot offset is zero get previous allocated size or set to 96 page header size
-			if slotnum == 0 {
-				slotOffset = 96
-			} else {
+			if slotnum > 0 {
 				slotOffset = page.OrderedSlots[slotnum-1].Offset +
 					page.OrderedSlots[slotnum-1].AllocatedDataRowSize
 			}
