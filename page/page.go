@@ -453,6 +453,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		actualDataRowSize,
 		slotOffset uint16
 
+	//sorted by offset
 	for slotnum, slot := range page.Slots {
 
 		forwardingPointer := new(ForwardingPointer)
@@ -460,15 +461,24 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
+
+		//heuristics
 		if slot.Offset == 0 {
 			msg := "slot.Offset is zero  potential deleted datarow"
 			mslogger.Mslogger.Info(msg)
 			page.Slots[slotnum].Deleted = true
-			continue
-			//heuristics
+			if slotnum > 0 {
+				page.Slots[slotnum].Offset = page.Slots[slotnum-1].Offset + page.Slots[slotnum-1].AllocatedDataRowSize
 
+			}
+			if slotnum < reflect.ValueOf(page.Slots).Len()-1 {
+				page.Slots[slotnum].AllocatedDataRowSize = page.Slots[slotnum+1].Offset
+			} else if slotnum == reflect.ValueOf(page.Slots).Len()-1 {
+				page.Slots[slotnum].AllocatedDataRowSize = page.Header.FreeData - page.Slots[slotnum].Offset
+			}
+			continue
 		} else if slot.Offset < 96 { //offset starts from 96
-			msg := fmt.Sprintf("slot.Offset %d cannot be less than 96 bytes", slot.Offset)
+			msg := fmt.Sprintf("slot.Offset %d cannot be less than the header size (96B)", slot.Offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
@@ -476,7 +486,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		if page.Header.FreeData < uint16(slot.Offset) {
 			msg := fmt.Sprintf(" slot offset %d exceeds free area  %d ", slot.Offset, page.Header.FreeData)
 			mslogger.Mslogger.Warning(msg)
-			continue
+			break
 		}
 
 		if slotnum+1 < reflect.ValueOf(page.Slots).Len() { //not last one
@@ -520,36 +530,48 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 	// found area that is unallocated?
 	//calculate size of unallocate cols
 
-	for slotnum, slot := range page.OrderedSlots {
-		var slotOffset,
-			allocatedDataRowSize uint16
+	slackOffset := uint16(0)
 
-		if slot.Deleted { //slot offset is zero get previous allocated size
-			slotOffset = page.OrderedSlots[slotnum-1].Offset +
-				page.OrderedSlots[slotnum-1].ActualDataRowSize
-			allocatedDataRowSize = page.OrderedSlots[slotnum+1].Offset
+	for slotnum, slot := range page.OrderedSlots {
+
+		if slot.Deleted { //slot offset is zero get previous allocated size or set to 96 page header size
+			if slotnum == 0 {
+				slotOffset = 96
+			} else {
+				slotOffset = page.OrderedSlots[slotnum-1].Offset +
+					page.OrderedSlots[slotnum-1].AllocatedDataRowSize
+			}
 
 		} else {
 			slotOffset = slot.Offset + slot.ActualDataRowSize
-			allocatedDataRowSize = page.OrderedSlots[slotnum].AllocatedDataRowSize
 
 		}
 
+		if actualDataRowSize > PAGELEN-uint16(2*len(page.Slots)) || slotOffset > PAGELEN-uint16(2*len(page.Slots)) ||
+			slot.AllocatedDataRowSize > PAGELEN-uint16(2*len(page.Slots)) {
+			continue
+		}
+
+		slackSpace := slot.AllocatedDataRowSize - slot.ActualDataRowSize
 		// if slot has slack carve and has available space
-		for slotOffset < allocatedDataRowSize &&
-			int(slotOffset+allocatedDataRowSize) < int(PAGELEN)-2*len(page.Slots) {
+		for slackOffset < slackSpace && slotOffset+slackOffset < PAGELEN-uint16(2*len(page.Slots)) {
 
 			dataRow := &DataRow{Carved: true}
 			actualDataRowSize = uint16(dataRow.Parse(
-				data[slotOffset:slotOffset+allocatedDataRowSize],
-				int(slotOffset)+offset, page.Header.ObjectId))
+				data[slotOffset+slackOffset:],
+				int(slotOffset)+int(slackOffset)+offset, page.Header.ObjectId))
 			// accept only primary records
+
 			if GetRowType(data[slotOffset]) == "Primary Record" {
 				page.DataRows = append(page.DataRows, *dataRow)
 			}
 
-			slotOffset += actualDataRowSize
-			allocatedDataRowSize -= actualDataRowSize
+			//zero continue byte level
+			if actualDataRowSize == 0 {
+				slackOffset += 1
+			} else {
+				slackOffset += actualDataRowSize
+			}
 
 		}
 
