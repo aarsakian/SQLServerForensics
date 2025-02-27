@@ -62,6 +62,8 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 				} else if page.GetType() == "SGAM" {
 					sgamstatus := allocMap.GetAllocationStatus(selectedPageId)
 					fmt.Printf("SGAM %s ", sgamstatus)
+				} else {
+					fmt.Printf("PFS, GAM, SGAM, DATA page type not found")
 				}
 			}
 			if rp.ShowIndex {
