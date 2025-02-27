@@ -850,6 +850,13 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 		nofCols := len(table.Schema)
 
 		for _, datarow := range page.DataRows {
+
+			if datarow.Carved && datarow.NullBitmap == nil {
+				msg := fmt.Sprintf("Null Bitmap in carved  in row %d,  page %d and schema cols %d table %s",
+					rownum, pageId, nofCols, table.Name)
+				mslogger.Mslogger.Warning(msg)
+				continue
+			}
 			rownum++
 			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 				msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
