@@ -610,14 +610,14 @@ func (table Table) printAllocationSorted() {
 
 }
 
-func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow []int, colnames []string, records chan<- utils.Record) {
+func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames []string, records chan<- utils.Record) {
 	defer wg.Done()
 
 	records <- table.getHeader(colnames)
 	locatedRow := true
 	for rowidx, row := range table.rows {
 		var record utils.Record
-		for _, rownum := range selectedRow {
+		for _, rownum := range selectedRows {
 			if rowidx+1 == rownum {
 				locatedRow = true
 				break
@@ -626,7 +626,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRow []int, colnames []
 			}
 		}
 
-		if !locatedRow {
+		if len(selectedRows) != 0 && !locatedRow {
 			continue
 		}
 		for _, c := range table.Schema {
@@ -776,7 +776,7 @@ func (table Table) printData(showtorow int, skiprows int,
 
 		}
 
-		if !locatedRow || !showcarved && row.Carved {
+		if len(showrows) != 0 && !locatedRow || !showcarved && row.Carved {
 			continue
 		} else if showcarved && row.Carved {
 			fmt.Printf(" (d) ")
