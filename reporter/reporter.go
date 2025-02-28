@@ -2,7 +2,6 @@ package reporter
 
 import (
 	db "MSSQLParser/db"
-	"MSSQLParser/page"
 	"fmt"
 	"sync"
 )
@@ -52,6 +51,10 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 				page.ShowRowData()
 			}
 
+			if rp.ShowSlots {
+				page.ShowSlotInfo()
+			}
+
 			if rp.ShowPageStats {
 				if page.GetType() == "PFS" {
 					pfsstatus := allocMap.GetAllocationStatus(selectedPageId)
@@ -96,16 +99,6 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
 func (rp Reporter) ShowLDFInfo(database db.Database, filterlop string) {
 	if rp.ShowLDF {
 		database.ShowLDF(filterlop)
-
-	}
-}
-
-func (rp Reporter) PrintDataRowInfo(page page.Page) {
-	for slotId, dataRow := range page.DataRows {
-		fmt.Printf("Slot %d Record size offset %x \n", slotId, page.Slots[slotId])
-		if rp.ShowDataCols {
-			dataRow.ShowData()
-		}
 
 	}
 }
