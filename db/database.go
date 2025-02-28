@@ -109,8 +109,12 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 	if err != nil {
 		// handle the error here
 		fmt.Printf("err %s reading the mdf file. \n", err)
-		fmt.Printf("If you still want to read the mdf file using low level API use -low. This action will logically copy the clusters of the file to the temp folder\n")
-		fmt.Printf("If you still want to read the mdf use -stopservice to stop sql server running! Please note that that uncommited data migh be lost.\n")
+
+		fmt.Printf(`If you still want to read the mdf file using low level API use -low.
+		 This action will logically copy the clusters of the file to the temp folder\n`)
+
+		fmt.Printf(`If you still want to read the mdf use -stopservice to stop sql server running!
+		 Please note that that uncommited data migh be lost.\n`)
 		return 0, err
 	}
 
@@ -150,7 +154,7 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 		if toPage != -1 && (offset/PAGELEN) > toPage {
 			continue
 		}
-		msg := fmt.Sprintf("Processing offset %d", offset)
+		msg := fmt.Sprintf("Processing page at %d", offset)
 		mslogger.Mslogger.Info(msg)
 		page := db.ProcessPage(bs, offset, carve)
 
