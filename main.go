@@ -93,7 +93,7 @@ func main() {
 		"show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure")
 	toTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
-	selectedTableRows := flag.String("rows", "-1", "use comma for the selected rows")
+	selectedTableRows := flag.String("rows", "", "use comma for the selected rows")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	exportPath := flag.String("export", "", "export table")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
