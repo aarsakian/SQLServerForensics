@@ -120,7 +120,6 @@ func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
 type Page struct {
 	Header             Header
 	Slots              Slots
-	OrderedSlots       Slots
 	DataRows           DataRows
 	ForwardingPointers ForwardingPointers
 	LOBS               LOBS
@@ -468,8 +467,8 @@ func (page *Page) CarveData(data []byte, offset int) {
 	actualDataRowSize := uint16(0)
 	slotOffset := HEADERLEN
 	//returns slice copies pointer need to copy values
-	copy(page.OrderedSlots, page.Slots)
-	sort.Sort(SortedSlotsByOrder(page.OrderedSlots))
+
+	sort.Sort(SortedSlotsByOrder(page.Slots))
 
 	//// this section is experimental
 	// found area that is unallocated?
@@ -477,12 +476,12 @@ func (page *Page) CarveData(data []byte, offset int) {
 
 	slackOffset := uint16(0)
 
-	for slotnum, slot := range page.OrderedSlots {
+	for slotnum, slot := range page.Slots {
 
 		if slot.Deleted { //slot offset is zero get previous allocated size or set to 96 page header size
 			if slotnum > 0 {
-				slotOffset = page.OrderedSlots[slotnum-1].Offset +
-					page.OrderedSlots[slotnum-1].AllocatedDataRowSize
+				slotOffset = page.Slots[slotnum-1].Offset +
+					page.Slots[slotnum-1].AllocatedDataRowSize
 			}
 
 		} else {
@@ -592,6 +591,14 @@ func (page Page) ShowIndexRows() {
 	for idx, indexrow := range page.IndexRows {
 		fmt.Printf("row %d ", idx)
 		indexrow.ShowData()
+	}
+}
+
+func (page Page) ShowSlotInfo() {
+
+	fmt.Printf("Slots info page %d\n", page.Header.PageId)
+	for _, slot := range page.Slots {
+		fmt.Printf("offset %d slack area %d\n", slot.Offset, slot.AllocatedDataRowSize-slot.ActualDataRowSize)
 	}
 }
 
@@ -758,8 +765,6 @@ func (page *Page) PopulateSlots(data []byte) {
 	slots := retrieveSlots(data) //starts from end of page
 	sort.Sort(SortedSlotsByOffset(slots))
 	page.Slots = slots
-
-	page.OrderedSlots = make(Slots, len(slots))
 
 }
 
