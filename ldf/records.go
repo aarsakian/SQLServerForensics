@@ -34,6 +34,7 @@ type Record struct {
 	Lop_End_CKPT      *LOP_END_CKPT
 	PreviousRecord    *Record
 	NextRecord        *Record
+	Carved            bool
 }
 
 type ByDecreasingLSN []Record
@@ -177,6 +178,12 @@ func (records Records) FilterByLessLSN(lsn utils.LSN) Records {
 func (records Records) FilterByOperations(operationtypes []string) Records {
 	return utils.Filter(records, func(record Record) bool {
 		return record.HasOperationType(operationtypes)
+	})
+}
+
+func (records Records) FilterOutNullOperations() Records {
+	return utils.Filter(records, func(record Record) bool {
+		return record.Operation != 0
 	})
 }
 
