@@ -17,6 +17,7 @@ type Row struct {
 	ColMap          ColMap
 	LoggedOperation string
 	Carved          bool
+	Logged          bool
 	LogDate         time.Time
 }
 
@@ -35,13 +36,13 @@ type Table struct {
 	ObjectId                      int32
 	Type                          string
 	rows                          []Row
-	loggedrows                    []Row
 	AllocationUnitIdTopartitionId map[uint64]uint64
 	Schema                        []Column
 	Indexes                       []TableIndex
 	VarLenCols                    []int
 	PageIDsPerType                map[string][]uint32 //pageType ->pageID
 	indexType                     string
+	logRecords                    LDF.Records
 }
 
 type ByRowId []ColMap
@@ -123,21 +124,24 @@ func (table *Table) udateColIndex(sysiscols SysIsCols) {
 }
 
 func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64],
-	carvedLogRecords LDF.Records, activeLogRecords LDF.Records) {
+	logRecords LDF.Records, ldfLevel int) {
 	var allocatedPages page.Pages
 
-	var candidateRecords,
-		candidateCarvedRecords LDF.Records
+	var candidateRecords LDF.Records
 
 	for allocUnitID := range table.AllocationUnitIdTopartitionId {
 		allocatedPages = pagesPerAllocUnitID.GetPages(allocUnitID)
 	}
 
-	lop_mod_ins_del_records_carved := carvedLogRecords.FilterByOperations(
-		[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})
+	// only data changes
+	if ldfLevel == 1 {
+		logRecords = logRecords.FilterByOperations(
+			[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})
 
-	lop_mod_ins_del_records := activeLogRecords.FilterByOperations(
-		[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})
+	} else if ldfLevel == 2 {
+		logRecords = logRecords.FilterOutNullOperations()
+
+	}
 
 	for _, page := range allocatedPages {
 		if page.GetType() != "DATA" {
@@ -145,18 +149,18 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 		}
 
 		candidateRecords = append(candidateRecords,
-			lop_mod_ins_del_records.FilterByPageID(page.Header.PageId)...)
-		candidateCarvedRecords = append(candidateCarvedRecords,
-			lop_mod_ins_del_records_carved.FilterByPageID(page.Header.PageId)...)
+			logRecords.FilterByPageID(page.Header.PageId)...)
 
 	}
 
 	sort.Sort(LDF.ByDecreasingLSN(candidateRecords))
-	sort.Sort(LDF.ByDecreasingLSN(candidateCarvedRecords))
 
 	//flag denotes carved
-	table.addLogChanges(candidateRecords, false)
-	table.addLogChanges(candidateCarvedRecords, true)
+	table.addLogChanges(candidateRecords)
+
+	if ldfLevel == 2 {
+		table.logRecords = candidateRecords
+	}
 
 }
 
@@ -347,8 +351,8 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 	loggedOperation += record.GetBeginCommitDate()
 	loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	table.loggedrows = append(table.loggedrows, Row{ColMap: colmap, LoggedOperation: loggedOperation,
-		LogDate: record.GetBeginCommitDateObj(), Carved: carved})
+	table.rows = append(table.rows, Row{ColMap: colmap, LoggedOperation: loggedOperation,
+		LogDate: record.GetBeginCommitDateObj(), Carved: carved, Logged: true})
 }
 
 func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
@@ -365,7 +369,7 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 		row.LoggedOperation = loggedOperation
 		row.LogDate = record.GetBeginCommitDateObj()
 
-		table.loggedrows = append(table.loggedrows, row)
+		table.rows = append(table.rows, row)
 
 	}
 
@@ -402,21 +406,21 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 			}
 
 		}
-		table.loggedrows = append(table.loggedrows, row)
+		table.rows = append(table.rows, row)
 	}
 
 }
 
-func (table *Table) addLogChanges(records LDF.Records, carved bool) {
+func (table *Table) addLogChanges(records LDF.Records) {
 
 	for _, record := range records {
 
 		if record.GetOperationType() == "LOP_DELETE_ROW" {
-			table.MarkRowDeleted(record, carved)
+			table.MarkRowDeleted(record, record.Carved)
 		} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
-			table.MarkRowModified(record, carved)
+			table.MarkRowModified(record, record.Carved)
 		} else if record.GetOperationType() == "LOP_INSERT_ROW" {
-			table.AddRow(record, carved)
+			table.AddRow(record, record.Carved)
 		}
 
 	}
@@ -522,14 +526,14 @@ func (table Table) printTableInfo() {
 
 func (table Table) Show(showSchema bool, showContent bool,
 	showAllocation string, showIndex bool, tabletype string, showtorow int, skiprows int,
-	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
+	showrows []int, showcarved bool, showtableldf bool, showcolnames []string, showrawdata bool) {
 
 	if showSchema {
 		table.printSchema()
 	}
 	if showContent {
 		table.printHeader(showcolnames)
-		table.printData(showtorow, skiprows, showrows, showcarved, showldf, showcolnames, showrawdata)
+		table.printData(showtorow, skiprows, showrows, showcarved, showtableldf, showcolnames, showrawdata)
 		table.cleverPrintData()
 	}
 
@@ -703,7 +707,7 @@ func (table Table) printIndex() {
 
 func (table Table) cleverPrintData() {
 	groupedRowsById := make(map[string]Row)
-	var org_row Row
+
 	for _, row := range table.rows {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
@@ -719,8 +723,8 @@ func (table Table) cleverPrintData() {
 		groupedRowsById[c.toString(colData.Content)] = row
 	}
 
-	fmt.Printf("\nGrouped By First col all changes carved and logged oldest first\n")
-	sort.Sort(ByActionDate(table.loggedrows))
+	/*fmt.Printf("\nGrouped By First col all changes carved and logged oldest first\n")
+	sort.Sort(ByActionDate(table.rows))
 	for _, loggedRow := range table.loggedrows {
 		for cid, c := range table.Schema {
 			loggedCol := loggedRow.ColMap[c.Name]
@@ -749,7 +753,7 @@ func (table Table) cleverPrintData() {
 
 		fmt.Printf("%s \n", loggedRow.LoggedOperation)
 
-	}
+	}*/
 }
 
 func (table Table) printData(showtorow int, skiprows int,
@@ -780,7 +784,10 @@ func (table Table) printData(showtorow int, skiprows int,
 			continue
 		} else if showcarved && row.Carved {
 			fmt.Printf(" (d) ")
+		} else if showldf && row.Logged {
+			fmt.Printf(" (l) %s ", row.LoggedOperation)
 		}
+
 		fmt.Printf("%d: ", idx+1)
 
 		for _, c := range table.Schema {
@@ -791,38 +798,28 @@ func (table Table) printData(showtorow int, skiprows int,
 				}
 				colData := row.ColMap[c.Name]
 				c.Print(colData.Content)
+
+				if showldf && colData.LoggedColData != nil {
+					fmt.Printf(" -> ")
+					c.Print(colData.LoggedColData.Content)
+				}
+
 				if showrawdata {
 					fmt.Printf("%x\n", colData.Content)
 				}
 
 			}
+
 		}
+
 		fmt.Printf("\n")
 
 	}
 
-	fmt.Printf("\nlogged rows\n")
-
-	for _, row := range table.loggedrows {
-		if row.Carved && !showcarved {
-			continue
-		} else if row.Carved {
-			fmt.Printf(" (d) ")
+	if showldf {
+		for _, record := range table.logRecords {
+			record.ShowLOPInfo("any")
 		}
-
-		for _, c := range table.Schema {
-
-			colData := row.ColMap[c.Name]
-
-			if colData.LoggedColData != nil {
-				fmt.Printf(" -> ")
-				c.Print(colData.LoggedColData.Content)
-			}
-			c.Print(colData.Content)
-
-		}
-
-		fmt.Printf("%s \n", row.LoggedOperation)
 	}
 
 }
@@ -940,5 +937,5 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 			colmap[col.Name] = ColData{Content: colval}
 		}
 	}
-	return Row{ColMap: colmap, Carved: datarow.Carved}
+	return Row{ColMap: colmap, Carved: datarow.Carved, Logged: false}
 }
