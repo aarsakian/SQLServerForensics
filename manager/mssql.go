@@ -18,7 +18,7 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 	showDataCols bool, showPFS bool, showHeader bool, showSlots bool, showTableSchema bool,
 	showTableContent bool, showTableAllocation string,
 	showTableIndex bool, showPageStats bool, showIndex bool, toTableRow int,
-	skippedTableRows int, selectedTableRows []int, showcarved bool,
+	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
 	showLDF bool, tabletype string, raw bool, colnames []string,
 	exportFormat string, exportImage bool, exportPath string) {
 
@@ -39,6 +39,7 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 		SkippedTableRows:    skippedTableRows,
 		SelectedTableRows:   selectedTableRows,
 		ShowCarved:          showcarved,
+		ShowTableLDF:        showTableLDF,
 		ShowLDF:             showLDF,
 		TableType:           tabletype,
 		Raw:                 raw,
@@ -48,7 +49,7 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 }
 
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
-	selectedPage int, fromPage int, toPage int, ldf bool, showcarved bool) int {
+	selectedPage int, fromPage int, toPage int, ldfLevel int, carve bool) int {
 
 	var database db.Database
 
@@ -61,7 +62,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		}
 
 		/*processing pages stage */
-		totalProcessedPages, err := database.ProcessMDF(selectedPage, fromPage, toPage, showcarved)
+		totalProcessedPages, err := database.ProcessMDF(selectedPage, fromPage, toPage, carve)
 		if err != nil {
 			continue
 		}
@@ -73,11 +74,11 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		database.ProcessSystemTables()
 
-		if ldf {
-			ldfRecordsProcessed, err := database.ProcessLDF()
+		if ldfLevel == 1 || ldfLevel == 2 {
+			ldfRecordsProcessed, err := database.ProcessLDF(carve)
 
 			if err == nil && ldfRecordsProcessed > 0 {
-				database.LocateLogRecords()
+				database.AddLogRecords(carve)
 			}
 
 		}
@@ -111,7 +112,7 @@ func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, 
 func (PM ProcessManager) ProcessDBTables(wg *sync.WaitGroup,
 	tablenames []string, tabletype string, tablepages []int,
 	colnames []string, represults map[string]chan db.Table,
-	expresults map[string]chan db.Table) {
+	expresults map[string]chan db.Table, ldfLevel int) {
 
 	for _, database := range PM.databases {
 		represults[database.Name] = make(chan db.Table, 10000)
@@ -119,7 +120,7 @@ func (PM ProcessManager) ProcessDBTables(wg *sync.WaitGroup,
 		/*retrieving schema and table contents */
 
 		go database.ProcessTables(wg, tablenames, tabletype,
-			represults[database.Name], expresults[database.Name], tablepages)
+			represults[database.Name], expresults[database.Name], tablepages, ldfLevel)
 
 	}
 
