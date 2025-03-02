@@ -22,8 +22,7 @@ type Database struct {
 	Tables              []Table
 	LogPage             page.Page
 	VLFs                *LDF.VLFs
-	ActiveLogRecords    LDF.Records
-	CarvedLogRecords    LDF.Records
+	LogRecords          LDF.Records
 	tablesInfo          TablesInfo
 	columnsinfo         ColumnsInfo
 	tablesPartitions    TablesPartitions
@@ -181,7 +180,7 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 	return totalProcessedPages, nil
 }
 
-func (db *Database) ProcessLDF() (int, error) {
+func (db *Database) ProcessLDF(carve bool) (int, error) {
 	fmt.Printf("about to process database log file %s \n", db.Lname)
 
 	file, err := os.Open(db.Lname)
@@ -192,7 +191,7 @@ func (db *Database) ProcessLDF() (int, error) {
 	}
 	defer file.Close()
 	offset := 0
-	carve := false
+
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 	_, err = file.ReadAt(bs, int64(offset))
 	if err != nil {
@@ -243,7 +242,7 @@ func (db Database) GetTablesInfo() TablesInfo {
 }
 
 func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tabletype string,
-	reptables chan<- Table, exptables chan<- Table, tablePages []int) {
+	reptables chan<- Table, exptables chan<- Table, tablePages []int, ldfLevel int) {
 
 	defer wg.Done()
 	tablesFound := make(map[string]bool)
@@ -262,7 +261,7 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tablet
 			}
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
-			table.AddChangesHistory(db.PagesPerAllocUnitID, db.CarvedLogRecords, db.ActiveLogRecords)
+			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogRecords, ldfLevel)
 			exptables <- table
 			reptables <- table
 
@@ -429,7 +428,7 @@ func (db Database) DetermineMinLSN(records LDF.Records) utils.LSN {
 func (db Database) FindPageChanges() {
 }
 
-func (db *Database) LocateLogRecords() {
+func (db *Database) AddLogRecords(carve bool) {
 	var records LDF.Records
 	for _, vlf := range *db.VLFs {
 
@@ -442,8 +441,17 @@ func (db *Database) LocateLogRecords() {
 	}
 
 	minLSN := db.DetermineMinLSN(records)
-	db.ActiveLogRecords = records.FilterByGreaterLSN(minLSN)
-	db.CarvedLogRecords = records.FilterByLessLSN(minLSN)
+
+	for idx := range records {
+		if records[idx].HasLessLSN(minLSN) {
+			records[idx].Carved = true
+
+		} else if carve { // only when asked for carve
+			records[idx].Carved = false
+		}
+
+	}
+	db.LogRecords = records
 
 }
 
