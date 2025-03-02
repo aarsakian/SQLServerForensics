@@ -22,7 +22,7 @@ func (commsServer CommsServer) Process(_ context.Context,
 	pm := manager.ProcessManager{}
 
 	pm.ProcessDBFiles([]string{fileDetails.MdfFile}, []string{fileDetails.LdfFile},
-		-1, 0, math.MaxUint32, false, false)
+		-1, 0, math.MaxUint32, 0, false)
 	dbnames := pm.GetDatabaseNames()
 	for _, dbname := range dbnames {
 		tables = append(tables, &comms.Table{Name: dbname})
@@ -43,7 +43,7 @@ func (commsServer CommsServer) ProcessMTF(_ context.Context,
 	mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
 
 	pm.ProcessDBFiles(mdffiles, []string{},
-		-1, 0, math.MaxUint32, false, false)
+		-1, 0, math.MaxUint32, 0, false)
 	dbnames := pm.GetDatabaseNames()
 	for _, dbname := range dbnames {
 		tables = append(tables, &comms.Table{Name: dbname})
