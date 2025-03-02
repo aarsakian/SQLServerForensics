@@ -67,7 +67,7 @@ func main() {
 	partitionNum := flag.Int("partition", -1,
 		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export MDF/LDF files")
-	showcarved := flag.Bool("carve", false, "Carve data records and try to interpret")
+	carve := flag.Bool("carve", false, "Carve data records and try to interpret")
 	selectedPage := flag.Int("page", -1, "select a page to start parsing")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
@@ -89,6 +89,7 @@ func main() {
 	showPFS := flag.Bool("pfs", false, "show pfm page allocation")
 	showIndex := flag.Bool("showindex", false, "show index contents")
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
+	showTableLDF := flag.Bool("showtableldf", false, "show table log record info (must be used with table)")
 	showTableAllocation := flag.String("showtableallocation", "",
 		"show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure")
 	toTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
@@ -103,7 +104,7 @@ func main() {
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
-	ldf := flag.Bool("ldf", false, "parse hardened (commited) transactions saved to the log")
+	ldfLevel := flag.Int("ldf", 0, "parse hardened (commited) log transactions 1: data changes  2: full changes")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|any")
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
 	raw := flag.Bool("raw", false, "show row data for each column in a table")
@@ -159,14 +160,14 @@ func main() {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"bak"}})
 	}
 
-	if *ldf {
+	if *ldfLevel == 1 || *ldfLevel == 2 {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF", "LDF"}})
 
 	} else {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF"}})
 	}
 
-	if mdffile != "" && *ldf {
+	if mdffile != "" && (*ldfLevel == 1 || *ldfLevel == 2) {
 		flm.Register(filters.PrefixesSuffixesFilter{Prefixes: []string{strings.Split(mdffile, ".")[0], strings.Split(mdffile, ".")[0]},
 			Suffixes: []string{"ldf", "mdf"}})
 
@@ -175,7 +176,7 @@ func main() {
 	if *dbfile != "" {
 		basepath, mdffile = utils.SplitPath(*dbfile)
 
-		if mdffile != "" && !*ldf {
+		if mdffile != "" && (*ldfLevel == 1 || *ldfLevel == 2) {
 
 			flm.Register(filters.NameFilter{Filenames: []string{mdffile}})
 		}
@@ -249,12 +250,12 @@ func main() {
 		*showTableContent, *showTableAllocation,
 		*showTableIndex, *showPageStats, *showIndex, *toTableRows,
 		*skippedTableRows, selectedTableRowsInt,
-		*showcarved,
+		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportImage, *exportPath)
 
 	start := time.Now()
-	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldf, *showcarved)
+	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldfLevel, *carve)
 
 	fmt.Printf("Processed %d pages %d MB in %f secs \n",
 		processedPages, processedPages*8192/1000/1024, time.Since(start).Seconds())
@@ -272,7 +273,7 @@ func main() {
 
 		pm.ProcessDBTables(wg, strings.Split(*tablenames, ","), *tabletype,
 			utils.StringsToIntArray(*tablepages), strings.Split(*colnames, ","),
-			represults, expresults)
+			represults, expresults, *ldfLevel)
 
 		pm.ExportDBs(wg, selectedTableRowsInt, strings.Split(*colnames, ","), expresults)
 
