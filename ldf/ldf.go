@@ -253,6 +253,8 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) int {
 			lop_end_ckpt := new(LOP_END_CKPT)
 			lop_end_ckpt.Process(bs[recordOffset+24:])
 			record.Lop_End_CKPT = lop_end_ckpt
+		} else if OperationType[record.Operation] == "LOP_EXPUNGE_ROWS" {
+
 		}
 
 		logBlock.Records[idx] = *record
