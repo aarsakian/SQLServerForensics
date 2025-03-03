@@ -68,6 +68,10 @@ func (lsn LSN) IsGreater(smallerLSN LSN) bool {
 	}
 }
 
+func (lsn LSN) Equals(otherLSN LSN) bool {
+	return lsn.P1 == otherLSN.P1 && lsn.P2 == otherLSN.P2 && lsn.P3 == otherLSN.P3
+}
+
 func (lsn *LSN) Increment() {
 	lsn.P3 += 1
 }
