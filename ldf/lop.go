@@ -58,6 +58,20 @@ type LOP_INSERT_DELETE_MOD struct {
 	RowLogContents       [][]byte // other rowlog contents except DataRow
 }
 
+/*other lop types that have RowID info*/
+//62 bytes
+type GENERIC_LOP struct {
+	RowId           utils.RowId //0-8 locate the page
+	Unknown         [4]byte     //8-12
+	PreviousPageLSN utils.LSN   //12-22
+	Unknown2        [2]byte     //22-24
+	PartitionID     uint64      //24-32 locate the table
+}
+
+func (generic_lop *GENERIC_LOP) Process(bs []byte) {
+	utils.Unmarshal(bs, generic_lop)
+}
+
 func (lop_begin_ckpt *LOP_BEGIN_CKPT) Process(bs []byte) {
 	utils.Unmarshal(bs, lop_begin_ckpt)
 }
