@@ -31,6 +31,7 @@ type Database struct {
 	columnsStatistics   ColumnsStatistics // objectid -> sysiscols
 	indexesInfo         IndexesInfo
 	sysfiles            SysFiles //info about files of db mdf, ldf
+	minLSN              utils.LSN
 }
 
 type SystemTable interface {
@@ -159,6 +160,7 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 
 		if db.Name == "" && page.Boot != nil {
 			db.Name = page.Boot.GetDBName()
+			db.minLSN = page.Boot.Dbi_checkptLSN
 		}
 
 		allocUnitID := page.Header.GetMetadataAllocUnitId()
@@ -225,10 +227,6 @@ func (db *Database) FilterPagesByType(pageType string) {
 
 func (db *Database) FilterPagesBySystemTables(systemTable string) {
 	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterBySystemTables(systemTable)
-}
-
-func (db Database) GetName() string {
-	return strings.Split(db.Fname, ".")[0]
 }
 
 func (db Database) ShowLDF(filterloptype string) {
@@ -407,22 +405,9 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 }
 
-func (db Database) DetermineMinLSN(records LDF.Records) utils.LSN {
-	//locating latest LOP_END_CKPT lop
+func (db Database) ConfirmMinLSN(records LDF.Records) bool {
 	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
-	latestDate := utils.DateTimeToObj(lop_end_records[0].Lop_End_CKPT.EndTime[:])
-	recordId := 0
-	for idx, record := range lop_end_records {
-		if idx == 0 {
-			continue
-		}
-		newDate := utils.DateTimeToObj(record.Lop_End_CKPT.EndTime[:])
-		if newDate.After(latestDate) {
-			recordId = idx
-			latestDate = newDate
-		}
-	}
-	return lop_end_records[recordId].Lop_End_CKPT.MinLSN
+	return db.minLSN.Equals(lop_end_records[len(lop_end_records)-1].Lop_End_CKPT.MinLSN)
 }
 
 func (db Database) FindPageChanges() {
@@ -430,6 +415,7 @@ func (db Database) FindPageChanges() {
 
 func (db *Database) AddLogRecords(carve bool) {
 	var records LDF.Records
+
 	for _, vlf := range *db.VLFs {
 
 		for _, block := range vlf.Blocks {
@@ -440,17 +426,12 @@ func (db *Database) AddLogRecords(carve bool) {
 		}
 	}
 
-	minLSN := db.DetermineMinLSN(records)
-
-	for idx := range records {
-		if records[idx].HasLessLSN(minLSN) {
-			records[idx].Carved = true
-
-		} else if carve { // only when asked for carve
-			records[idx].Carved = false
-		}
-
+	//cross validate with records
+	if !db.ConfirmMinLSN(records) {
+		minLSN := records.DetermineMinLSN()
+		records.UpdateCarveStatus(minLSN, carve)
 	}
+
 	db.LogRecords = records
 
 }
