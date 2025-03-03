@@ -106,7 +106,7 @@ func (logBlock LogBlock) GetSize() int64 {
 	return nofBlocks * int64(LOGBLOCKMINSIZE)
 }
 
-func (vlfs *VLFs) Process(file os.File) int {
+func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 	recordsProcessed := 0
 
 	offset := int64(8192)
@@ -165,7 +165,7 @@ func (vlfs *VLFs) Process(file os.File) int {
 				fmt.Printf("error reading log page at --- %d\n", offset)
 				return recordsProcessed
 			}
-			recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset)
+			recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset, carve, minLSN)
 
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
 
@@ -185,12 +185,12 @@ func (vlfs *VLFs) Process(file os.File) int {
 
 }
 
-//LOP_INSERT_ROWS, LOP_DELETE_ROWS, and LOP_MODIFY_RO  jjjjjjjjjW
+//LOP_INSERT_ROWS, LOP_DELETE_ROWS, and LOP_MODIFY_RO
 // LOP_BEGIN_XACT operations. This log record marks the beginning of a transaction
 // the only log record that contains the date and time when the transaction started,
 //user SID
 
-func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) int {
+func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool, minLSN utils.LSN) int {
 	recordOffsets := make(RecordOffsets, logBlock.Header.NofSlots)
 
 	LSN_to_Record := make(map[utils.LSN]*Record)
@@ -204,11 +204,10 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) int {
 		recordOffsets[recordId] = utils.ToUint16(bs[len(bs)-2*(recordId+1) : len(bs)-2*recordId])
 
 	}
-	logBlock.Records = make([]Record, len(recordOffsets))
 
 	currentLSN := logBlock.Header.FirstLSN
 
-	for idx, recordOffset := range recordOffsets {
+	for _, recordOffset := range recordOffsets {
 		if len(bs) < int(recordOffset) {
 			msg := fmt.Sprintf("log record offset exceeds buffer at %d", recordOffset)
 			mslogger.Mslogger.Warning(msg)
@@ -217,7 +216,11 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) int {
 		record := new(Record)
 		utils.Unmarshal(bs[recordOffset:], record)
 		LSN_to_Record[currentLSN] = record
-
+		if currentLSN.IsGreater(minLSN) {
+			record.Carved = false
+		} else {
+			record.Carved = true
+		}
 		record.CurrentLSN = currentLSN
 
 		prevRecord := LSN_to_Record[record.PreviousLSN]
@@ -227,6 +230,12 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) int {
 		}
 
 		currentLSN.Increment()
+
+		//omit carved records
+		if !carve && record.Carved {
+			continue
+		}
+
 		//LOP_BEGIN_CKPT = start of checkpoint
 		//LOP_END_CKPT = end of checkpoint
 		if OperationType[record.Operation] == "LOP_INSERT_ROW" ||
@@ -254,11 +263,12 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64) int {
 			lop_end_ckpt.Process(bs[recordOffset+24:])
 			record.Lop_End_CKPT = lop_end_ckpt
 		} else if OperationType[record.Operation] == "LOP_EXPUNGE_ROWS" {
-			lop_exp_row := new(GENERIC_LOP)
+			lop_exp_row := new(Generic_LOP)
 			lop_exp_row.Process(bs[recordOffset+24:])
+			record.Generic_LOP = lop_exp_row
 		}
 
-		logBlock.Records[idx] = *record
+		logBlock.Records = append(logBlock.Records, *record)
 
 		mslogger.Mslogger.Info(fmt.Sprintf("Record %s at %d", record.GetOperationType(),
 			int64(recordOffset)+baseOffset))
