@@ -32,6 +32,7 @@ type Record struct {
 	Lop_Commit        *LOP_COMMIT
 	Lop_Begin_CKPT    *LOP_BEGIN_CKPT
 	Lop_End_CKPT      *LOP_END_CKPT
+	Generic_LOP       *Generic_LOP
 	PreviousRecord    *Record
 	NextRecord        *Record
 	Carved            bool
