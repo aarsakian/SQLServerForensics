@@ -204,7 +204,7 @@ func (db *Database) ProcessLDF(carve bool) (int, error) {
 	db.LogPage = db.ProcessPage(bs, offset, carve)
 
 	db.VLFs = new(LDF.VLFs)
-	recordsProcessed := db.VLFs.Process(*file)
+	recordsProcessed := db.VLFs.Process(*file, carve, db.minLSN)
 	fmt.Printf("LDF processing completed %d log records processed\n", recordsProcessed)
 
 	return recordsProcessed, nil
