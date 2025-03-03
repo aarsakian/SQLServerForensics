@@ -193,3 +193,33 @@ func (records Records) FilterByPageID(pageID uint32) Records {
 	})
 
 }
+
+func (records Records) DetermineMinLSN() utils.LSN {
+	//locating latest LOP_END_CKPT lop
+	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
+	latestDate := utils.DateTimeToObj(lop_end_records[0].Lop_End_CKPT.EndTime[:])
+	recordId := 0
+	for idx, record := range lop_end_records {
+		if idx == 0 {
+			continue
+		}
+		//get date
+		newDate := utils.DateTimeToObj(record.Lop_End_CKPT.EndTime[:])
+		if newDate.After(latestDate) {
+			recordId = idx
+			latestDate = newDate
+		}
+	}
+	return lop_end_records[recordId].Lop_End_CKPT.MinLSN
+}
+
+func (records Records) UpdateCarveStatus(minLSN utils.LSN, carve bool) {
+	for idx := range records {
+		if records[idx].HasLessLSN(minLSN) {
+			records[idx].Carved = true
+
+		} else if carve { // only when asked for carve
+			records[idx].Carved = false
+		}
+	}
+}
