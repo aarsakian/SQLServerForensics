@@ -60,7 +60,7 @@ type LOP_INSERT_DELETE_MOD struct {
 
 /*other lop types that have RowID info*/
 //62 bytes
-type GENERIC_LOP struct {
+type Generic_LOP struct {
 	RowId           utils.RowId //0-8 locate the page
 	Unknown         [4]byte     //8-12
 	PreviousPageLSN utils.LSN   //12-22
@@ -68,7 +68,7 @@ type GENERIC_LOP struct {
 	PartitionID     uint64      //24-32 locate the table
 }
 
-func (generic_lop *GENERIC_LOP) Process(bs []byte) {
+func (generic_lop *Generic_LOP) Process(bs []byte) {
 	utils.Unmarshal(bs, generic_lop)
 }
 
