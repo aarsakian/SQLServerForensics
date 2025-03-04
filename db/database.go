@@ -5,6 +5,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -405,9 +406,14 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 }
 
-func (db Database) ConfirmMinLSN(records LDF.Records) bool {
+func (db Database) ConfirmMinLSN(records LDF.Records) (bool, error) {
 	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
-	return db.minLSN.Equals(lop_end_records[len(lop_end_records)-1].Lop_End_CKPT.MinLSN)
+	if lop_end_records == nil {
+		return false, errors.New("no LOP_END_CKPT found")
+	} else {
+		return db.minLSN.Equals(lop_end_records[len(lop_end_records)-1].Lop_End_CKPT.MinLSN), nil
+	}
+
 }
 
 func (db Database) FindPageChanges() {
@@ -427,7 +433,8 @@ func (db *Database) AddLogRecords(carve bool) {
 	}
 
 	//cross validate with records
-	if !db.ConfirmMinLSN(records) {
+	ok, err := db.ConfirmMinLSN(records)
+	if err == nil && !ok {
 		minLSN := records.DetermineMinLSN()
 		records.UpdateCarveStatus(minLSN, carve)
 	}
