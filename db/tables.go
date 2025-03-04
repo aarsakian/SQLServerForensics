@@ -129,10 +129,6 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 
 	var candidateRecords LDF.Records
 
-	for allocUnitID := range table.AllocationUnitIdTopartitionId {
-		allocatedPages = pagesPerAllocUnitID.GetPages(allocUnitID)
-	}
-
 	// only data changes
 	if ldfLevel == 1 {
 		logRecords = logRecords.FilterByOperations(
@@ -141,6 +137,10 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 	} else if ldfLevel == 2 {
 		logRecords = logRecords.FilterOutNullOperations()
 
+	}
+
+	for allocUnitID := range table.AllocationUnitIdTopartitionId {
+		allocatedPages = append(allocatedPages, pagesPerAllocUnitID.GetPages(allocUnitID)...)
 	}
 
 	for _, page := range allocatedPages {
@@ -366,6 +366,7 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 
 		row := table.rows[rowid]
 		row.Carved = carved
+		row.Logged = true
 		row.LoggedOperation = loggedOperation
 		row.LogDate = record.GetBeginCommitDateObj()
 
@@ -383,6 +384,7 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 		row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 		row.LogDate = record.GetBeginCommitDateObj()
 		row.Carved = carved
+		row.Logged = true
 
 		for _, c := range table.Schema {
 			if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
@@ -536,6 +538,9 @@ func (table Table) Show(showSchema bool, showContent bool,
 		table.printData(showtorow, skiprows, showrows, showcarved, showtableldf, showcolnames, showrawdata)
 		table.cleverPrintData()
 	}
+	if showtableldf {
+		table.printLog()
+	}
 
 	if showIndex {
 		table.printIndex()
@@ -547,6 +552,14 @@ func (table Table) Show(showSchema bool, showContent bool,
 		table.printAllocationWithLinks()
 	} else if showAllocation == "simple" {
 		table.printAllocation()
+	}
+
+}
+
+func (table Table) printLog() {
+
+	for _, record := range table.logRecords {
+		record.ShowLOPInfo("any")
 	}
 
 }
@@ -780,11 +793,17 @@ func (table Table) printData(showtorow int, skiprows int,
 
 		}
 
-		if len(showrows) != 0 && !locatedRow || !showcarved && row.Carved {
+		if len(showrows) != 0 && !locatedRow {
 			continue
-		} else if showcarved && row.Carved {
+		}
+
+		if showcarved && row.Carved {
 			fmt.Printf(" (d) ")
-		} else if showldf && row.Logged {
+		} else if !showcarved && row.Carved {
+			continue
+		}
+
+		if showldf && row.Logged {
 			fmt.Printf(" (l) %s ", row.LoggedOperation)
 		}
 
@@ -814,12 +833,6 @@ func (table Table) printData(showtorow int, skiprows int,
 
 		fmt.Printf("\n")
 
-	}
-
-	if showldf {
-		for _, record := range table.logRecords {
-			record.ShowLOPInfo("any")
-		}
 	}
 
 }
