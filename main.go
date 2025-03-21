@@ -23,7 +23,7 @@ package main
 import (
 	pb "MSSQLParser/comms"
 	"MSSQLParser/db"
-	msegrpc "MSSQLParser/grpc"
+	msegrpc "MSSQLParser/grpc-server"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/manager"
 	"MSSQLParser/servicer"
@@ -129,13 +129,13 @@ func main() {
 	}
 
 	if *rpc > 1024 && *rpc < 65535 {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *rpc))
+		lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *rpc))
 		if err != nil {
 			log.Fatalf("failed to listen %v", err)
 		}
 
 		s := grpc.NewServer()
-		pb.RegisterFileProcessorServer(s, &msegrpc.CommsServer{})
+		pb.RegisterFileProcessorServer(s, &msegrpc.Server{})
 		reflection.Register(s)
 		msg := fmt.Sprintf("Listening server at %v", lis.Addr())
 		fmt.Printf("%s\n", msg)

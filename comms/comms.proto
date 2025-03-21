@@ -1,16 +1,16 @@
 syntax = "proto3";
 
-package comms;
 
-option go_package = "mssqlparser/comms";
+
+option go_package = "mssqlparser.comms";
 
 message FileDetails {
-    string mdf_file = 1;
-    string ldf_file = 2;
+    string Mdffile = 1;
+    string Ldffile = 2;
 }
 
 message MTFDetails {
-    string mtf_file = 1;
+    string MtfFile = 1;
 }
 
 message Table {

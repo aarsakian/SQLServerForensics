@@ -4,7 +4,7 @@
 // - protoc             v5.29.3
 // source: comms.proto
 
-package comms
+package mssqlparser_comms
 
 import (
 	context "context"
@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FileProcessor_Process_FullMethodName    = "/comms.FileProcessor/Process"
-	FileProcessor_ProcessMTF_FullMethodName = "/comms.FileProcessor/ProcessMTF"
+	FileProcessor_Process_FullMethodName    = "/FileProcessor/Process"
+	FileProcessor_ProcessMTF_FullMethodName = "/FileProcessor/ProcessMTF"
 )
 
 // FileProcessorClient is the client API for FileProcessor service.
@@ -142,7 +142,7 @@ func _FileProcessor_ProcessMTF_Handler(srv interface{}, ctx context.Context, dec
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var FileProcessor_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "comms.FileProcessor",
+	ServiceName: "FileProcessor",
 	HandlerType: (*FileProcessorServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
