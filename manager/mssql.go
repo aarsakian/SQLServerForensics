@@ -3,15 +3,24 @@ package manager
 import (
 	"MSSQLParser/db"
 	"MSSQLParser/exporter"
+	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
 	"fmt"
 	"sync"
 )
 
 type ProcessManager struct {
-	reporter  reporter.Reporter
-	exporter  exporter.Exporter
-	databases []db.Database
+	reporter           reporter.Reporter
+	exporter           exporter.Exporter
+	Databases          []db.Database
+	TableConfiguration TableProcessorConfiguration
+}
+
+type TableProcessorConfiguration struct {
+	SelectedTables  []string
+	SelectedColumns []string
+	SelectedPages   []int
+	SelectedType    string
 }
 
 func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, showIAMExtents bool,
@@ -84,58 +93,59 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		}
 
 		processedPages += totalProcessedPages
-		PM.databases = append(PM.databases, database)
+		PM.Databases = append(PM.Databases, database)
 	}
 	return processedPages
 
 }
 
 func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, userTable string) {
-	for dbidx := range PM.databases {
+	for dbidx := range PM.Databases {
 		if pageType != "" {
-			PM.databases[dbidx].FilterPagesByType(pageType) //mutable
+			PM.Databases[dbidx].FilterPagesByType(pageType) //mutable
 
 		}
 
 		if systemTables != "" {
-			PM.databases[dbidx].FilterPagesBySystemTables(systemTables)
+			PM.Databases[dbidx].FilterPagesBySystemTables(systemTables)
 
 		}
 
 		if userTable != "" {
-			PM.databases[dbidx].FilterPagesBySystemTables("sysschobjs")
+			PM.Databases[dbidx].FilterPagesBySystemTables("sysschobjs")
 		}
 	}
 
 }
 
 func (PM ProcessManager) ProcessDBTables(wg *sync.WaitGroup,
-	tablenames []string, tabletype string, tablepages []int,
-	colnames []string, represults map[string]chan db.Table,
+	represults map[string]chan db.Table,
 	expresults map[string]chan db.Table, ldfLevel int) {
 
-	for _, database := range PM.databases {
+	for _, database := range PM.Databases {
 		represults[database.Name] = make(chan db.Table, 10000)
 		expresults[database.Name] = make(chan db.Table, 10000)
-		/*retrieving schema and table contents */
+		msg := fmt.Sprintf("retrieving schema and table contents of %s ", database.Name)
+		fmt.Printf("%s \n", msg)
+		mslogger.Mslogger.Info(msg)
 
-		go database.ProcessTables(wg, tablenames, tabletype,
-			represults[database.Name], expresults[database.Name], tablepages, ldfLevel)
+		go database.ProcessTables(wg, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
+			represults[database.Name], expresults[database.Name], PM.TableConfiguration.SelectedPages, ldfLevel)
 
 	}
 
 }
 
 func (PM ProcessManager) ExportDBs(wg *sync.WaitGroup,
-	selectedTableRow []int, colnames []string, expresults map[string]chan db.Table) {
-	for _, database := range PM.databases {
-		go PM.exporter.Export(wg, selectedTableRow, colnames, database.Name,
+	selectedTableRow []int, expresults map[string]chan db.Table) {
+	for _, database := range PM.Databases {
+		go PM.exporter.Export(wg, selectedTableRow, PM.TableConfiguration.SelectedColumns, database.Name,
 			expresults[database.Name])
 	}
 }
 
 func (PM ProcessManager) ShowDBs(wg *sync.WaitGroup, represults map[string]chan db.Table) {
-	for _, database := range PM.databases {
+	for _, database := range PM.Databases {
 		go PM.reporter.ShowTableInfo(wg, represults[database.Name])
 	}
 
@@ -143,14 +153,14 @@ func (PM ProcessManager) ShowDBs(wg *sync.WaitGroup, represults map[string]chan 
 
 func (PM ProcessManager) GetDatabaseNames() []string {
 	var databaseNames []string
-	for _, db := range PM.databases {
+	for _, db := range PM.Databases {
 		databaseNames = append(databaseNames, db.Name)
 	}
 	return databaseNames
 }
 
 func (PM ProcessManager) ShowInfo(selectedPage int, filterlop string) {
-	for _, database := range PM.databases {
+	for _, database := range PM.Databases {
 		PM.reporter.ShowPageInfo(database, uint32(selectedPage))
 		PM.reporter.ShowLDFInfo(database, filterlop)
 	}

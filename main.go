@@ -76,7 +76,7 @@ func main() {
 	showHeader := flag.Bool("header", false, "show page header")
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
 	tablenames := flag.String("tables", "", "process selectively tables (use comma for each table name)")
-	tablepages := flag.String("tablepages", "", "filter rows by pages (use comm)")
+	tablepages := flag.String("tablepages", "", "filter rows by pages (use comma)")
 	processTables := flag.Bool("processtables", false, "process tables")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableIndex := flag.Bool("showtableindex", false, "show table index contents")
@@ -254,6 +254,13 @@ func main() {
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportImage, *exportPath)
 
+	pm.TableConfiguration = manager.TableProcessorConfiguration{
+		SelectedTables:  strings.Split(*tablenames, ","),
+		SelectedType:    *tabletype,
+		SelectedPages:   utils.StringsToIntArray(*tablepages),
+		SelectedColumns: strings.Split(*colnames, ","),
+	}
+
 	start := time.Now()
 	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldfLevel, *carve)
 
@@ -271,11 +278,9 @@ func main() {
 		wg := new(sync.WaitGroup)
 		wg.Add(3)
 
-		pm.ProcessDBTables(wg, strings.Split(*tablenames, ","), *tabletype,
-			utils.StringsToIntArray(*tablepages), strings.Split(*colnames, ","),
-			represults, expresults, *ldfLevel)
+		pm.ProcessDBTables(wg, represults, expresults, *ldfLevel)
 
-		pm.ExportDBs(wg, selectedTableRowsInt, strings.Split(*colnames, ","), expresults)
+		pm.ExportDBs(wg, selectedTableRowsInt, expresults)
 
 		pm.ShowDBs(wg, represults)
 
