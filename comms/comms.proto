@@ -14,7 +14,7 @@ message MTFDetails {
 }
 
 message Table {
-    string name = 1;
+    string Name = 1;
 }
 
 message TablesMSG {
@@ -22,7 +22,7 @@ message TablesMSG {
 }
 
 service FileProcessor {
-    rpc Process(FileDetails) returns (TablesMSG){}
+    rpc Process(FileDetails) returns (stream Table){}
     rpc ProcessMTF(MTFDetails) returns (TablesMSG){}
    
 }
