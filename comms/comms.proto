@@ -13,9 +13,18 @@ message MTFDetails {
     string MtfFile = 1;
 }
 
+message Col {
+    string Name = 1;
+    string Type = 2;
+}
+
 message Table {
     string Name = 1;
+    string Type = 2;
+    repeated Col Cols =3 ;
 }
+
+
 
 message TablesMSG {
     repeated Table Tables = 1;

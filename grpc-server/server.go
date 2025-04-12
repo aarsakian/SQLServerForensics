@@ -54,7 +54,14 @@ func (mssqlparser_commsServer Server) Process(
 			fmt.Println(database.Name)
 			for table := range expresults[database.Name] {
 
-				if err = stream.Send(&mssqlparser_comms.Table{Name: table.Name}); err != nil {
+				tableSer := mssqlparser_comms.Table{Name: table.Name, Type: table.Type}
+
+				for _, col := range table.Schema {
+					tableSer.Cols = append(tableSer.Cols,
+						&mssqlparser_comms.Col{Name: col.Name, Type: col.Type})
+
+				}
+				if err = stream.Send(&tableSer); err != nil {
 					break
 				}
 			}
