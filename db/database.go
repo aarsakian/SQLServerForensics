@@ -5,12 +5,12 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
-	"sync"
 )
 
 var PAGELEN = 8192
@@ -240,10 +240,11 @@ func (db Database) GetTablesInfo() TablesInfo {
 	return db.tablesInfo
 }
 
-func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tabletype string,
-	reptables chan<- Table, exptables chan<- Table, tablePages []int, ldfLevel int) {
+func (db Database) ProcessTables(ctx context.Context, tablenames []string, tabletype string,
+	tablesCH chan<- Table, tablePages []int, ldfLevel int) {
 
-	defer wg.Done()
+	defer close(tablesCH)
+
 	tablesFound := make(map[string]bool)
 	for _, tablename := range tablenames {
 		tablesFound[tablename] = false
@@ -261,8 +262,11 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tablet
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
 			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogRecords, ldfLevel)
-			exptables <- table
-			reptables <- table
+
+			select {
+			case tablesCH <- table:
+			case <-ctx.Done():
+			}
 
 			tablesFound[tname] = true
 
@@ -275,9 +279,6 @@ func (db Database) ProcessTables(wg *sync.WaitGroup, tablenames []string, tablet
 		}
 
 	}
-
-	close(exptables)
-	close(reptables)
 
 }
 
