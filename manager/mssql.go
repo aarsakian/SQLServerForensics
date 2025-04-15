@@ -130,24 +130,35 @@ func (PM ProcessManager) ProcessTables(selectedTables []int, ldfLevel int) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-
+		var listener1, listener2 <-chan db.Table
 		srcCH := make(chan db.Table, CHANNEL_SIZE)
 		broadcaster := channels.NewBroadcastServer(ctx, srcCH)
-		listener1 := broadcaster.Subscribe()
-		listener2 := broadcaster.Subscribe()
 
 		msg := fmt.Sprintf("table contents of %s ", database.Name)
 		fmt.Printf("%s \n", msg)
 		mslogger.Mslogger.Info(msg)
 		wg := new(sync.WaitGroup)
-		wg.Add(2)
+
+		if PM.exporter.Path != "" {
+			wg.Add(1)
+			listener1 = broadcaster.Subscribe()
+
+		}
+		if PM.reporter.ShowTableContent {
+			wg.Add(1)
+			listener2 = broadcaster.Subscribe()
+		}
+
 		go database.ProcessTables(ctx, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
 			srcCH, PM.TableConfiguration.SelectedPages, ldfLevel)
 
-		go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name,
-			listener1)
-
-		go PM.reporter.ShowTableInfo(wg, listener2)
+		if PM.exporter.Path != "" {
+			go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name,
+				listener1)
+		}
+		if PM.reporter.ShowTableContent {
+			go PM.reporter.ShowTableInfo(wg, listener2)
+		}
 
 		wg.Wait()
 
