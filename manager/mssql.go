@@ -1,19 +1,24 @@
 package manager
 
 import (
+	"MSSQLParser/channels"
 	"MSSQLParser/db"
 	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
+	"context"
 	"fmt"
 	"sync"
 )
+
+var CHANNEL_SIZE = 100000
 
 type ProcessManager struct {
 	reporter           reporter.Reporter
 	exporter           exporter.Exporter
 	Databases          []db.Database
 	TableConfiguration TableProcessorConfiguration
+	BroadcastService   channels.BroadcastServer
 }
 
 type TableProcessorConfiguration struct {
@@ -55,6 +60,7 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 		ShowColNames:        colnames}
 
 	PM.exporter = exporter.Exporter{Format: exportFormat, Image: exportImage, Path: exportPath}
+
 }
 
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
@@ -118,35 +124,33 @@ func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, 
 
 }
 
-func (PM ProcessManager) ProcessDBTables(wg *sync.WaitGroup,
-	represults map[string]chan db.Table,
-	expresults map[string]chan db.Table, ldfLevel int) {
+func (PM ProcessManager) ProcessTables(selectedTables []int, ldfLevel int) {
 
 	for _, database := range PM.Databases {
-		represults[database.Name] = make(chan db.Table, 10000)
-		expresults[database.Name] = make(chan db.Table, 10000)
-		msg := fmt.Sprintf("retrieving schema and table contents of %s ", database.Name)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		srcCH := make(chan db.Table, CHANNEL_SIZE)
+		broadcaster := channels.NewBroadcastServer(ctx, srcCH)
+		listener1 := broadcaster.Subscribe()
+		listener2 := broadcaster.Subscribe()
+
+		msg := fmt.Sprintf("table contents of %s ", database.Name)
 		fmt.Printf("%s \n", msg)
 		mslogger.Mslogger.Info(msg)
+		wg := new(sync.WaitGroup)
+		wg.Add(2)
+		go database.ProcessTables(ctx, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
+			srcCH, PM.TableConfiguration.SelectedPages, ldfLevel)
 
-		go database.ProcessTables(wg, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
-			represults[database.Name], expresults[database.Name], PM.TableConfiguration.SelectedPages, ldfLevel)
+		go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name,
+			listener1)
 
-	}
+		go PM.reporter.ShowTableInfo(wg, listener2)
 
-}
+		wg.Wait()
 
-func (PM ProcessManager) ExportDBs(wg *sync.WaitGroup,
-	selectedTableRow []int, expresults map[string]chan db.Table) {
-	for _, database := range PM.Databases {
-		go PM.exporter.Export(wg, selectedTableRow, PM.TableConfiguration.SelectedColumns, database.Name,
-			expresults[database.Name])
-	}
-}
-
-func (PM ProcessManager) ShowDBs(wg *sync.WaitGroup, represults map[string]chan db.Table) {
-	for _, database := range PM.Databases {
-		go PM.reporter.ShowTableInfo(wg, represults[database.Name])
 	}
 
 }
@@ -164,4 +168,8 @@ func (PM ProcessManager) ShowInfo(selectedPage int, filterlop string) {
 		PM.reporter.ShowPageInfo(database, uint32(selectedPage))
 		PM.reporter.ShowLDFInfo(database, filterlop)
 	}
+}
+
+func (PM ProcessManager) NewBroadcastServer(ctx context.Context, source <-chan int) {
+
 }
