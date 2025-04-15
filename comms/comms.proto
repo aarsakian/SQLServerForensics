@@ -25,14 +25,22 @@ message Table {
 }
 
 
+message Rows {
+    repeated Row row = 1;
+}
 
-message TablesMSG {
+message Row {
+    repeated string Vals = 1;
+}
+
+message Tables {
     repeated Table Tables = 1;
 }
 
 service FileProcessor {
     rpc Process(FileDetails) returns (stream Table){}
-    rpc ProcessMTF(MTFDetails) returns (TablesMSG){}
+    rpc ProcessMTF(MTFDetails) returns (Tables){}
+    rpc GetTableContents(Table) returns (stream Row) {}
    
 }
 

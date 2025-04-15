@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FileProcessor_Process_FullMethodName    = "/FileProcessor/Process"
-	FileProcessor_ProcessMTF_FullMethodName = "/FileProcessor/ProcessMTF"
+	FileProcessor_Process_FullMethodName          = "/FileProcessor/Process"
+	FileProcessor_ProcessMTF_FullMethodName       = "/FileProcessor/ProcessMTF"
+	FileProcessor_GetTableContents_FullMethodName = "/FileProcessor/GetTableContents"
 )
 
 // FileProcessorClient is the client API for FileProcessor service.
@@ -28,7 +29,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FileProcessorClient interface {
 	Process(ctx context.Context, in *FileDetails, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Table], error)
-	ProcessMTF(ctx context.Context, in *MTFDetails, opts ...grpc.CallOption) (*TablesMSG, error)
+	ProcessMTF(ctx context.Context, in *MTFDetails, opts ...grpc.CallOption) (*Tables, error)
+	GetTableContents(ctx context.Context, in *Table, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Row], error)
 }
 
 type fileProcessorClient struct {
@@ -58,9 +60,9 @@ func (c *fileProcessorClient) Process(ctx context.Context, in *FileDetails, opts
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type FileProcessor_ProcessClient = grpc.ServerStreamingClient[Table]
 
-func (c *fileProcessorClient) ProcessMTF(ctx context.Context, in *MTFDetails, opts ...grpc.CallOption) (*TablesMSG, error) {
+func (c *fileProcessorClient) ProcessMTF(ctx context.Context, in *MTFDetails, opts ...grpc.CallOption) (*Tables, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TablesMSG)
+	out := new(Tables)
 	err := c.cc.Invoke(ctx, FileProcessor_ProcessMTF_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -68,12 +70,32 @@ func (c *fileProcessorClient) ProcessMTF(ctx context.Context, in *MTFDetails, op
 	return out, nil
 }
 
+func (c *fileProcessorClient) GetTableContents(ctx context.Context, in *Table, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Row], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &FileProcessor_ServiceDesc.Streams[1], FileProcessor_GetTableContents_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[Table, Row]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FileProcessor_GetTableContentsClient = grpc.ServerStreamingClient[Row]
+
 // FileProcessorServer is the server API for FileProcessor service.
 // All implementations must embed UnimplementedFileProcessorServer
 // for forward compatibility.
 type FileProcessorServer interface {
 	Process(*FileDetails, grpc.ServerStreamingServer[Table]) error
-	ProcessMTF(context.Context, *MTFDetails) (*TablesMSG, error)
+	ProcessMTF(context.Context, *MTFDetails) (*Tables, error)
+	GetTableContents(*Table, grpc.ServerStreamingServer[Row]) error
 	mustEmbedUnimplementedFileProcessorServer()
 }
 
@@ -87,8 +109,11 @@ type UnimplementedFileProcessorServer struct{}
 func (UnimplementedFileProcessorServer) Process(*FileDetails, grpc.ServerStreamingServer[Table]) error {
 	return status.Errorf(codes.Unimplemented, "method Process not implemented")
 }
-func (UnimplementedFileProcessorServer) ProcessMTF(context.Context, *MTFDetails) (*TablesMSG, error) {
+func (UnimplementedFileProcessorServer) ProcessMTF(context.Context, *MTFDetails) (*Tables, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ProcessMTF not implemented")
+}
+func (UnimplementedFileProcessorServer) GetTableContents(*Table, grpc.ServerStreamingServer[Row]) error {
+	return status.Errorf(codes.Unimplemented, "method GetTableContents not implemented")
 }
 func (UnimplementedFileProcessorServer) mustEmbedUnimplementedFileProcessorServer() {}
 func (UnimplementedFileProcessorServer) testEmbeddedByValue()                       {}
@@ -140,6 +165,17 @@ func _FileProcessor_ProcessMTF_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileProcessor_GetTableContents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Table)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FileProcessorServer).GetTableContents(m, &grpc.GenericServerStream[Table, Row]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FileProcessor_GetTableContentsServer = grpc.ServerStreamingServer[Row]
+
 // FileProcessor_ServiceDesc is the grpc.ServiceDesc for FileProcessor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -156,6 +192,11 @@ var FileProcessor_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Process",
 			Handler:       _FileProcessor_Process_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetTableContents",
+			Handler:       _FileProcessor_GetTableContents_Handler,
 			ServerStreams: true,
 		},
 	},
