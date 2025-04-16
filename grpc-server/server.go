@@ -121,11 +121,13 @@ func (mssqlparser_commsServer Server) GetTableContents(askedTable *mssqlparser_c
 			go func(wgs *sync.WaitGroup) {
 				defer wgs.Done()
 				for record := range records {
+
 					if err = stream.Send(&mssqlparser_comms.Row{Vals: record}); err != nil {
 						break
 					}
 				}
 			}(wg)
+			wg.Wait()
 
 		}
 	}
