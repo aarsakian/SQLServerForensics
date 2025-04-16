@@ -632,6 +632,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 
 	records <- table.getHeader(colnames)
 	locatedRow := true
+
 	for rowidx, row := range table.rows {
 		var record utils.Record
 		for _, rownum := range selectedRows {
@@ -646,16 +647,25 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 		if len(selectedRows) != 0 && !locatedRow {
 			continue
 		}
+
 		for _, c := range table.Schema {
+			if len(colnames) == 0 {
+				colData := row.ColMap[c.Name]
+
+				record = append(record, c.toString(colData.Content))
+			}
+
 			for _, colname := range colnames {
 				if colname != "" && colname != c.Name {
 					continue
 				}
 				colData := row.ColMap[c.Name]
+
 				record = append(record, c.toString(colData.Content))
 			}
 
 		}
+
 		records <- record
 	}
 	close(records)
