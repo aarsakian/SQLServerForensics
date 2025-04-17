@@ -429,15 +429,10 @@ func (table *Table) addLogChanges(records LDF.Records) {
 
 }
 
-func (table Table) getHeader(colnames []string) utils.Record {
+func (table Table) getHeader() utils.Record {
 	var record utils.Record
 	for _, c := range table.Schema {
-		for _, colname := range colnames {
-			if colname != "" && colname != c.Name {
-				continue
-			}
-			record = append(record, c.Name)
-		}
+		record = append(record, c.Name)
 
 	}
 	return record
@@ -630,7 +625,22 @@ func (table Table) printAllocationSorted() {
 func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames []string, records chan<- utils.Record) {
 	defer wg.Done()
 
-	records <- table.getHeader(colnames)
+	headers := table.getHeader()
+	if len(colnames) == 0 {
+		records <- headers
+	} else {
+		var filteredHeaders []string
+		for _, headername := range headers {
+			for _, colname := range colnames {
+				if colname != "" && colname != headername {
+					continue
+				}
+				filteredHeaders = append(filteredHeaders, headername)
+			}
+		}
+		records <- filteredHeaders
+	}
+
 	locatedRow := true
 
 	for rowidx, row := range table.rows {
