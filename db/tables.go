@@ -35,7 +35,7 @@ type Table struct {
 	Name                          string
 	ObjectId                      int32
 	Type                          string
-	rows                          []Row
+	Rows                          []Row
 	AllocationUnitIdTopartitionId map[uint64]uint64
 	Schema                        []Column
 	Indexes                       []TableIndex
@@ -219,7 +219,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32
 				break
 			}
 
-		for rowid, row := range table.rows {
+		for rowid, row := range table.Rows {
 			startOffset := 0
 			located := false
 			for _, c := range tindex.columns {
@@ -234,7 +234,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32
 				startOffset += int(c.Size)
 			}
 			if located {
-				table.orderedRows = append(table.orderedRows, &table.rows[rowid])
+				table.orderedRows = append(table.orderedRows, &table.Rows[rowid])
 			}
 
 		}
@@ -351,7 +351,7 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 	loggedOperation += record.GetBeginCommitDate()
 	loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	table.rows = append(table.rows, Row{ColMap: colmap, LoggedOperation: loggedOperation,
+	table.Rows = append(table.Rows, Row{ColMap: colmap, LoggedOperation: loggedOperation,
 		LogDate: record.GetBeginCommitDateObj(), Carved: carved, Logged: true})
 }
 
@@ -359,18 +359,18 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 
 	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
 
-	if len(table.rows) > rowid {
+	if len(table.Rows) > rowid {
 
 		loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
 			fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-		row := table.rows[rowid]
+		row := table.Rows[rowid]
 		row.Carved = carved
 		row.Logged = true
 		row.LoggedOperation = loggedOperation
 		row.LogDate = record.GetBeginCommitDateObj()
 
-		table.rows = append(table.rows, row)
+		table.Rows = append(table.Rows, row)
 
 	}
 
@@ -379,8 +379,8 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 
 	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
-	if len(table.rows) > rowid {
-		row := table.rows[rowid]
+	if len(table.Rows) > rowid {
+		row := table.Rows[rowid]
 		row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 		row.LogDate = record.GetBeginCommitDateObj()
 		row.Carved = carved
@@ -408,7 +408,7 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 			}
 
 		}
-		table.rows = append(table.rows, row)
+		table.Rows = append(table.Rows, row)
 	}
 
 }
@@ -643,7 +643,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 
 	locatedRow := true
 
-	for rowidx, row := range table.rows {
+	for rowidx, row := range table.Rows {
 		var record utils.Record
 		for _, rownum := range selectedRows {
 			if rowidx+1 == rownum {
@@ -684,7 +684,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 func (table Table) GetImages() utils.Images {
 	var images utils.Images
 
-	for _, row := range table.rows {
+	for _, row := range table.Rows {
 
 		for _, c := range table.Schema {
 			if c.Type != "image" {
@@ -741,7 +741,7 @@ func (table Table) printIndex() {
 func (table Table) cleverPrintData() {
 	groupedRowsById := make(map[string]Row)
 
-	for _, row := range table.rows {
+	for _, row := range table.Rows {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
 
@@ -749,7 +749,7 @@ func (table Table) cleverPrintData() {
 
 	}
 
-	for _, row := range table.rows {
+	for _, row := range table.Rows {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
 
@@ -757,7 +757,7 @@ func (table Table) cleverPrintData() {
 	}
 
 	/*fmt.Printf("\nGrouped By First col all changes carved and logged oldest first\n")
-	sort.Sort(ByActionDate(table.rows))
+	sort.Sort(ByActionDate(table.Rows))
 	for _, loggedRow := range table.loggedrows {
 		for cid, c := range table.Schema {
 			loggedCol := loggedRow.ColMap[c.Name]
@@ -792,7 +792,7 @@ func (table Table) cleverPrintData() {
 func (table Table) printData(showtorow int, skiprows int,
 	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
 
-	for idx, row := range table.rows { // when no rder check?
+	for idx, row := range table.Rows { // when no rder check?
 		locatedRow := true
 
 		if skiprows != -1 && idx < skiprows {
@@ -930,7 +930,7 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 
 			}
 
-			table.rows = append(table.rows,
+			table.Rows = append(table.Rows,
 				table.ProcessRow(rownum, datarow, lobPages, textLobPages, partitionId))
 
 		}
