@@ -76,7 +76,7 @@ func (mssqlparser_commsServer *Server) Process(
 			defer wgs.Done()
 			for table := range listener1 {
 
-				tableSer := mssqlparser_comms.Table{Name: table.Name, Type: table.Type}
+				tableSer := mssqlparser_comms.Table{Name: table.Name, Type: table.Type, NofRows: uint32(len(table.Rows))}
 
 				for _, col := range table.Schema {
 					tableSer.Cols = append(tableSer.Cols,
@@ -120,8 +120,9 @@ func (mssqlparser_commsServer Server) GetTableContents(askedTable *mssqlparser_c
 			wg.Add(1)
 			go func(wgs *sync.WaitGroup) {
 				defer wgs.Done()
-				for record := range records {
 
+				for record := range records {
+					fmt.Println("Sending ", record)
 					if err = stream.Send(&mssqlparser_comms.Row{Vals: record}); err != nil {
 						break
 					}

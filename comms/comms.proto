@@ -21,7 +21,8 @@ message Col {
 message Table {
     string Name = 1;
     string Type = 2;
-    repeated Col Cols =3 ;
+    uint32 NofRows = 3;
+    repeated Col Cols =4 ;
 }
 
 
@@ -36,6 +37,8 @@ message Row {
 message Tables {
     repeated Table Tables = 1;
 }
+
+
 
 service FileProcessor {
     rpc Process(FileDetails) returns (stream Table){}
