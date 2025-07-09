@@ -39,17 +39,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aarsakian/MFTExtractor/disk"
-	MFTExporter "github.com/aarsakian/MFTExtractor/exporter"
-	"github.com/aarsakian/MFTExtractor/filtermanager"
-	"github.com/aarsakian/MFTExtractor/filters"
+	"github.com/aarsakian/FileSystemForensics/disk"
+	MFTExporter "github.com/aarsakian/FileSystemForensics/exporter"
+	"github.com/aarsakian/FileSystemForensics/filtermanager"
+	"github.com/aarsakian/FileSystemForensics/filters"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	MFTExtractorLogger "github.com/aarsakian/MFTExtractor/logger"
+	MFTExtractorLogger "github.com/aarsakian/FileSystemForensics/logger"
 	mtfLogger "github.com/aarsakian/MTF_Reader/logger"
 	mtf "github.com/aarsakian/MTF_Reader/mtf"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
+
+	mssqlparser_comms "MSSQLParser/comms"
 )
 
 func main() {
@@ -133,7 +135,10 @@ func main() {
 		}
 
 		s := grpc.NewServer()
-		pb.RegisterFileProcessorServer(s, &msegrpc.Server{})
+		pb.RegisterFileProcessorServiceServer(s, &msegrpc.Server{
+			ActiveStreams: make(map[string]grpc.BidiStreamingServer[mssqlparser_comms.Message,
+				mssqlparser_comms.Message])})
+
 		reflection.Register(s)
 		msg := fmt.Sprintf("Listening server at %v", lis.Addr())
 		fmt.Printf("%s\n", msg)
@@ -189,9 +194,13 @@ func main() {
 		physicalDisk := new(disk.Disk)
 		physicalDisk.Initialize(*evidencefile, *physicalDrive, *vmdkfile)
 
-		recordsPerPartition := physicalDisk.Process(*partitionNum, []int{}, -1, math.MaxUint32)
+		recordsPerPartition, err := physicalDisk.Process(*partitionNum, []int{}, -1, math.MaxUint32)
+
 		defer physicalDisk.Close()
 
+		if err != nil {
+			log.Fatal(err)
+		}
 		for partitionId, records := range recordsPerPartition {
 			if len(records) == 0 {
 				continue
@@ -204,7 +213,8 @@ func main() {
 
 			for _, record := range records {
 
-				fullpath := filepath.Join(exp.Location, fmt.Sprintf("[%d]%s", record.Entry, record.GetFname()))
+				fullpath := filepath.Join(exp.Location, fmt.Sprintf("[%d]%s",
+					record.GetID(), record.GetFname()))
 				extension := path.Ext(fullpath)
 				if extension == ".mdf" {
 					mdffiles = append(mdffiles, fullpath)
