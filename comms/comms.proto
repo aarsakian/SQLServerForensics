@@ -25,11 +25,24 @@ message Table {
     repeated Col Cols =4 ;
 }
 
+message TableResponse {
+    oneof MessageType {
+        Table Table = 1;
+        Message Message =2; 
+    }
+}
 
 message Rows {
     repeated Row row = 1;
 }
 
+
+message RowResponse {
+    oneof MessageType {
+        Row Row =1;
+        Message Message=2;
+    }
+}
 message Row {
     repeated string Vals = 1;
 }
@@ -38,12 +51,15 @@ message Tables {
     repeated Table Tables = 1;
 }
 
+message Message {
+    string Content = 1;
+}
 
-
-service FileProcessor {
-    rpc Process(FileDetails) returns (stream Table){}
+service FileProcessorService {
+    rpc Process(FileDetails) returns (stream TableResponse){}
     rpc ProcessMTF(MTFDetails) returns (Tables){}
     rpc GetTableContents(Table) returns (stream Row) {}
+    rpc MessageStream(stream Message) returns(stream Message) {}
    
 }
 

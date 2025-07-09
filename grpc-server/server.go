@@ -11,23 +11,27 @@ import (
 	"MSSQLParser/utils"
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"math"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aarsakian/MTF_Reader/mtf"
 	"google.golang.org/grpc"
 )
 
 type Server struct {
-	mssqlparser_comms.UnimplementedFileProcessorServer
-	pm manager.ProcessManager
+	mssqlparser_comms.UnimplementedFileProcessorServiceServer
+	pm            manager.ProcessManager
+	mu            sync.Mutex
+	ActiveStreams map[string]grpc.BidiStreamingServer[mssqlparser_comms.Message,
+		mssqlparser_comms.Message]
 }
 
-func (mssqlparser_commsServer *Server) Process(
-	fileDetails *mssqlparser_comms.FileDetails,
-	stream grpc.ServerStreamingServer[mssqlparser_comms.Table]) error {
+func (mssqlparser_commsServer *Server) MessageStream(stream mssqlparser_comms.FileProcessorService_MessageStreamServer) error {
 
 	mssqlparser_commsServer.pm = manager.ProcessManager{}
 
@@ -37,14 +41,44 @@ func (mssqlparser_commsServer *Server) Process(
 		SelectedPages:   utils.StringsToIntArray(""),
 		SelectedColumns: strings.Split("", ","),
 	}
+	mssqlparser_commsServer.mu.Lock()
+	mssqlparser_commsServer.ActiveStreams["CLienas"] = stream
+	mssqlparser_commsServer.mu.Unlock()
 
+	msg, err := stream.Recv()
+	if err == io.EOF {
+		log.Println("Client completed sending. Closing stream.")
+		return nil // Gracefully exit loop
+	}
+	if err != nil {
+		log.Println("Error receiving message:", err)
+		//return err
+	}
+	log.Printf("Received from %s", msg.Content)
+
+	// Send a response message
+	response := &mssqlparser_comms.Message{
+
+		Content: "Received: " + msg.Content,
+	}
+	if err := stream.Send(response); err != nil {
+		log.Println("Error sending response:", err)
+		return err
+	}
+	return nil
+
+}
+
+func (mssqlparser_commsServer *Server) Process(
+	fileDetails *mssqlparser_comms.FileDetails,
+	stream mssqlparser_comms.FileProcessorService_ProcessServer) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	defer cancel()
 	mssqlparser_commsServer.pm.ProcessDBFiles([]string{fileDetails.Mdffile}, []string{fileDetails.Ldffile},
 		-1, 0, math.MaxUint32, 0, false)
 
 	var err error
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	for dbidx, database := range mssqlparser_commsServer.pm.Databases {
 		srcCH := make(chan db.Table, 100000)
@@ -56,6 +90,13 @@ func (mssqlparser_commsServer *Server) Process(
 		msg := fmt.Sprintf("table contents of %s ", database.Name)
 
 		mslogger.Mslogger.Info(msg)
+
+		if err = stream.Send(&mssqlparser_comms.TableResponse{
+			MessageType: &mssqlparser_comms.TableResponse_Message{
+				Message: &mssqlparser_comms.Message{Content: msg}}}); err != nil {
+			return err
+		}
+
 		wg := new(sync.WaitGroup)
 		wg.Add(2)
 
@@ -75,6 +116,12 @@ func (mssqlparser_commsServer *Server) Process(
 		go func(wgs *sync.WaitGroup) {
 			defer wgs.Done()
 			for table := range listener1 {
+				msg := fmt.Sprintf("Processing Table %s", table.Name)
+				if err = stream.Send(&mssqlparser_comms.TableResponse{
+					MessageType: &mssqlparser_comms.TableResponse_Message{
+						Message: &mssqlparser_comms.Message{Content: msg}}}); err != nil {
+					break
+				}
 
 				tableSer := mssqlparser_comms.Table{Name: table.Name, Type: table.Type, NofRows: uint32(len(table.Rows))}
 
@@ -83,7 +130,9 @@ func (mssqlparser_commsServer *Server) Process(
 						&mssqlparser_comms.Col{Name: col.Name, Type: col.Type})
 
 				}
-				if err = stream.Send(&tableSer); err != nil {
+				if err = stream.Send(&mssqlparser_comms.TableResponse{
+					MessageType: &mssqlparser_comms.TableResponse_Table{
+						Table: &tableSer}}); err != nil {
 					break
 				}
 			}
@@ -91,14 +140,19 @@ func (mssqlparser_commsServer *Server) Process(
 		}(wg)
 
 		wg.Wait()
+		if err = stream.Send(&mssqlparser_comms.TableResponse{
+			MessageType: &mssqlparser_comms.TableResponse_Message{
+				Message: &mssqlparser_comms.Message{Content: "Completed!"}}}); err != nil {
+			break
+		}
 	}
 
 	return err
 
 }
 
-func (mssqlparser_commsServer Server) GetTableContents(askedTable *mssqlparser_comms.Table,
-	stream grpc.ServerStreamingServer[mssqlparser_comms.Row]) error {
+func (mssqlparser_commsServer *Server) GetTableContents(askedTable *mssqlparser_comms.Table,
+	stream mssqlparser_comms.FileProcessorService_GetTableContentsServer) error {
 
 	wg := new(sync.WaitGroup)
 	var err error
@@ -110,7 +164,7 @@ func (mssqlparser_commsServer Server) GetTableContents(askedTable *mssqlparser_c
 			if table.Name != askedTable.Name {
 				continue
 			}
-			fmt.Println("found", database.Name, table.Name)
+
 			wg.Add(1)
 			records := make(chan utils.Record, 1000)
 			selectedTableRow := []int{}
