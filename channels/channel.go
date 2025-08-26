@@ -5,8 +5,6 @@ import (
 	"context"
 )
 
-//https://medium.com/better-programming/how-to-broadcast-messages-in-go-using-channels-b68f42bdf32e
-
 type BroadcastServer struct {
 	source         <-chan db.Table
 	listeners      []chan db.Table
