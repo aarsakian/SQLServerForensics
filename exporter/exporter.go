@@ -62,7 +62,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 		if exp.Format == "csv" {
 
-			go writeCSV(wg, records, table.Name, expPath)
+			go WriteCSV(wg, records, table.Name, expPath)
 			wg.Wait()
 		}
 	}

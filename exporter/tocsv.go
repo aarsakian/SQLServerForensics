@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-func writeCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, folder string) {
+func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, folder string) {
 	defer wg.Done()
 	fpath := filepath.Join(folder, fmt.Sprintf("%s.csv", filename))
 	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
