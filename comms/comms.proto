@@ -47,6 +47,11 @@ message Row {
     repeated string Vals = 1;
 }
 
+message Page {
+    string Type = 1;
+    uint32 ID = 2;
+}
+
 message Tables {
     repeated Table Tables = 1;
 }
@@ -58,8 +63,12 @@ message Message {
 service FileProcessorService {
     rpc Process(FileDetails) returns (stream TableResponse){}
     rpc ProcessMTF(MTFDetails) returns (Tables){}
+    rpc ExportTable(Table) returns (Message){}
     rpc GetTableContents(Table) returns (stream Row) {}
-    rpc MessageStream(stream Message) returns(stream Message) {}
+    rpc GetTableAllocationInfo(Table) returns (stream Page) {}
+    rpc MessageStream(stream Message) returns(Message) {}
    
 }
+
+
 

@@ -6,15 +6,15 @@ import (
 	"MSSQLParser/channels"
 	mssqlparser_comms "MSSQLParser/comms"
 	"MSSQLParser/db"
+	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/manager"
 	"MSSQLParser/utils"
 	"context"
 	"fmt"
-	"io"
-	"log"
 	"math"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -41,30 +41,7 @@ func (mssqlparser_commsServer *Server) MessageStream(stream mssqlparser_comms.Fi
 		SelectedPages:   utils.StringsToIntArray(""),
 		SelectedColumns: strings.Split("", ","),
 	}
-	mssqlparser_commsServer.mu.Lock()
-	mssqlparser_commsServer.ActiveStreams["CLienas"] = stream
-	mssqlparser_commsServer.mu.Unlock()
 
-	msg, err := stream.Recv()
-	if err == io.EOF {
-		log.Println("Client completed sending. Closing stream.")
-		return nil // Gracefully exit loop
-	}
-	if err != nil {
-		log.Println("Error receiving message:", err)
-		//return err
-	}
-	log.Printf("Received from %s", msg.Content)
-
-	// Send a response message
-	response := &mssqlparser_comms.Message{
-
-		Content: "Received: " + msg.Content,
-	}
-	if err := stream.Send(response); err != nil {
-		log.Println("Error sending response:", err)
-		return err
-	}
 	return nil
 
 }
@@ -188,6 +165,71 @@ func (mssqlparser_commsServer *Server) GetTableContents(askedTable *mssqlparser_
 	}
 	return err
 }
+
+func (mssqlparser_commsServer *Server) ExportTable(ctx context.Context, askedTable *mssqlparser_comms.Table) (
+	*mssqlparser_comms.Message, error) {
+
+	var err error
+	wg := new(sync.WaitGroup)
+
+	for _, database := range mssqlparser_commsServer.pm.Databases {
+		fmt.Println("asked table", askedTable.Name, len(database.Tables))
+		for _, table := range database.Tables {
+
+			if table.Name != askedTable.Name {
+				continue
+			}
+
+			wg.Add(1)
+			records := make(chan utils.Record, 1000)
+			selectedTableRow := []int{}
+			colnames := []string{}
+			go table.GetRecords(wg, selectedTableRow, colnames, records)
+
+			wg.Add(1)
+			//if err = stream.Send(&mssqlparser_comms.Message{Content: "exporting"}); err != nil {
+			//	break
+			//}
+			go exporter.WriteCSV(wg, records, table.Name, "")
+			wg.Wait()
+		}
+
+	}
+
+	return &mssqlparser_comms.Message{Content: fmt.Sprintf("Exported Table %s", askedTable.Name)}, err
+
+}
+
+func (mssqlparser_commsServer *Server) GetTableAllocationInfo(askedTable *mssqlparser_comms.Table,
+	stream mssqlparser_comms.FileProcessorService_GetTableAllocationInfoServer) error {
+
+	var err error
+
+	for _, database := range mssqlparser_commsServer.pm.Databases {
+		fmt.Println("asked table", askedTable.Name, len(database.Tables))
+		for _, table := range database.Tables {
+
+			if table.Name != askedTable.Name {
+				continue
+			}
+
+			for pageType, pagesType := range table.PageIDsPerType {
+				slices.Sort(pagesType)
+				for _, pageID := range pagesType {
+					fmt.Println("Sending ", pageType)
+					if err = stream.Send(&mssqlparser_comms.Page{ID: pageID, Type: pageType}); err != nil {
+						break
+					}
+				}
+
+			}
+
+		}
+	}
+	return err
+
+}
+
 func (mssqlparser_commsServer *Server) ProcessMTF(_ context.Context,
 	mtfDetails *mssqlparser_comms.MTFDetails) (*mssqlparser_comms.Tables, error) {
 
