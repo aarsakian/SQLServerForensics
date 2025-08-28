@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -541,11 +542,12 @@ func (table Table) Show(showSchema bool, showContent bool,
 		table.printIndex()
 	}
 
-	if showAllocation == "sorted" {
+	switch showAllocation {
+	case "sorted":
 		table.printAllocationSorted()
-	} else if showAllocation == "links" {
+	case "links":
 		table.printAllocationWithLinks()
-	} else if showAllocation == "simple" {
+	case "simple":
 		table.printAllocation()
 	}
 
@@ -565,9 +567,7 @@ func (table Table) printAllocationWithLinks() {
 	fmt.Print("Page Ids\n")
 
 	for pageType, pagesType := range table.PageIDsPerType {
-		sort.Slice(pagesType, func(i, j int) bool {
-			return pagesType[i] < pagesType[j]
-		})
+		slices.Sort(pagesType)
 		if len(pagesType) == 0 {
 			continue
 		}
@@ -606,9 +606,8 @@ func (table Table) printAllocationSorted() {
 	fmt.Print("Page Ids\n")
 
 	for pageType, pagesType := range table.PageIDsPerType {
-		sort.Slice(pagesType, func(i, j int) bool {
-			return pagesType[i] < pagesType[j]
-		})
+		slices.Sort(pagesType)
+
 		if len(pagesType) == 0 {
 			continue
 		}
