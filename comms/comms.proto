@@ -9,7 +9,7 @@ message FileDetails {
     string Ldffile = 2;
 }
 
-message MTFDetails {
+message MTF {
     string MtfFile = 1;
 }
 
@@ -34,6 +34,10 @@ message TableResponse {
 
 message Rows {
     repeated Row row = 1;
+}
+
+message Database {
+    string Name = 1;
 }
 
 
@@ -62,11 +66,12 @@ message Message {
 
 service FileProcessorService {
     rpc Process(FileDetails) returns (stream TableResponse){}
-    rpc ProcessMTF(MTFDetails) returns (Tables){}
+    rpc ProcessBak(MTF) returns (stream TableResponse){}
     rpc ExportTable(Table) returns (Message){}
+    rpc ExportDatabase(Database) returns (stream Message){}
     rpc GetTableContents(Table) returns (stream Row) {}
     rpc GetTableAllocationInfo(Table) returns (stream Page) {}
-    rpc MessageStream(stream Message) returns(Message) {}
+    rpc MessageStream(stream Message) returns(stream Message) {}
    
 }
 
