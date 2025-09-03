@@ -16,8 +16,14 @@ github.com/aarsakian/EWF_Reader v0.0.0-20241201184717-8d7353bee37f h1:QsYBOco+Y3
 github.com/aarsakian/EWF_Reader v0.0.0-20241201184717-8d7353bee37f/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/EWF_Reader v0.0.0-20250623141857-7cc7844ff0c5 h1:hUaGM0++t9jKGXtZO9Y1b6RXq/LttbAv4JycjnVUX/M=
 github.com/aarsakian/EWF_Reader v0.0.0-20250623141857-7cc7844ff0c5/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
+github.com/aarsakian/EWF_Reader v0.0.0-20250718160049-06c47a471e53 h1:9gyzEc02mGB3g0ykMYF1dG9TqTxyXf76LVuu0VrYDCY=
+github.com/aarsakian/EWF_Reader v0.0.0-20250718160049-06c47a471e53/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250709152055-a3712f8d7a88 h1:UL0AWhv00U6e3iuVCpgLAeRXxgNzvKpB1FPjrEq5Vx8=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250709152055-a3712f8d7a88/go.mod h1:nwFFW5pCzgdUC9lM8au6CbSt2tH+EDpQe22KzNA1UoY=
+github.com/aarsakian/FileSystemForensics v0.0.0-20250711201407-3edbf02889fa h1:IoBVy2+6+tr7SaIyfb1lWOFoKcVyOsHplrOM8CCDi54=
+github.com/aarsakian/FileSystemForensics v0.0.0-20250711201407-3edbf02889fa/go.mod h1:nwFFW5pCzgdUC9lM8au6CbSt2tH+EDpQe22KzNA1UoY=
+github.com/aarsakian/FileSystemForensics v0.0.0-20250718160244-8a95974eda1c h1:ZaamRNTWJeA5Eufo8zdDcslyLrb6OhhN0ATaVZAS7hk=
+github.com/aarsakian/FileSystemForensics v0.0.0-20250718160244-8a95974eda1c/go.mod h1:9vPSQ7j8IsKxKyHIZvdPk7vAcFxosh7DWjZPm10XHw8=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379 h1:T2lSAVpvGsE2O7olYbLIFoRWTZF02aIZWgqymfKv8c8=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379/go.mod h1:5rDBrKabUaUjAXOiPmJm8AdPAKkKcXit89TF48U8bBE=
 github.com/aarsakian/MFTExtractor v0.0.0-20231012164709-8e3d94c6a208 h1:s0GOggLWGsUMioWpEJG873BaNvSQk2VIXUH0s3Fi5mM=
