@@ -111,6 +111,6 @@ type Boot struct {
 }
 
 func (boot Boot) GetDBName() string {
-	return strings.TrimSpace(utils.DecodeUTF16(boot.Dbi_dbname[:]))
+	return strings.ReplaceAll(strings.TrimSpace(utils.DecodeUTF16(boot.Dbi_dbname[:])), "\u0000", "")
 
 }
