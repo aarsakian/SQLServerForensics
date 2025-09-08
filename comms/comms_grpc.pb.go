@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	FileProcessorService_SetConfig_FullMethodName              = "/FileProcessorService/SetConfig"
 	FileProcessorService_Process_FullMethodName                = "/FileProcessorService/Process"
 	FileProcessorService_ProcessBak_FullMethodName             = "/FileProcessorService/ProcessBak"
 	FileProcessorService_ExportTable_FullMethodName            = "/FileProcessorService/ExportTable"
@@ -32,6 +33,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FileProcessorServiceClient interface {
+	SetConfig(ctx context.Context, in *Config, opts ...grpc.CallOption) (*Message, error)
 	Process(ctx context.Context, in *FileDetails, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TableResponse], error)
 	ProcessBak(ctx context.Context, in *MTF, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TableResponse], error)
 	ExportTable(ctx context.Context, in *Table, opts ...grpc.CallOption) (*Message, error)
@@ -47,6 +49,16 @@ type fileProcessorServiceClient struct {
 
 func NewFileProcessorServiceClient(cc grpc.ClientConnInterface) FileProcessorServiceClient {
 	return &fileProcessorServiceClient{cc}
+}
+
+func (c *fileProcessorServiceClient) SetConfig(ctx context.Context, in *Config, opts ...grpc.CallOption) (*Message, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Message)
+	err := c.cc.Invoke(ctx, FileProcessorService_SetConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *fileProcessorServiceClient) Process(ctx context.Context, in *FileDetails, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TableResponse], error) {
@@ -171,6 +183,7 @@ type FileProcessorService_MessageStreamClient = grpc.BidiStreamingClient[Message
 // All implementations must embed UnimplementedFileProcessorServiceServer
 // for forward compatibility.
 type FileProcessorServiceServer interface {
+	SetConfig(context.Context, *Config) (*Message, error)
 	Process(*FileDetails, grpc.ServerStreamingServer[TableResponse]) error
 	ProcessBak(*MTF, grpc.ServerStreamingServer[TableResponse]) error
 	ExportTable(context.Context, *Table) (*Message, error)
@@ -188,6 +201,9 @@ type FileProcessorServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedFileProcessorServiceServer struct{}
 
+func (UnimplementedFileProcessorServiceServer) SetConfig(context.Context, *Config) (*Message, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetConfig not implemented")
+}
 func (UnimplementedFileProcessorServiceServer) Process(*FileDetails, grpc.ServerStreamingServer[TableResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method Process not implemented")
 }
@@ -228,6 +244,24 @@ func RegisterFileProcessorServiceServer(s grpc.ServiceRegistrar, srv FileProcess
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&FileProcessorService_ServiceDesc, srv)
+}
+
+func _FileProcessorService_SetConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Config)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileProcessorServiceServer).SetConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FileProcessorService_SetConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileProcessorServiceServer).SetConfig(ctx, req.(*Config))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _FileProcessorService_Process_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -317,6 +351,10 @@ var FileProcessorService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "FileProcessorService",
 	HandlerType: (*FileProcessorServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SetConfig",
+			Handler:    _FileProcessorService_SetConfig_Handler,
+		},
 		{
 			MethodName: "ExportTable",
 			Handler:    _FileProcessorService_ExportTable_Handler,

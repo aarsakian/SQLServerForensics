@@ -38,6 +38,7 @@ message Rows {
 
 message Database {
     string Name = 1;
+    string ExportPath = 2;
 }
 
 
@@ -64,7 +65,12 @@ message Message {
     string Content = 1;
 }
 
+message Config {
+    string ExporPath = 1;
+}
+
 service FileProcessorService {
+    rpc SetConfig(Config) returns (Message){}
     rpc Process(FileDetails) returns (stream TableResponse){}
     rpc ProcessBak(MTF) returns (stream TableResponse){}
     rpc ExportTable(Table) returns (Message){}
