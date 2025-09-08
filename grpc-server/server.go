@@ -32,9 +32,13 @@ type Server struct {
 		mssqlparser_comms.Message]
 }
 
-func (mssqlparser_commsServer *Server) MessageStream(instream mssqlparser_comms.FileProcessorService_MessageStreamServer) error {
-
+func (mssqlparser_commsServer *Server) SetConfig(ctx context.Context, config *mssqlparser_comms.Config) (
+	*mssqlparser_comms.Message, error) {
 	mssqlparser_commsServer.pm = manager.ProcessManager{}
+
+	mssqlparser_commsServer.pm.Initialize(false, false, false, false, false, false, false, false, false,
+		"", false, false, false, 0, -1, []int{}, false, false, false, "", false, []string{},
+		"CSV", false, config.ExporPath)
 
 	mssqlparser_commsServer.pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split("", ","),
@@ -43,7 +47,7 @@ func (mssqlparser_commsServer *Server) MessageStream(instream mssqlparser_comms.
 		SelectedColumns: strings.Split("", ","),
 	}
 
-	return nil
+	return &mssqlparser_comms.Message{Content: "configuration set"}, nil
 
 }
 
@@ -99,6 +103,7 @@ func (mssqlparser_commsServer *Server) Process(
 			defer wgs.Done()
 			for table := range listener1 {
 				msg := fmt.Sprintf("Processing Table %s", table.Name)
+				fmt.Printf(msg + " \n")
 				if err = stream.Send(&mssqlparser_comms.TableResponse{
 					MessageType: &mssqlparser_comms.TableResponse_Message{
 						Message: &mssqlparser_comms.Message{Content: msg}}}); err != nil {
@@ -177,9 +182,6 @@ func (mssqlparser_commsServer *Server) ExportDatabase(askedDB *mssqlparser_comms
 	var err error
 	wg := new(sync.WaitGroup)
 	fmt.Println("asked DB", askedDB)
-	for i, r := range askedDB.Name {
-		fmt.Printf("client[%d]: '%c' (U+%04X)\n", i, r, r)
-	}
 
 	for _, database := range mssqlparser_commsServer.pm.Databases {
 
@@ -195,12 +197,12 @@ func (mssqlparser_commsServer *Server) ExportDatabase(askedDB *mssqlparser_comms
 			go table.GetRecords(wg, selectedTableRow, colnames, records)
 
 			wg.Add(1)
-			msg := fmt.Sprintf("Exporting Table %s", table.Name)
+			msg := fmt.Sprintf("Exporting Table %s to %s", table.Name, askedDB.ExportPath)
 			fmt.Println(msg)
 			if err = stream.Send(&mssqlparser_comms.Message{Content: msg}); err != nil {
 				break
 			}
-			go exporter.WriteCSV(wg, records, table.Name, "")
+			go exporter.WriteCSV(wg, records, table.Name, askedDB.ExportPath)
 			wg.Wait()
 		}
 
