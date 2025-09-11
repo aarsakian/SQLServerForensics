@@ -52,6 +52,8 @@ message RowResponse {
 }
 message Row {
     repeated string Vals = 1;
+    bool Carved = 2;
+    bool Logged = 3; 
 }
 
 message Page {

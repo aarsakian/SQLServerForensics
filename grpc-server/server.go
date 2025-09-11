@@ -183,7 +183,11 @@ func (mssqlparser_commsServer *Server) GetTableContents(askedTable *mssqlparser_
 
 				for record := range records {
 					fmt.Println("Sending ", record)
-					if err = stream.Send(&mssqlparser_comms.Row{Vals: record}); err != nil {
+
+					if err = stream.Send(&mssqlparser_comms.Row{
+						Vals:   record.Vals,
+						Carved: record.Carved,
+						Logged: record.Logged}); err != nil {
 						break
 					}
 				}
