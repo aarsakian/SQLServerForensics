@@ -40,13 +40,13 @@ import (
 	"time"
 
 	"github.com/aarsakian/FileSystemForensics/disk"
-	MFTExporter "github.com/aarsakian/FileSystemForensics/exporter"
+	FSExporter "github.com/aarsakian/FileSystemForensics/exporter"
 	"github.com/aarsakian/FileSystemForensics/filtermanager"
 	"github.com/aarsakian/FileSystemForensics/filters"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	MFTExtractorLogger "github.com/aarsakian/FileSystemForensics/logger"
+	FSLogger "github.com/aarsakian/FileSystemForensics/logger"
 	mtfLogger "github.com/aarsakian/MTF_Reader/logger"
 	mtf "github.com/aarsakian/MTF_Reader/mtf"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
@@ -115,7 +115,7 @@ func main() {
 	now := time.Now()
 	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
 	mslogger.InitializeLogger(*logactive, logfilename)
-	MFTExtractorLogger.InitializeLogger(*logactive, logfilename)
+	FSLogger.InitializeLogger(*logactive, logfilename)
 	VMDKLogger.InitializeLogger(*logactive, logfilename)
 	mtfLogger.InitializeLogger(*logactive, logfilename)
 
@@ -150,7 +150,7 @@ func main() {
 
 	}
 
-	exp := MFTExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id"}
+	exp := FSExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id"}
 
 	flm := filtermanager.FilterManager{}
 
@@ -216,9 +216,10 @@ func main() {
 				fullpath := filepath.Join(exp.Location, fmt.Sprintf("[%d]%s",
 					record.GetID(), record.GetFname()))
 				extension := path.Ext(fullpath)
-				if extension == ".mdf" {
+				switch extension {
+				case ".mdf":
 					mdffiles = append(mdffiles, fullpath)
-				} else if extension == ".ldf" {
+				case ".ldf":
 					ldffiles = append(ldffiles, fullpath)
 				}
 
