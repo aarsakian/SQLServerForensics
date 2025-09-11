@@ -63,6 +63,14 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 
 }
 
+func (PM *ProcessManager) SetExportPath(path string) {
+	PM.exporter.Path = path
+}
+
+func (PM *ProcessManager) SetShowCarve(showcarve bool) {
+	PM.reporter.ShowCarved = showcarve
+}
+
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 	selectedPage int, fromPage int, toPage int, ldfLevel int, carve bool) int {
 
