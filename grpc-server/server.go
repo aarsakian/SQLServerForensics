@@ -37,7 +37,7 @@ func (mssqlparser_commsServer *Server) SetConfig(ctx context.Context, config *ms
 	mssqlparser_commsServer.pm = manager.ProcessManager{}
 
 	mssqlparser_commsServer.pm.Initialize(false, false, false, false, false, false, false, false, false,
-		"", false, false, false, 0, -1, []int{}, false, false, false, "", false, []string{},
+		"", false, false, false, 0, -1, []int{}, config.Carve, false, false, "", false, []string{},
 		"CSV", false, config.ExporPath)
 
 	mssqlparser_commsServer.pm.TableConfiguration = manager.TableProcessorConfiguration{
@@ -51,6 +51,16 @@ func (mssqlparser_commsServer *Server) SetConfig(ctx context.Context, config *ms
 
 }
 
+func (mssqlparser_commsServer *Server) UpdateConfig(ctx context.Context, config *mssqlparser_comms.Config) (
+	*mssqlparser_comms.Message, error) {
+
+	mssqlparser_commsServer.pm.SetExportPath(config.ExporPath)
+	mssqlparser_commsServer.pm.SetShowCarve(config.Carve)
+
+	return &mssqlparser_comms.Message{Content: "configuration set"}, nil
+
+}
+
 func (mssqlparser_commsServer *Server) Process(
 	fileDetails *mssqlparser_comms.FileDetails,
 	stream mssqlparser_comms.FileProcessorService_ProcessServer) error {
@@ -58,13 +68,22 @@ func (mssqlparser_commsServer *Server) Process(
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	defer cancel()
 	var err error
+
+	if fileDetails.Carve {
+		mslogger.Mslogger.Info("Carving enabled")
+
+	} else {
+		mslogger.Mslogger.Info("Carving disabled")
+	}
+
 	if err = stream.Send(&mssqlparser_comms.TableResponse{
 		MessageType: &mssqlparser_comms.TableResponse_Message{
-			Message: &mssqlparser_comms.Message{Content: "Processing database"}}}); err != nil {
+			Message: &mssqlparser_comms.Message{Content: fmt.Sprintf("Processing %s  LDF: %s Carve %t ", fileDetails.Mdffile,
+				fileDetails.Ldffile, fileDetails.Carve)}}}); err != nil {
 		return err
 	}
 	mssqlparser_commsServer.pm.ProcessDBFiles([]string{fileDetails.Mdffile}, []string{fileDetails.Ldffile},
-		-1, 0, math.MaxUint32, 0, false)
+		-1, 0, math.MaxUint32, int(fileDetails.LdfLevel), fileDetails.Carve)
 
 	for dbidx, database := range mssqlparser_commsServer.pm.Databases {
 		srcCH := make(chan db.Table, 100000)

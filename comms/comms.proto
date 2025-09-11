@@ -7,6 +7,8 @@ option go_package = "mssqlparser.comms";
 message FileDetails {
     string Mdffile = 1;
     string Ldffile = 2;
+    bool Carve = 3;
+    uint32 LdfLevel = 4;
 }
 
 message MTF {
@@ -67,10 +69,12 @@ message Message {
 
 message Config {
     string ExporPath = 1;
+    bool Carve = 2;
 }
 
 service FileProcessorService {
     rpc SetConfig(Config) returns (Message){}
+    rpc UpdateConfig(Config) returns (Message){}
     rpc Process(FileDetails) returns (stream TableResponse){}
     rpc ProcessBak(MTF) returns (stream TableResponse){}
     rpc ExportTable(Table) returns (Message){}
