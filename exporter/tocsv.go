@@ -27,7 +27,7 @@ func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, 
 	mslogger.Mslogger.Info(msg)
 
 	for record := range records {
-		w.Write(record)
+		w.Write(record.Vals)
 	}
 	// Write any buffered data to the underlying writer (standard output).
 	w.Flush()

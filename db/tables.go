@@ -431,12 +431,12 @@ func (table *Table) addLogChanges(records LDF.Records) {
 }
 
 func (table Table) getHeader() utils.Record {
-	var record utils.Record
+	var names []string
 	for _, c := range table.Schema {
-		record = append(record, c.Name)
+		names = append(names, c.Name)
 
 	}
-	return record
+	return utils.Record{Vals: names}
 }
 
 func (table *Table) addColumn(column Column) {
@@ -629,7 +629,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 		records <- headers
 	} else {
 		var filteredHeaders []string
-		for _, headername := range headers {
+		for _, headername := range headers.Vals {
 			for _, colname := range colnames {
 				if colname != "" && colname != headername {
 					continue
@@ -637,13 +637,15 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 				filteredHeaders = append(filteredHeaders, headername)
 			}
 		}
-		records <- filteredHeaders
+		records <- utils.Record{Vals: filteredHeaders}
 	}
 
 	locatedRow := true
 
 	for rowidx, row := range table.Rows {
 		var record utils.Record
+		var vals []string
+
 		for _, rownum := range selectedRows {
 			if rowidx+1 == rownum {
 				locatedRow = true
@@ -658,10 +660,11 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 		}
 
 		for _, c := range table.Schema {
+
 			if len(colnames) == 0 {
 				colData := row.ColMap[c.Name]
 
-				record = append(record, c.toString(colData.Content))
+				vals = append(vals, c.toString(colData.Content))
 			}
 
 			for _, colname := range colnames {
@@ -670,10 +673,11 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 				}
 				colData := row.ColMap[c.Name]
 
-				record = append(record, c.toString(colData.Content))
+				vals = append(vals, c.toString(colData.Content))
 			}
 
 		}
+		record = utils.Record{Vals: vals, Carved: row.Carved, Logged: row.Logged}
 
 		records <- record
 	}
