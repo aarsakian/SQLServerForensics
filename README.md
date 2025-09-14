@@ -1,10 +1,9 @@
 # Microsoft SQL Server recovery tool.
  
-## DISCLAIMER: ##
-This software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability—whether in an action of contract, tort, or otherwise—arising from, out of, or in connection with the software or the use or other dealings in the software. Users are solely responsible for evaluating the software’s suitability and safety for their systems. Use at your own risk.
 
 ## Description ##
-Although this tool have been developed in a way that only read operations are allowed to a database, understand that ***permanent data loss might occur*** if you opt for the low level read methods in order to access an active database. The low level option works only on a local copy of your database. Copying is being performed at a cluster level using low level OS apis. 
+This tool is designed to perform read-only operations on database files. However, users must understand that ***permanent data loss might occur*** or corruption may occur if low-level access methods are used on active systems.
+The low level option works only on a local copy of your database. Copying is being performed at a cluster level using low level OS apis. 
 
 Below is a table helping you to understand the implications of accessing your database for a running server. 
 | Access Method| Implication | Server is running |
