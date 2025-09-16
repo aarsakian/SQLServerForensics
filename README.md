@@ -3,7 +3,7 @@
 
 ## Description ##
 This tool is designed to perform read-only operations on database files. However, users must understand that ***permanent data loss might occur*** or corruption may occur if low-level access methods are used on active systems.
-The low level option works only on a local copy of your database. Copying is being performed at a cluster level using low level OS apis. 
+The low level option works only on a local copy of your database. Copying is being performed at a cluster level using low level OS APIs. 
 
 Below is a table helping you to understand the implications of accessing your database for a running server. 
 | Access Method| Implication | Server is running |
@@ -11,21 +11,26 @@ Below is a table helping you to understand the implications of accessing your da
 | stopservice | Certain data loss | Server will be stopped | 
 | physical disk | Unlikely |  Disruptions to the performance  |
 
- It can parse tables ***directly*** from mdf files and TAPE archives (full backup files). If you opt to read backup (bak) files the contents are saved to mdf files *locally* (default location is MDF folder) before being processed. Carving is also supported it may not work with varying length data. Log Parsing is available if you provide the ldf file and it will attempt to correlate existing table records with the respective log records. Carving log records is also available. 
+ It can parse tables ***directly*** from mdf files and TAPE archives (full backup files). If you opt to read backup (bak) files the contents are saved to mdf files *locally* (default location is MDF folder) before being processed. Carving is also supported it may not work with varying length schemas. Log Parsing is available, if you provide the ldf file. It will attempt to correlate existing table records with the respective log records. Carving log records is also available. 
 
- For advanced users there are a lot of options to inspect the internals of your database including the log file. Inspection is supported  at a page level, data row level, and  data column level.
+ For advanced users there are a lot of options to inspect the internals of your database including the log file. Inspection is supported  at a page level, data row level, and  data column level, log action.
  
 
-For responders that we want immediate access to the MS SQL database they can stop service (please there are irreversible consequences in your data, not recommended) or you can use low level access reading directly from physical disk *without* stopping the server. Please note that admin access priveleges are required for both kind of operations. If you opt for low level access your mdf file and ldf file will be copied *locally* and then they will be processed (defaut location is MDF folder). The responder needs to know how logging works so as to avoid being suprised of missing data e.g. commited data that is missing from a table. 
+For responders who want immediate access to the MS SQL database, they can stop service (please there are irreversible consequences in your data, not recommended) or you can use low level access reading directly from physical disk *without* stopping the server. Please note that ***admin*** access priveleges are required for both kind of operations. If you opt for low level access your mdf file and ldf file will be respectively copied *locally*, before being processed (defaut location is MDF folder). The responder needs to know how logging works so as to avoid being suprised of missing data, for instance commited data that is missing from a table. 
 
 
-For digital forensics examiners they can access database by reading mdf, ldf, bak files directly from images. Supported images are dd, EWF (E01), vmdk. 
+For digital forensics examiners they can access SQL database by reading mdf, ldf, bak files directly from images. Supported images are dd, EWF (E01), vmdk. There are no third parties to read expert witness format and NTFS file system. Both functionalities are provided by external libraries developed by the same author. 
 
 
-A GUI is on the way which will communicate via rpc calls to the backend. 
+A GUI is on the way which will communicate via rpc calls  (protobufs) to the backend. It will offer limited functionality compared to command line usage. 
+
+Many more features will be introduced and testing will be continued.
+
+The development of this tool is based on personal research and published papers. 
 
 
 ## Usage Instructions 
+Usage instructions have been grouped so as to help the user. 
 
 ### Input Options
 
