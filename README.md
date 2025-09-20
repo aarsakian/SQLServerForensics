@@ -19,12 +19,12 @@ Below is a table helping you to understand the implications of accessing your da
 For responders who want immediate access to the MS SQL database, they can stop service (please note that there are irreversible consequences in your data, not recommended) or you can use low level access reading directly from physical disk *without* stopping the server. ***Admin*** access priveleges are required for both kind of operations. If you opt for low level access your mdf file and ldf file will be respectively copied *locally*, before being processed (defaut location is MDF folder). The responder needs to know how logging works so as to avoid being suprised of missing data, for instance commited data that is missing from a table. 
 
 
-For digital forensics examiners they can access SQL database by reading mdf, ldf, bak files directly from images. Supported images are dd, EWF (E01), vmdk. There are no third parties to read expert witness format and NTFS file system. Both functionalities are provided by external libraries developed by the same author. 
+ Digital forensics examiners can access SQL database by reading mdf, ldf, bak files directly from images. Supported images are dd, EWF (E01), vmdk. There are no third parties to read expert witness format and NTFS file system. Both functionalities are provided by external libraries developed by the same author. Files discovered are being copied locally (default location MDF folder). 
 
 
 A GUI is on the way which will communicate via rpc calls  (protobufs) to the backend. It will offer limited functionality compared to command line usage. 
 
-Many more features will be introduced and testing will be continued.
+Many more features will be introduced and testing will be continued, but no time scheduling can be announced.
 
 The development of this tool is based on personal research and published papers. 
 
