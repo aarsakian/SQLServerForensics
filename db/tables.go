@@ -798,10 +798,10 @@ func (table Table) printData(showtorow int, skiprows int,
 	for idx, row := range table.Rows { // when no rder check?
 		locatedRow := true
 
-		if skiprows != -1 && idx < skiprows {
+		if skiprows != -1 && idx+1 < skiprows {
 			continue
 		}
-		if showtorow != -1 && idx > showtorow {
+		if showtorow != -1 && idx+1 > showtorow {
 			break
 		}
 
