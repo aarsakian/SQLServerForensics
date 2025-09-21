@@ -82,10 +82,10 @@ func GetRowType(statusA byte) string {
 	res := strconv.FormatUint(uint64(statusA), 2)
 
 	if len(res) > 4 {
-		flag, _ := strconv.ParseUint(res[len(res)-4:], 10, 4)
+		flag, _ := strconv.ParseUint(res[len(res)-4:], 2, 4)
 		return DataRecordType[uint8(flag)]
 	} else if len(res) > 1 {
-		flag, _ := strconv.ParseUint(res[:], 10, 4)
+		flag, _ := strconv.ParseUint(res[:], 2, 4)
 		return DataRecordType[uint8(flag)]
 	}
 	return "record type not found"
