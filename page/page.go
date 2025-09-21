@@ -227,10 +227,10 @@ func (pagesPerID PagesPerId[K]) FilterByType(pageType string) PagesPerId[K] {
 
 }
 
-func (pagesPerID PagesPerId[K]) FilterByIDSortedByInput(pageIDs []uint32) PagesPerId[K] {
+func (pagesPerID PagesPerId[K]) FilterByIDSortedByInput(indexPageIDs []uint32) PagesPerId[K] {
 	newpagesPerID := PagesPerId[K]{}
 
-	for _, pageId := range pageIDs {
+	for _, pageId := range indexPageIDs {
 		for allocUnitId, pagesPerIDNode := range pagesPerID.Lookup {
 			for _, page := range pagesPerIDNode.Pages {
 
@@ -566,6 +566,7 @@ func (page Page) printSlots() {
 	for _, slot := range page.Slots {
 		fmt.Printf("%d ", slot.Offset)
 	}
+	fmt.Printf("\n")
 }
 
 func (page Page) ShowCarvedDataRows() {
