@@ -98,18 +98,18 @@ func main() {
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
 	selectedTableRows := flag.String("rows", "", "use comma to select rows")
 	userTable := flag.String("usertable", "", "get system table info about user table")
-	exportPath := flag.String("export", "", "export table")
+	exportPath := flag.String("export", "", "export tables to selected path")
 	exportFormat := flag.String("format", "csv", "select format to export (csv)")
 	logactive := flag.Bool("log", false, "log activity")
 	bakactive := flag.Bool("bak", false, "parse bak files found in images")
-	tabletype := flag.String("tabletype", "", "filter tables by type e.g. 'User Table' for user tables")
+	tabletype := flag.String("tabletype", "", "filter tables by type e.g. 'User Table' for user tables 'View' for views")
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	ldfLevel := flag.Int("ldf", 0, "parse hardened (commited) log transactions 1: data changes  2: full changes")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|any")
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
-	raw := flag.Bool("raw", false, "show row data for each column in a table")
+	raw := flag.Bool("showraw", false, "show row data for each column in a table")
 	rpc := flag.Uint("rpc", 0, "use grpc to communicate select port from 1024 and upwards")
 
 	flag.Parse()
@@ -240,7 +240,7 @@ func main() {
 	if *mtffile != "" {
 		mtf_s := mtf.MTF{Fname: *mtffile}
 		mtf_s.Process()
-		mtf_s.Export("MDF")
+		mtf_s.Export(*location)
 		mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
 	}
 
