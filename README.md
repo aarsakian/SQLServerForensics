@@ -11,7 +11,7 @@ Below is a table helping you to understand the implications of accessing your da
 | stopservice | Certain data loss | Server will be stopped | 
 | physical disk | Unlikely |  Disruptions to the performance  |
 
- It can parse tables ***directly*** from mdf files and TAPE archives (full backup files). If you opt to read backup (bak) files the contents are saved to mdf files *locally* (default location is MDF folder) before being processed. Carving is also supported it may not work with varying length schemas. Log Parsing is available, if you provide the ldf file. It will attempt to correlate existing table records with the respective log records. Carving log records is also available. 
+ It can parse tables ***directly*** from mdf files and TAPE archives (full backup files). If you opt to read backup (bak) files the contents are saved to mdf files *locally* (default location is MDF folder) before being processed. Carving table recods is also supported. Log Parsing is available, if you provide the ldf file. It will attempt to correlate existing table records with the respective log records. Carving log records is also available. 
 
  For advanced users there are a lot of options to inspect the internals of your database including the log file. Inspection is supported  at a page level, data row level, and  data column level, log action.
  
