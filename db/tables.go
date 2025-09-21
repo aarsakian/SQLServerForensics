@@ -159,9 +159,7 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 	//flag denotes carved
 	table.addLogChanges(candidateRecords)
 
-	if ldfLevel == 2 {
-		table.logRecords = candidateRecords
-	}
+	table.logRecords = candidateRecords
 
 }
 
@@ -371,7 +369,7 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 		row.LoggedOperation = loggedOperation
 		row.LogDate = record.GetBeginCommitDateObj()
 
-		table.Rows = append(table.Rows, row)
+		table.Rows[rowid] = row
 
 	}
 
@@ -821,16 +819,16 @@ func (table Table) printData(showtorow int, skiprows int,
 		}
 
 		if showcarved && row.Carved {
-			fmt.Printf(" (d) ")
+			fmt.Printf("(d) %d: ", idx+1)
 		} else if !showcarved && row.Carved {
 			continue
 		}
 
 		if showldf && row.Logged {
-			fmt.Printf(" (l) %s ", row.LoggedOperation)
+			fmt.Printf("(l) %d: ", idx+1)
+		} else {
+			fmt.Printf("%d: ", idx+1)
 		}
-
-		fmt.Printf("%d: ", idx+1)
 
 		for _, c := range table.Schema {
 
@@ -852,6 +850,10 @@ func (table Table) printData(showtorow int, skiprows int,
 
 			}
 
+		}
+
+		if showldf && row.Logged {
+			fmt.Printf(" %s ", row.LoggedOperation)
 		}
 
 		fmt.Printf("\n")
