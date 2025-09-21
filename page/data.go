@@ -146,10 +146,10 @@ func (dataRow DataRow) ShowData() {
 	if dataRow.SystemTable != nil {
 		dataRow.SystemTable.ShowData()
 	}
-	msg := fmt.Sprintf("fixed len ends at %d len %x",
+	msg := fmt.Sprintf("Fixed len cols end at %d  : %x",
 		4+reflect.ValueOf(dataRow.FixedLenCols).Len(), dataRow.FixedLenCols)
 	mslogger.Mslogger.Info(msg)
-	fmt.Printf(msg + "\n")
+	fmt.Printf(msg + "\nVar len info cols: \n")
 	if dataRow.VarLenCols == nil {
 		msg := "No Var Len cols found"
 		fmt.Printf(msg + "\n")
@@ -157,7 +157,7 @@ func (dataRow DataRow) ShowData() {
 		return
 	}
 	for _, dataCol := range *dataRow.VarLenCols {
-		fmt.Printf(" %d  %d  %x ",
+		fmt.Printf("starts at %d len  %d : %x ",
 			dataCol.offset, reflect.ValueOf(dataCol.Content).Len(), dataCol.Content)
 	}
 	fmt.Printf("\n")
