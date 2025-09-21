@@ -1,6 +1,7 @@
 package page
 
 import (
+	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"bytes"
@@ -489,7 +490,8 @@ func (page *Page) CarveData(data []byte, offset int) {
 
 		}
 
-		if actualDataRowSize > PAGELEN-uint16(2*len(page.Slots)) || slotOffset > PAGELEN-uint16(2*len(page.Slots)) ||
+		if actualDataRowSize > PAGELEN-uint16(2*len(page.Slots)) ||
+			slotOffset > PAGELEN-uint16(2*len(page.Slots)) ||
 			slot.AllocatedDataRowSize > PAGELEN-uint16(2*len(page.Slots)) {
 			continue
 		}
@@ -498,21 +500,22 @@ func (page *Page) CarveData(data []byte, offset int) {
 		// if slot has slack carve and has available space
 		for slackOffset < slackSpace && slotOffset+slackOffset < PAGELEN-uint16(2*len(page.Slots)) {
 
-			dataRow := &DataRow{Carved: true}
-			actualDataRowSize = uint16(dataRow.Parse(
-				data[slotOffset+slackOffset:],
-				int(slotOffset)+int(slackOffset)+offset, page.Header.ObjectId))
 			// accept only primary records
 
-			if GetRowType(data[slotOffset]) == "Primary Record" {
-				page.DataRows = append(page.DataRows, *dataRow)
-			}
+			if GetRowType(data[slotOffset+slackOffset]) == "Ghost Data Record" {
 
-			//zero continue byte level
-			if actualDataRowSize == 0 {
-				slackOffset += 1
-			} else {
+				dataRow := DataRow{Carved: true}
+				actualDataRowSize = uint16(dataRow.Parse(
+					data[slotOffset+slackOffset:],
+					int(slotOffset)+int(slackOffset)+offset, page.Header.ObjectId))
+				page.DataRows = append(page.DataRows, dataRow)
+				if actualDataRowSize == 0 {
+					logger.Mslogger.Info("carved actualDataRowSize is zero")
+					break
+				}
 				slackOffset += actualDataRowSize
+			} else {
+				slackOffset += 1
 			}
 
 		}
