@@ -89,6 +89,7 @@ Usage instructions have been grouped so as to help the user.
 #### page related 
  -showheader
         show page header
+
   -showgam
         show GAM extents for each page
 
@@ -108,7 +109,7 @@ Usage instructions have been grouped so as to help the user.
         show page slots
 
 
-  -datacols
+  -showdatacols
         show data cols for each data row
 
 -type string
@@ -154,14 +155,13 @@ Usage instructions have been grouped so as to help the user.
    -systemtables string
         show information about system tables sysschobjs sysrowsets syscolpars
  
-
-   -tabletype string
-        filter tables by type e.g. 'User Table' for user tables
+  -tabletype string
+        filter tables by type e.g. 'User Table' for user tables 'View' for views
 
 -showtableallocation string
         show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure
 
--raw
+-showraw
         show row data for each column in a table
 
 -showtableindex
@@ -183,8 +183,8 @@ Usage instructions have been grouped so as to help the user.
 
 
 ### Export Options
--export string
-        export table
+ -export string
+        export tables to selected path
 
   -exportImages
         export images saved as blob
@@ -213,5 +213,58 @@ Usage instructions have been grouped so as to help the user.
  
 
 
+## Examples 
+
+### Table Operations
+
+Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables  -showcontent  -tables PersonPhone
 
 
+Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** from row ***99*** to row ***120*** as pulled from the data pages
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -fromrow 99  -torow 120 -showcontent
+
+Show  table contents of table ***PersonPhone*** in raw (hex values) format of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showcontent  -tables PersonPhone  -showraw
+
+Show  table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** stored only at page ***17161***
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -showcontent -tablepages 17161
+
+Export table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables  -export MyExports -tables PersonPhone
+
+Export all user table contents  of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports***
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tabletype 'User Table' -export MyExports
+
+Show table allocation information such as ***Partition IDs, AllocationUnit IDs*** of table ***PersonPhone***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableallocation links -tables PersonPhone
+
+Show table allocation information such as ***Partition IDs, AllocationUnit IDs*** of table ***PersonPhone*** including ***DATA, Index, IAM*** pages sorted by ID
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableallocation links -tables PersonPhone
+
+Show table schema of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showschema -tables PersonPhone
+
+###  Page internals inspection 
+
+Show page number and index names of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableindex -tables PersonPhone
+
+Show page  information including ***header, slot offsets and possible slack space, data column offsets and contents*** of page 6432 of database file ***AdventureWorks2022.mdf*** 
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showheader -showslots -showdatacols -page  6432
+
+
+Show page information including ***index structure FileID, PageID, Key, RowSize*** of index page 11854
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf   -showindex -page  11854
+
+
+### Transaction Log internals inspection 
+Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** such as ***Log Block Header Slots,  size of block, FirstLSN*** operations for log file ***AdventureWorks2022_log.ldf*** 
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showldf -ldf 1
+
+
+### Full archive backup (BAK)
+You can apply all operations of database file mdf to bak files, for instance see below:
+
+Export all tables of backup file ***AdventureWorks2022.bak***, mdf produced file will be saved to location ***BackupDB***
+>.\MSSQLParser.exe -mtf ..\Shared-mssql\data\AdventureWorks2022.bak -location BackupDB -processtables -export TablesFromBackup
