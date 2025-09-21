@@ -152,10 +152,8 @@ func (PM ProcessManager) ProcessTables(selectedTables []int, ldfLevel int) {
 			listener1 = broadcaster.Subscribe()
 
 		}
-		if PM.reporter.ShowTableContent {
-			wg.Add(1)
-			listener2 = broadcaster.Subscribe()
-		}
+		wg.Add(1)
+		listener2 = broadcaster.Subscribe()
 
 		go database.ProcessTables(ctx, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
 			srcCH, PM.TableConfiguration.SelectedPages, ldfLevel)
@@ -164,9 +162,8 @@ func (PM ProcessManager) ProcessTables(selectedTables []int, ldfLevel int) {
 			go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name,
 				listener1)
 		}
-		if PM.reporter.ShowTableContent {
-			go PM.reporter.ShowTableInfo(wg, listener2)
-		}
+
+		go PM.reporter.ShowTableInfo(wg, listener2)
 
 		wg.Wait()
 
