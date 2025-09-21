@@ -391,7 +391,8 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 		"IAM": iamPages.GetIDs(), "IndexedDATA": indexedDataPages}
 
 	if len(indexedDataPages) != 0 {
-		dataPages = dataPages.FilterByIDSortedByInput(indexedDataPages)
+		//this is to keep the order by indexed column value
+		//dataPages = dataPages.FilterByIDSortedByInput(indexedDataPages)
 	}
 
 	if dataPages.IsEmpty() {
