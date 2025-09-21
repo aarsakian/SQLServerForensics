@@ -818,15 +818,17 @@ func (table Table) printData(showtorow int, skiprows int,
 			continue
 		}
 
-		if showcarved && row.Carved {
+		if showcarved && row.Carved && !row.Logged {
 			fmt.Printf("(d) %d: ", idx+1)
 		} else if !showcarved && row.Carved {
 			continue
 		}
 
-		if showldf && row.Logged {
+		if showcarved && row.Carved && showldf && row.Logged {
+			fmt.Printf("(d)(l) %d: ", idx+1)
+		} else if showldf && row.Logged {
 			fmt.Printf("(l) %d: ", idx+1)
-		} else {
+		} else if !row.Carved {
 			fmt.Printf("%d: ", idx+1)
 		}
 
