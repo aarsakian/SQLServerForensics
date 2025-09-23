@@ -241,7 +241,7 @@ func (db Database) GetTablesInfo() TablesInfo {
 }
 
 func (db Database) ProcessTables(ctx context.Context, tablenames []string, tabletype string,
-	tablesCH chan<- Table, tablePages []int, ldfLevel int) {
+	tablesCH chan<- Table, tablePages []int) {
 
 	defer close(tablesCH)
 
@@ -261,7 +261,7 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 			}
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
-			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogRecords, ldfLevel)
+			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogRecords)
 
 			select {
 			case tablesCH <- table:
