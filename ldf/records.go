@@ -19,38 +19,38 @@ type Records []Record
 // Every transaction must have an LOP_BEGIN_XACT
 // and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
-	CurrentLSN        utils.LSN
-	Unknown           [2]byte
-	Length            uint16              //size of fixed length area 2-4
-	PreviousLSN       utils.LSN           //4-14 VLF:LOG BLOCK:LOG RECORD
-	Flag              uint16              //14-16
-	TransactionID     utils.TransactionID //16-22
-	Operation         uint8               //what type of data is stored 23
-	Context           uint8               //24
-	Lop_Insert_Delete *LOP_INSERT_DELETE_MOD
-	Lop_Begin         *LOP_BEGIN
-	Lop_Commit        *LOP_COMMIT
-	Lop_Begin_CKPT    *LOP_BEGIN_CKPT
-	Lop_End_CKPT      *LOP_END_CKPT
-	Generic_LOP       *Generic_LOP
-	PreviousRecord    *Record
-	NextRecord        *Record
-	Carved            bool
+	CurrentLSN            utils.LSN
+	Unknown               [2]byte
+	Length                uint16              //size of fixed length area 2-4
+	PreviousLSN           utils.LSN           //4-14 VLF:LOG BLOCK:LOG RECORD
+	Flag                  uint16              //14-16
+	TransactionID         utils.TransactionID //16-22
+	Operation             uint8               //what type of data is stored 23
+	Context               uint8               //24
+	Lop_Insert_Delete_Mod *LOP_INSERT_DELETE_MOD
+	Lop_Begin             *LOP_BEGIN
+	Lop_Commit            *LOP_COMMIT
+	Lop_Begin_CKPT        *LOP_BEGIN_CKPT
+	Lop_End_CKPT          *LOP_END_CKPT
+	Generic_LOP           *Generic_LOP
+	PreviousRecord        *Record
+	NextRecord            *Record
+	Carved                bool
 }
 
-type ByDecreasingLSN []Record
+type ByIncreasingLSN []Record
 
-func (b ByDecreasingLSN) Less(i, j int) bool {
+func (b ByIncreasingLSN) Less(i, j int) bool {
 
-	return b[i].CurrentLSN.IsGreater(b[j].CurrentLSN)
+	return b[i].CurrentLSN.IsLess(b[j].CurrentLSN)
 }
 
-func (b ByDecreasingLSN) Swap(i, j int) {
+func (b ByIncreasingLSN) Swap(i, j int) {
 
 	b[i], b[j] = b[j], b[i]
 }
 
-func (b ByDecreasingLSN) Len() int {
+func (b ByIncreasingLSN) Len() int {
 	return len(b)
 
 }
@@ -132,9 +132,9 @@ func (record Record) ShowLOPInfo(filterloptype string) {
 			ContextType[record.Context])
 	}
 
-	if record.Lop_Insert_Delete != nil &&
+	if record.Lop_Insert_Delete_Mod != nil &&
 		(filterloptype == "insert" || filterloptype == "any") {
-		record.Lop_Insert_Delete.ShowInfo()
+		record.Lop_Insert_Delete_Mod.ShowInfo()
 	} else if record.Lop_Begin != nil &&
 		(filterloptype == "begin" || filterloptype == "any") {
 		record.Lop_Begin.ShowInfo()
@@ -154,8 +154,10 @@ func (record Record) HasOperationType(operationtypes []string) bool {
 	return false
 }
 func (record Record) HasPageID(pageID uint32) bool {
-	return record.Lop_Insert_Delete != nil &&
-		record.Lop_Insert_Delete.RowId.PageId == pageID
+	return record.Lop_Insert_Delete_Mod != nil &&
+		record.Lop_Insert_Delete_Mod.RowId.PageId == pageID ||
+		record.Generic_LOP != nil &&
+			record.Generic_LOP.RowId.PageId == pageID
 }
 
 func (records Records) FilterByOperation(operationType string) Records {
@@ -193,6 +195,19 @@ func (records Records) FilterByPageID(pageID uint32) Records {
 		return record.HasPageID(pageID)
 	})
 
+}
+
+func (records Records) HasExpungeOperation(askedIdx int) bool {
+	for idx := range records {
+		if idx < askedIdx {
+			continue
+		}
+		if records[idx].GetOperationType() == "LOP_EXPUNGE_ROWS" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (records Records) DetermineMinLSN() utils.LSN {
