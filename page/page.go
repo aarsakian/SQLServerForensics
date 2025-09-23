@@ -503,7 +503,7 @@ func (page *Page) CarveData(data []byte, offset int) {
 			// accept only primary records
 
 			if GetRowType(data[slotOffset+slackOffset]) == "Ghost Data Record" {
-
+				slotnum += 1 //extra slot recovered
 				dataRow := DataRow{Carved: true}
 				actualDataRowSize = uint16(dataRow.Parse(
 					data[slotOffset+slackOffset:],
@@ -601,8 +601,9 @@ func (page Page) ShowIndexRows() {
 func (page Page) ShowSlotInfo() {
 
 	fmt.Printf("Slots info page %d\n", page.Header.PageId)
-	for _, slot := range page.Slots {
-		fmt.Printf("offset %d slack area %d\n", slot.Offset, slot.AllocatedDataRowSize-slot.ActualDataRowSize)
+	for slotnum, slot := range page.Slots {
+		fmt.Printf("%d: offset %d slack area %d\n", slotnum,
+			slot.Offset, slot.AllocatedDataRowSize-slot.ActualDataRowSize)
 	}
 }
 
