@@ -238,31 +238,32 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 
 		//LOP_BEGIN_CKPT = start of checkpoint
 		//LOP_END_CKPT = end of checkpoint
-		if OperationType[record.Operation] == "LOP_INSERT_ROW" ||
-			OperationType[record.Operation] == "LOP_DELETE_ROW" ||
-			OperationType[record.Operation] == "LOP_MODIFY_ROW" {
+		switch OperationType[record.Operation] {
 
-			lop_insert_delete_mod := new(LOP_INSERT_DELETE_MOD)
-			lop_insert_delete_mod.Process(bs[recordOffset+24:])
-			record.Lop_Insert_Delete = lop_insert_delete_mod
+		case "LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW", "LOP_INSERT_SPLIT",
+			"LOP_DELETE_SPLIT", "LOP_MODIFY_SPLIT":
 
-		} else if OperationType[record.Operation] == "LOP_BEGIN_XACT" {
+			Lop_Insert_Delete_Mod_mod := new(LOP_INSERT_DELETE_MOD)
+			Lop_Insert_Delete_Mod_mod.Process(bs[recordOffset+24:])
+			record.Lop_Insert_Delete_Mod = Lop_Insert_Delete_Mod_mod
+
+		case "LOP_BEGIN_XACT":
 			lop_begin_xact := new(LOP_BEGIN)
 			lop_begin_xact.Process(bs[recordOffset+24:])
 			record.Lop_Begin = lop_begin_xact
-		} else if OperationType[record.Operation] == "LOP_COMMIT_XACT" {
+		case "LOP_COMMIT_XACT":
 			lop_commit := new(LOP_COMMIT)
 			lop_commit.Process(bs[recordOffset+24:])
 			record.Lop_Commit = lop_commit
-		} else if OperationType[record.Operation] == "LOP_BEGIN_CKPT" {
+		case "LOP_BEGIN_CKPT":
 			lop_begin_ckpt := new(LOP_BEGIN_CKPT)
 			lop_begin_ckpt.Process(bs[recordOffset+24:])
 			record.Lop_Begin_CKPT = lop_begin_ckpt
-		} else if OperationType[record.Operation] == "LOP_END_CKPT" {
+		case "LOP_END_CKPT":
 			lop_end_ckpt := new(LOP_END_CKPT)
 			lop_end_ckpt.Process(bs[recordOffset+24:])
 			record.Lop_End_CKPT = lop_end_ckpt
-		} else if OperationType[record.Operation] == "LOP_EXPUNGE_ROWS" {
+		case "LOP_EXPUNGE_ROWS":
 			lop_exp_row := new(Generic_LOP)
 			lop_exp_row.Process(bs[recordOffset+24:])
 			record.Generic_LOP = lop_exp_row
