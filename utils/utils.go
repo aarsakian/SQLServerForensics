@@ -72,6 +72,18 @@ func (lsn LSN) IsGreater(smallerLSN LSN) bool {
 	}
 }
 
+func (lsn LSN) IsLess(smallerLSN LSN) bool {
+	if lsn.P1 < smallerLSN.P1 {
+		return true
+	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 < smallerLSN.P2 {
+		return true
+	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 == smallerLSN.P2 && lsn.P3 < smallerLSN.P3 {
+		return true
+	} else {
+		return false
+	}
+}
+
 func (lsn LSN) Equals(otherLSN LSN) bool {
 	return lsn.P1 == otherLSN.P1 && lsn.P2 == otherLSN.P2 && lsn.P3 == otherLSN.P3
 }
