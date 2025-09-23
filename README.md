@@ -63,9 +63,6 @@ Usage instructions have been grouped so as to help the user.
 -carve
         Carve data records and try to interpret
 
-  -ldf int
-        parse hardened (commited) log transactions 1: data changes  2: full changes
-
 -to int
         select page id to end parsing (default -1)
  
