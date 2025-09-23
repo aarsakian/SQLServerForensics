@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"sort"
 	"sync"
@@ -369,15 +370,40 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 
 }
 
-func (table *Table) MarkRowPurged(record LDF.Record, carved bool) {
+func (table *Table) AddPurgedRow(record LDF.Record, carved bool) {
+	foundRowMatch := false
 
 	loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
-		fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+		fmt.Sprintf(" commited at %s previous slot %d", record.GetEndCommitDate(),
+			record.Lop_Insert_Delete_Mod.RowId.SlotNumber)
 
-	row := Row{Carved: carved, Logged: true, LoggedOperation: loggedOperation,
-		LogDate: record.GetBeginCommitDateObj()}
+	row := table.ProcessRow(len(table.Rows), *record.Lop_Insert_Delete_Mod.DataRow,
+		page.PagesPerId[uint32]{}, page.PagesPerId[uint32]{}, record.Lop_Insert_Delete_Mod.PartitionID)
 
-	table.Rows = append(table.Rows, row)
+	//before adding a purged row check if the same row was carved
+	for rowid, existingRow := range table.Rows {
+		if !existingRow.Carved {
+			continue
+		}
+		if reflect.DeepEqual(existingRow.ColMap, row.ColMap) {
+			existingRow.Carved = carved
+			existingRow.Logged = true
+			existingRow.LoggedOperation = loggedOperation
+			existingRow.LogDate = record.GetBeginCommitDateObj()
+			table.Rows[rowid] = existingRow
+
+			foundRowMatch = true
+		}
+	}
+
+	if !foundRowMatch {
+
+		row.Carved = carved
+		row.Logged = true
+		row.LoggedOperation = loggedOperation
+		row.LogDate = record.GetBeginCommitDateObj()
+		table.Rows = append(table.Rows, row)
+	}
 
 }
 
@@ -436,7 +462,7 @@ func (table *Table) addLogChanges(records LDF.Records) {
 			if record.GetOperationType() == "LOP_DELETE_ROW" && !slotRecordsPerGroup.HasExpungeOperation(idx) {
 				table.MarkRowDeleted(record, record.Carved)
 			} else if record.GetOperationType() == "LOP_DELETE_ROW" && slotRecordsPerGroup.HasExpungeOperation(idx) {
-				table.MarkRowPurged(record, record.Carved)
+				table.AddPurgedRow(record, record.Carved)
 			} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
 				table.MarkRowModified(record, record.Carved)
 			} else if record.GetOperationType() == "LOP_INSERT_ROW" {
