@@ -106,7 +106,6 @@ func main() {
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
-	ldfLevel := flag.Int("ldf", 0, "parse hardened (commited) log transactions 1: data changes  2: full changes")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|any")
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
 	raw := flag.Bool("showraw", false, "show row data for each column in a table")
@@ -165,14 +164,14 @@ func main() {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"bak"}})
 	}
 
-	if *ldfLevel == 1 || *ldfLevel == 2 {
+	if *ldbfile != "" {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF", "LDF"}})
 
 	} else {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF"}})
 	}
 
-	if mdffile != "" && (*ldfLevel == 1 || *ldfLevel == 2) {
+	if mdffile != "" && *ldbfile != "" {
 		flm.Register(filters.PrefixesSuffixesFilter{Prefixes: []string{strings.Split(mdffile, ".")[0], strings.Split(mdffile, ".")[0]},
 			Suffixes: []string{"ldf", "mdf"}})
 
@@ -181,7 +180,7 @@ func main() {
 	if *dbfile != "" {
 		basepath, mdffile = utils.SplitPath(*dbfile)
 
-		if mdffile != "" && (*ldfLevel == 1 || *ldfLevel == 2) {
+		if mdffile != "" && *ldbfile != "" {
 
 			flm.Register(filters.NameFilter{Filenames: []string{mdffile}})
 		}
@@ -273,7 +272,7 @@ func main() {
 	}
 
 	start := time.Now()
-	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, *ldfLevel, *carve)
+	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, 2, *carve)
 
 	fmt.Printf("Processed %d pages %d MB in %f secs \n",
 		processedPages, processedPages*8192/1000/1024, time.Since(start).Seconds())
@@ -283,7 +282,7 @@ func main() {
 	if *processTables {
 		start := time.Now()
 
-		pm.ProcessTables(selectedTableRowsInt, *ldfLevel)
+		pm.ProcessTables(selectedTableRowsInt)
 
 		fmt.Printf("Finished in %f secs", time.Since(start).Seconds())
 	}
