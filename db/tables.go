@@ -125,20 +125,14 @@ func (table *Table) udateColIndex(sysiscols SysIsCols) {
 }
 
 func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64],
-	logRecords LDF.Records, ldfLevel int) {
+	logRecords LDF.Records) {
 	var allocatedPages page.Pages
 
 	var candidateRecords LDF.Records
 
 	// only data changes
-	if ldfLevel == 1 {
-		logRecords = logRecords.FilterByOperations(
-			[]string{"LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW"})
 
-	} else if ldfLevel == 2 {
-		logRecords = logRecords.FilterOutNullOperations()
-
-	}
+	logRecords = logRecords.FilterOutNullOperations()
 
 	for allocUnitID := range table.AllocationUnitIdTopartitionId {
 		allocatedPages = append(allocatedPages, pagesPerAllocUnitID.GetPages(allocUnitID)...)
@@ -154,7 +148,7 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 
 	}
 
-	sort.Sort(LDF.ByDecreasingLSN(candidateRecords))
+	sort.Sort(LDF.ByIncreasingLSN(candidateRecords))
 
 	//flag denotes carved
 	table.addLogChanges(candidateRecords)
@@ -333,13 +327,13 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 	colmap := make(ColMap)
 	nofNullCols := 0
 	for _, col := range table.Schema {
-		if record.Lop_Insert_Delete.DataRow == nil {
+		if record.Lop_Insert_Delete_Mod.DataRow == nil {
 			msg := fmt.Sprintf("Lop Insert Record missing DataRow %s", record.CurrentLSN.ToStr())
 			mslogger.Mslogger.Warning(msg)
 			continue
 		}
 
-		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID, nofNullCols)
+		colval, e := col.addContent(*record.Lop_Insert_Delete_Mod.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete_Mod.PartitionID, nofNullCols)
 		if e == nil {
 			colmap[col.Name] = ColData{Content: colval}
 		}
@@ -356,7 +350,7 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 
 func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 
-	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
+	rowid := int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)
 
 	if len(table.Rows) > rowid {
 
@@ -375,9 +369,21 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 
 }
 
+func (table *Table) MarkRowPurged(record LDF.Record, carved bool) {
+
+	loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
+		fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+
+	row := Row{Carved: carved, Logged: true, LoggedOperation: loggedOperation,
+		LogDate: record.GetBeginCommitDateObj()}
+
+	table.Rows = append(table.Rows, row)
+
+}
+
 func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 
-	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
+	rowid := int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)
 	if len(table.Rows) > rowid {
 		row := table.Rows[rowid]
 		row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
@@ -386,17 +392,17 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 		row.Logged = true
 
 		for _, c := range table.Schema {
-			if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
+			if c.OffsetMap[record.Lop_Insert_Delete_Mod.PartitionID] >= int16(record.Lop_Insert_Delete_Mod.OffsetInRow) {
 				var newcontent bytes.Buffer
 				newcontent.Grow(int(c.Size))
 
 				colData := row.ColMap[c.Name]
 				//new data from startoffset -> startoffset + modifysize
-				startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
+				startOffset := int16(record.Lop_Insert_Delete_Mod.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete_Mod.PartitionID]
 				if startOffset > 0 {
 					newcontent.Write(colData.Content[:startOffset]) //unchanged content
-					newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
-					newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
+					newcontent.Write(record.Lop_Insert_Delete_Mod.RowLogContents[0])
+					newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete_Mod.ModifySize):])
 
 					colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
 					row.ColMap[c.Name] = colData
@@ -413,17 +419,31 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 }
 
 func (table *Table) addLogChanges(records LDF.Records) {
-
+	groupedPerSlotID := make(map[int]LDF.Records)
 	for _, record := range records {
-
-		if record.GetOperationType() == "LOP_DELETE_ROW" {
-			table.MarkRowDeleted(record, record.Carved)
-		} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
-			table.MarkRowModified(record, record.Carved)
-		} else if record.GetOperationType() == "LOP_INSERT_ROW" {
-			table.AddRow(record, record.Carved)
+		if record.Lop_Insert_Delete_Mod != nil {
+			groupedPerSlotID[int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)] =
+				append(groupedPerSlotID[int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)], record)
+		} else {
+			groupedPerSlotID[int(record.Generic_LOP.RowId.SlotNumber)] =
+				append(groupedPerSlotID[int(record.Generic_LOP.RowId.SlotNumber)], record)
 		}
 
+	}
+	for _, slotRecordsPerGroup := range groupedPerSlotID {
+		for idx, record := range slotRecordsPerGroup {
+
+			if record.GetOperationType() == "LOP_DELETE_ROW" && !slotRecordsPerGroup.HasExpungeOperation(idx) {
+				table.MarkRowDeleted(record, record.Carved)
+			} else if record.GetOperationType() == "LOP_DELETE_ROW" && slotRecordsPerGroup.HasExpungeOperation(idx) {
+				table.MarkRowPurged(record, record.Carved)
+			} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
+				table.MarkRowModified(record, record.Carved)
+			} else if record.GetOperationType() == "LOP_INSERT_ROW" {
+				table.AddRow(record, record.Carved)
+			}
+
+		}
 	}
 
 }
@@ -528,6 +548,8 @@ func (table Table) Show(showSchema bool, showContent bool,
 		table.printSchema()
 	}
 	if showContent {
+
+		fmt.Printf("(l) - logged (c) - carved\n")
 		table.printHeader(showcolnames)
 		table.printData(showtorow, skiprows, showrows, showcarved, showtableldf, showcolnames, showrawdata)
 		table.cleverPrintData()
@@ -792,7 +814,6 @@ func (table Table) cleverPrintData() {
 
 func (table Table) printData(showtorow int, skiprows int,
 	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
-
 	for idx, row := range table.Rows { // when no rder check?
 		locatedRow := true
 
@@ -819,13 +840,13 @@ func (table Table) printData(showtorow int, skiprows int,
 		}
 
 		if showcarved && row.Carved && !row.Logged {
-			fmt.Printf("(d) %d: ", idx+1)
+			fmt.Printf("(c) %d: ", idx+1)
 		} else if !showcarved && row.Carved {
 			continue
 		}
 
 		if showcarved && row.Carved && showldf && row.Logged {
-			fmt.Printf("(d)(l) %d: ", idx+1)
+			fmt.Printf("(c)(l) %d: ", idx+1)
 		} else if showldf && row.Logged {
 			fmt.Printf("(l) %d: ", idx+1)
 		} else if !row.Carved {
