@@ -384,13 +384,13 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 	}
 
-	indexedDataPages := table.setIndexContent(indexPages)
+	indexedDataPerPage := table.setIndexContent(indexPages)
 
 	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
 		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(),
-		"IAM": iamPages.GetIDs(), "IndexedDATA": indexedDataPages}
+		"IAM": iamPages.GetIDs(), "IndexedDATA": indexedDataPerPage}
 
-	if len(indexedDataPages) != 0 {
+	if len(indexedDataPerPage) != 0 {
 		//this is to keep the order by indexed column value
 		//dataPages = dataPages.FilterByIDSortedByInput(indexedDataPages)
 	}
