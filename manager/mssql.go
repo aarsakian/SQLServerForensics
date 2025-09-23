@@ -132,7 +132,7 @@ func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, 
 
 }
 
-func (PM ProcessManager) ProcessTables(selectedTables []int, ldfLevel int) {
+func (PM ProcessManager) ProcessTables(selectedTables []int) {
 
 	for _, database := range PM.Databases {
 
@@ -156,7 +156,7 @@ func (PM ProcessManager) ProcessTables(selectedTables []int, ldfLevel int) {
 		listener2 = broadcaster.Subscribe()
 
 		go database.ProcessTables(ctx, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
-			srcCH, PM.TableConfiguration.SelectedPages, ldfLevel)
+			srcCH, PM.TableConfiguration.SelectedPages)
 
 		if PM.exporter.Path != "" {
 			go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name,
