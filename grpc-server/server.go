@@ -107,7 +107,7 @@ func (mssqlparser_commsServer *Server) Process(
 
 		go database.ProcessTables(ctx, mssqlparser_commsServer.pm.TableConfiguration.SelectedTables,
 			mssqlparser_commsServer.pm.TableConfiguration.SelectedType,
-			srcCH, mssqlparser_commsServer.pm.TableConfiguration.SelectedPages, 0)
+			srcCH, mssqlparser_commsServer.pm.TableConfiguration.SelectedPages)
 
 		go func(wgs *sync.WaitGroup) {
 			defer wgs.Done()
@@ -344,7 +344,7 @@ func (mssqlparser_commsServer *Server) ProcessBak(bakfile *mssqlparser_comms.MTF
 
 		go database.ProcessTables(ctx, mssqlparser_commsServer.pm.TableConfiguration.SelectedTables,
 			mssqlparser_commsServer.pm.TableConfiguration.SelectedType,
-			srcCH, mssqlparser_commsServer.pm.TableConfiguration.SelectedPages, 0)
+			srcCH, mssqlparser_commsServer.pm.TableConfiguration.SelectedPages)
 
 		go func(wgs *sync.WaitGroup) {
 			defer wgs.Done()
