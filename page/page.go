@@ -137,7 +137,7 @@ type Page struct {
 type AllocationMaps interface {
 	FilterByAllocationStatus(bool) AllocationMaps
 	ShowAllocations()
-	GetAllocationStatus(uint32) string
+	GetAllocationStatus([]uint32) string
 }
 
 func (header Header) getIndexType() string {
