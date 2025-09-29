@@ -52,7 +52,7 @@ type VLF struct {
 
 type LogBlock struct {
 	Header        *LogBlockHeader
-	Records       []Record
+	Records       Records
 	RecordOffsets RecordOffsets
 }
 
