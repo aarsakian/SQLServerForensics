@@ -68,7 +68,7 @@ func main() {
 		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export MDF/LDF files")
 	carve := flag.Bool("carve", false, "Carve data records and try to interpret")
-	selectedPage := flag.Int("page", -1, "select a page to start parsing")
+	selectedPages := flag.String("pages", "", "select pages to parse (use comma for each page id)")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
@@ -272,7 +272,9 @@ func main() {
 	}
 
 	start := time.Now()
-	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles, *selectedPage, *fromPage, *toPage, 2, *carve)
+	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles,
+		utils.StringsToIntArray(*selectedPages),
+		*fromPage, *toPage, 2, *carve)
 
 	fmt.Printf("Processed %d pages %d MB in %f secs \n",
 		processedPages, processedPages*8192/1000/1024, time.Since(start).Seconds())
@@ -287,6 +289,6 @@ func main() {
 		fmt.Printf("Finished in %f secs", time.Since(start).Seconds())
 	}
 
-	pm.ShowInfo(*selectedPage, *filterlop)
+	pm.ShowInfo(utils.StringsToUint32Array(*selectedPages), *filterlop)
 
 }
