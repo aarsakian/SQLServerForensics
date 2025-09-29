@@ -72,7 +72,7 @@ func (PM *ProcessManager) SetShowCarve(showcarve bool) {
 }
 
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
-	selectedPage int, fromPage int, toPage int, ldfLevel int, carve bool) int {
+	selectedPages []int, fromPage int, toPage int, ldfLevel int, carve bool) int {
 
 	var database db.Database
 
@@ -85,7 +85,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		}
 
 		/*processing pages stage */
-		totalProcessedPages, err := database.ProcessMDF(selectedPage, fromPage, toPage, carve)
+		totalProcessedPages, err := database.ProcessMDF(selectedPages, fromPage, toPage, carve)
 		if err != nil {
 			continue
 		}
@@ -179,10 +179,11 @@ func (PM ProcessManager) GetDatabaseNames() []string {
 	return databaseNames
 }
 
-func (PM ProcessManager) ShowInfo(selectedPage int, filterlop string) {
+func (PM ProcessManager) ShowInfo(selectedPages []uint32, filterlop string) {
 	for _, database := range PM.Databases {
-		PM.reporter.ShowPageInfo(database, uint32(selectedPage))
-		PM.reporter.ShowLDFInfo(database, filterlop)
+		PM.reporter.ShowPageInfo(database, selectedPages)
+		PM.reporter.ShowLDFInfo(database, selectedPages, filterlop)
+
 	}
 }
 
