@@ -156,6 +156,24 @@ func StringsToIntArray(stringwithcomma string) []int {
 	return ints
 }
 
+func StringsToUint32Array(stringwithcomma string) []uint32 {
+
+	strs := strings.Split(stringwithcomma, ",")
+	ints := make([]uint32, len(strs))
+
+	for idx := range strs {
+		if strs[idx] == "" {
+			continue
+		}
+		val, e := strconv.ParseInt(strs[idx], 10, 32)
+		if e != nil {
+			fmt.Println("ERROR", e)
+		}
+		ints[idx] = uint32(val)
+	}
+	return ints
+}
+
 func LocateLDFfile(mdffile string) (string, error) {
 	dir, fname := filepath.Split(mdffile)
 	fname = strings.Split(fname, ".")[0]
