@@ -31,7 +31,7 @@ type Reporter struct {
 	ShowColNames        []string
 }
 
-func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
+func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32) {
 	node := database.PagesPerAllocUnitID.GetHeadNode()
 	for node != nil {
 
@@ -58,13 +58,13 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPageId uint32) {
 
 			if rp.ShowPageStats {
 				if page.GetType() == "PFS" {
-					pfsstatus := allocMap.GetAllocationStatus(selectedPageId)
+					pfsstatus := allocMap.GetAllocationStatus(selectedPages)
 					fmt.Printf("PFS %s ", pfsstatus)
 				} else if page.GetType() == "GAM" {
-					gamstatus := allocMap.GetAllocationStatus(selectedPageId)
+					gamstatus := allocMap.GetAllocationStatus(selectedPages)
 					fmt.Printf("GAM %s ", gamstatus)
 				} else if page.GetType() == "SGAM" {
-					sgamstatus := allocMap.GetAllocationStatus(selectedPageId)
+					sgamstatus := allocMap.GetAllocationStatus(selectedPages)
 					fmt.Printf("SGAM %s ", sgamstatus)
 				} else {
 					fmt.Printf("PFS, GAM, SGAM, DATA page type not found")
@@ -98,9 +98,11 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
 	}
 }
 
-func (rp Reporter) ShowLDFInfo(database db.Database, filterlop string) {
+func (rp Reporter) ShowLDFInfo(database db.Database, pagesId []uint32,
+	filterlop string) {
 	if rp.ShowLDF {
 		database.ShowLDF(filterlop)
+		database.ShowPagesLDF(pagesId)
 
 	}
 }
