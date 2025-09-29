@@ -3,6 +3,7 @@ package page
 import (
 	"MSSQLParser/utils"
 	"fmt"
+	"strings"
 )
 
 //mixed extent sharing data more than one table
@@ -46,13 +47,15 @@ func (pfsPage PFSPage) FilterByAllocationStatus(status bool) AllocationMaps {
 
 }
 
-func (pfsPage PFSPage) GetAllocationStatus(pageId uint32) string {
-	var status string
-	for _, pfs := range pfsPage {
-		if pfs.pageID != pageId {
-			continue
+func (pfsPage PFSPage) GetAllocationStatus(pagesId []uint32) string {
+	var status strings.Builder
+	for _, pageId := range pagesId {
+		for _, pfs := range pfsPage {
+			if pfs.pageID != pageId {
+				continue
+			}
+			status.WriteString(fmt.Sprintf("%d %s\n", pfs.pageID, pfs.status))
 		}
-		status = pfs.status
 	}
-	return status
+	return status.String()
 }

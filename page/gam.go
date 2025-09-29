@@ -4,6 +4,7 @@ import (
 	"MSSQLParser/utils"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type GAMExtents []GAMExtent
@@ -53,13 +54,16 @@ func (gamExtents GAMExtents) GetStats() (int, int) {
 
 }
 
-func (gamExtents GAMExtents) GetAllocationStatus(pageId uint32) string {
-	status := "NOT ALLOCATED"
-	for _, gam := range gamExtents {
-		if pageId < uint32(gam.extent*8) || pageId > uint32(gam.extent*8+8) {
-			continue
+func (gamExtents GAMExtents) GetAllocationStatus(pageId []uint32) string {
+	var status strings.Builder
+	for _, pageId := range pageId {
+		for _, gam := range gamExtents {
+			if pageId < uint32(gam.extent*8) || pageId > uint32(gam.extent*8+8) {
+				status.WriteString(fmt.Sprintf("%d NOT ALLOCATED\n", pageId))
+			} else {
+				status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
+			}
 		}
-		status = "ALLOCATED"
 	}
-	return status
+	return status.String()
 }

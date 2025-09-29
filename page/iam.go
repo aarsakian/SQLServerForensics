@@ -5,6 +5,7 @@ package page
 import (
 	"MSSQLParser/utils"
 	"fmt"
+	"strings"
 )
 
 type IAMExtents []IAMExtent
@@ -54,13 +55,18 @@ func (iamExtents IAMExtents) ShowAllocations() {
 		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
 }
 
-func (iamExtents IAMExtents) GetAllocationStatus(pageId uint32) string {
-	status := "NOT ALLOCATED"
-	for _, iam := range iamExtents {
-		if pageId < uint32(iam.extent*8) || pageId > uint32(iam.extent*8+8) {
-			continue
+func (iamExtents IAMExtents) GetAllocationStatus(pagesId []uint32) string {
+	var status strings.Builder
+
+	for _, pageId := range pagesId {
+		for _, iam := range iamExtents {
+			if pageId < uint32(iam.extent*8) || pageId > uint32(iam.extent*8+8) {
+				status.WriteString(fmt.Sprintf("%d NOT ALLOCATED\n", pageId))
+			} else {
+				status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
+			}
+
 		}
-		status = "ALLOCATED"
 	}
-	return status
+	return status.String()
 }
