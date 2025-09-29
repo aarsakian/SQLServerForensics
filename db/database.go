@@ -104,7 +104,7 @@ func (db *Database) ProcessSystemTables() {
 	fmt.Printf("msg %s\n", msg)
 }
 
-func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve bool) (int, error) {
+func (db *Database) ProcessMDF(selectedPages []int, fromPage int, toPage int, carve bool) (int, error) {
 
 	file, err := os.Open(db.Fname) //
 	if err != nil {
@@ -143,10 +143,10 @@ func (db *Database) ProcessMDF(selectedPage int, fromPage int, toPage int, carve
 			return 0, err
 		}
 
-		if selectedPage != -1 && (offset/PAGELEN < selectedPage ||
+		/*if selectedPages != -1 && (offset/PAGELEN < selectedPage ||
 			offset/PAGELEN > selectedPage) {
 			continue
-		}
+		}*/
 
 		if (offset / PAGELEN) < fromPage {
 			continue
@@ -233,6 +233,22 @@ func (db *Database) FilterPagesBySystemTables(systemTable string) {
 func (db Database) ShowLDF(filterloptype string) {
 	for _, vlf := range *db.VLFs {
 		vlf.ShowInfo(filterloptype)
+	}
+}
+
+func (db Database) ShowPagesLDF(pagesId []uint32) {
+	for _, pageId := range pagesId {
+		fmt.Printf("PageID %d changes: \n", pageId)
+		for _, vlf := range *db.VLFs {
+			for _, block := range vlf.Blocks {
+
+				filteredRecords := block.Records.FilterByPageID(pageId)
+				for _, record := range filteredRecords {
+					record.ShowLOPInfo("any")
+				}
+			}
+		}
+
 	}
 }
 
