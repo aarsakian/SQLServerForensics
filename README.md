@@ -277,6 +277,6 @@ Export all tables of backup file ***AdventureWorks2022.bak***, mdf produced file
 
 
 ### Working evidence files 
-Export all tables to ***MyExport*** of any database file found in image ***tester-ewf***, database files are exported to ***MyDBs***
+Export all tables to ***MyExport*** of any database file found in image ***tester-ewf***, database files are exported to ***MyDBs*** (Locating database files is based on extension)
 >.\MSSQLParser.exe -evidence C:\Users\User\Downloads\evidence\tester-ewf.E01 -location
  MyDBs -processtables -export Myexport
