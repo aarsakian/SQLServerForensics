@@ -164,7 +164,7 @@ func main() {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"bak"}})
 	}
 
-	if *ldbfile != "" {
+	if *ldbfile != "" || *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF", "LDF"}})
 
 	} else {
@@ -274,7 +274,7 @@ func main() {
 	start := time.Now()
 	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles,
 		utils.StringsToIntArray(*selectedPages),
-		*fromPage, *toPage, 2, *carve)
+		*fromPage, *toPage, *carve)
 
 	fmt.Printf("Processed %d pages %d MB in %f secs \n",
 		processedPages, processedPages*8192/1000/1024, time.Since(start).Seconds())
