@@ -72,8 +72,8 @@ Usage instructions have been grouped so as to help the user.
 -location string
         the path to export MDF/LDF files (default "MDF")
 
--page int
-        select a page to start parsing (default -1)
+-pages string
+       select pages to parse (use comma for each page id)
  
 -processtables
         process tables
@@ -255,11 +255,11 @@ Show page number and index names of table ***PersonPhone*** of database file ***
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableindex -tables PersonPhone
 
 Show page  information including ***header, slot offsets and possible slack space, data column offsets and contents*** of page 6432 of database file ***AdventureWorks2022.mdf*** 
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showheader -showslots -showdatacols -page  6432
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showheader -showslots -showdatacols -pages  6432
 
 
 Show page information including ***index structure FileID, PageID, Key, RowSize*** of index page 11854
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf   -showindex -page  11854
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf   -showindex -pages  11854
 
 
 
@@ -274,3 +274,9 @@ You can apply all operations of database file mdf to bak files, for instance see
 
 Export all tables of backup file ***AdventureWorks2022.bak***, mdf produced file will be saved to location ***BackupDB***
 >.\MSSQLParser.exe -mtf ..\Shared-mssql\data\AdventureWorks2022.bak -location BackupDB -processtables -export TablesFromBackup
+
+
+### Working evidence files 
+Export all tables to ***MyExport*** of any database file found in image ***tester-ewf***, database files are exported to ***MyDBs***
+>.\MSSQLParser.exe -evidence C:\Users\User\Downloads\evidence\tester-ewf.E01 -location
+ MyDBs -processtables -export Myexport
