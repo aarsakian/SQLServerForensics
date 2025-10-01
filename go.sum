@@ -20,6 +20,8 @@ github.com/aarsakian/EWF_Reader v0.0.0-20250718160049-06c47a471e53 h1:9gyzEc02mG
 github.com/aarsakian/EWF_Reader v0.0.0-20250718160049-06c47a471e53/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/EWF_Reader v0.0.0-20250908192818-460d73ee4b6c h1:lqFzCEgOL5us1Woqj1rrT+jiYVBzdQPD/PILGiHeWeU=
 github.com/aarsakian/EWF_Reader v0.0.0-20250908192818-460d73ee4b6c/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
+github.com/aarsakian/EWF_Reader v0.0.0-20251001191730-4576656c991f h1:l5h/ZPg8GPKmQnLa+cZVWyAy5RPzdFtaLbR7LdT5I34=
+github.com/aarsakian/EWF_Reader v0.0.0-20251001191730-4576656c991f/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250709152055-a3712f8d7a88 h1:UL0AWhv00U6e3iuVCpgLAeRXxgNzvKpB1FPjrEq5Vx8=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250709152055-a3712f8d7a88/go.mod h1:nwFFW5pCzgdUC9lM8au6CbSt2tH+EDpQe22KzNA1UoY=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250711201407-3edbf02889fa h1:IoBVy2+6+tr7SaIyfb1lWOFoKcVyOsHplrOM8CCDi54=
@@ -28,6 +30,10 @@ github.com/aarsakian/FileSystemForensics v0.0.0-20250718160244-8a95974eda1c h1:Z
 github.com/aarsakian/FileSystemForensics v0.0.0-20250718160244-8a95974eda1c/go.mod h1:9vPSQ7j8IsKxKyHIZvdPk7vAcFxosh7DWjZPm10XHw8=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250908194841-4c1462551885 h1:BHgFw1u/l+RbBw2GotDv3tWf7fGn7/FFNLAnBe8lzZs=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250908194841-4c1462551885/go.mod h1:giQBs/0I7sU0PsYpKEgAsfZhx1lI+JVr3xzBm2OfOVg=
+github.com/aarsakian/FileSystemForensics v0.0.0-20251001191925-e0dc658a9dae h1:hDMimNNwRA8N95CORXcrmxxus2KgD8m7JiLAmYj6n1g=
+github.com/aarsakian/FileSystemForensics v0.0.0-20251001191925-e0dc658a9dae/go.mod h1:O64rB/Chr5PO3wyK4gh4c7KRgofMdMJAOxfPVkhsK6Q=
+github.com/aarsakian/FileSystemForensics v0.0.0-20251001200520-7eb42efd97a7 h1:7r+FZq5s7bZWS4Z8izLaWiESaX3xIEKNhOTmp1sLoFA=
+github.com/aarsakian/FileSystemForensics v0.0.0-20251001200520-7eb42efd97a7/go.mod h1:O64rB/Chr5PO3wyK4gh4c7KRgofMdMJAOxfPVkhsK6Q=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379 h1:T2lSAVpvGsE2O7olYbLIFoRWTZF02aIZWgqymfKv8c8=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379/go.mod h1:5rDBrKabUaUjAXOiPmJm8AdPAKkKcXit89TF48U8bBE=
 github.com/aarsakian/MFTExtractor v0.0.0-20231012164709-8e3d94c6a208 h1:s0GOggLWGsUMioWpEJG873BaNvSQk2VIXUH0s3Fi5mM=
