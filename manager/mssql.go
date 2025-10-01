@@ -72,7 +72,7 @@ func (PM *ProcessManager) SetShowCarve(showcarve bool) {
 }
 
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
-	selectedPages []int, fromPage int, toPage int, ldfLevel int, carve bool) int {
+	selectedPages []int, fromPage int, toPage int, carve bool) int {
 
 	var database db.Database
 
@@ -97,13 +97,10 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		database.ProcessSystemTables()
 
-		if ldfLevel == 1 || ldfLevel == 2 {
-			ldfRecordsProcessed, err := database.ProcessLDF(carve)
+		ldfRecordsProcessed, err := database.ProcessLDF(carve)
 
-			if err == nil && ldfRecordsProcessed > 0 {
-				database.AddLogRecords(carve)
-			}
-
+		if err == nil && ldfRecordsProcessed > 0 {
+			database.AddLogRecords(carve)
 		}
 
 		processedPages += totalProcessedPages

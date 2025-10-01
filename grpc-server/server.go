@@ -83,7 +83,7 @@ func (mssqlparser_commsServer *Server) Process(
 		return err
 	}
 	mssqlparser_commsServer.pm.ProcessDBFiles([]string{fileDetails.Mdffile}, []string{fileDetails.Ldffile},
-		[]int{}, 0, math.MaxUint32, int(fileDetails.LdfLevel), fileDetails.Carve)
+		[]int{}, 0, math.MaxUint32, fileDetails.Carve)
 
 	for dbidx, database := range mssqlparser_commsServer.pm.Databases {
 		srcCH := make(chan db.Table, 100000)
@@ -321,7 +321,7 @@ func (mssqlparser_commsServer *Server) ProcessBak(bakfile *mssqlparser_comms.MTF
 	mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
 
 	mssqlparser_commsServer.pm.ProcessDBFiles(mdffiles, []string{}, []int{},
-		0, math.MaxUint32, 0, false)
+		0, math.MaxUint32, false)
 
 	for dbidx, database := range mssqlparser_commsServer.pm.Databases {
 		srcCH := make(chan db.Table, 100000)
