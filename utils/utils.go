@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
-	"unicode/utf8"
 )
 
 var LeapYear = []int{0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
@@ -634,15 +633,20 @@ func HasFlagSet(bitrepresentation string, flagPos int) bool {
 
 }
 
+func CleanUTF16LE(s string) string {
+	return strings.TrimRightFunc(s, func(r rune) bool {
+
+		return r == '\uFFFD' || r == ' ' || r == '\u0000' || r == '\u2020'
+	})
+}
+
 func DecodeUTF16(b []byte) string {
-	utf := make([]uint16, (len(b)+(2-1))/2) // utf-16 2 bytes for each char
-	for i := 0; i+(2-1) < len(b); i += 2 {
-		utf[i/2] = binary.LittleEndian.Uint16(b[i:])
+	utf := make([]uint16, len(b)/2) // utf-16 2 bytes for each char
+	for i := range utf {
+		utf[i] = uint16(b[2*i]) | uint16(b[2*i+1])<<8
 
 	}
-	if len(b)/2 < len(utf) { // the "error" Rune or "Unicode replacement character"
-		utf[len(utf)-1] = utf8.RuneError
-	}
+
 	return string(utf16.Decode(utf))
 
 }
