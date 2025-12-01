@@ -22,6 +22,8 @@ github.com/aarsakian/EWF_Reader v0.0.0-20250908192818-460d73ee4b6c h1:lqFzCEgOL5
 github.com/aarsakian/EWF_Reader v0.0.0-20250908192818-460d73ee4b6c/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/EWF_Reader v0.0.0-20251001191730-4576656c991f h1:l5h/ZPg8GPKmQnLa+cZVWyAy5RPzdFtaLbR7LdT5I34=
 github.com/aarsakian/EWF_Reader v0.0.0-20251001191730-4576656c991f/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
+github.com/aarsakian/EWF_Reader v0.0.0-20251105200644-0b8559893950 h1:BZcrBU55adH529WzJwKBOSVKdHCtAvULTXAICdTBJRM=
+github.com/aarsakian/EWF_Reader v0.0.0-20251105200644-0b8559893950/go.mod h1:d6erJYcE1G79EhLFO1lTgteghLoEYyn3B4MEsTR2Hpo=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250709152055-a3712f8d7a88 h1:UL0AWhv00U6e3iuVCpgLAeRXxgNzvKpB1FPjrEq5Vx8=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250709152055-a3712f8d7a88/go.mod h1:nwFFW5pCzgdUC9lM8au6CbSt2tH+EDpQe22KzNA1UoY=
 github.com/aarsakian/FileSystemForensics v0.0.0-20250711201407-3edbf02889fa h1:IoBVy2+6+tr7SaIyfb1lWOFoKcVyOsHplrOM8CCDi54=
