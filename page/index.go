@@ -75,6 +75,10 @@ func (indexRow *IndexRow) Parse(data []byte, offset int) {
 		utils.Unmarshal(data[1:], indexIntermediate)
 
 		structSize := int(unsafe.Sizeof(indexIntermediate))
+		if 1+structSize >= len(data) {
+			mslogger.Mslogger.Warning("Non Leaf Record exceeded buffer size")
+			return
+		}
 		indexIntermediate.KeyValue = make([]byte, len(data[1+structSize:]))
 		copy(indexIntermediate.KeyValue, data[1+structSize:])
 
