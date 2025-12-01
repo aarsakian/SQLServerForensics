@@ -2,7 +2,6 @@ package page
 
 import (
 	"MSSQLParser/utils"
-	"strings"
 )
 
 type Boot struct {
@@ -111,6 +110,6 @@ type Boot struct {
 }
 
 func (boot Boot) GetDBName() string {
-	return strings.ReplaceAll(strings.TrimSpace(utils.DecodeUTF16(boot.Dbi_dbname[:])), "\u0000", "")
+	return utils.CleanUTF16LE(utils.DecodeUTF16(boot.Dbi_dbname[:]))
 
 }
