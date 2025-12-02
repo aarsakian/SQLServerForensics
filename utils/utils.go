@@ -71,6 +71,20 @@ func (lsn LSN) IsGreater(smallerLSN LSN) bool {
 	}
 }
 
+func RemoveID(file1, file2 string) int {
+	re := regexp.MustCompile(`\[\d+\]`)
+	file1_NOID := re.ReplaceAllString(file1, "")
+	file2_NOID := re.ReplaceAllString(file2, "")
+	if file1_NOID < file2_NOID {
+		return -1
+	} else if file1_NOID == file2_NOID {
+		return 0
+	} else {
+		return 1
+	}
+
+}
+
 func (lsn LSN) IsLess(smallerLSN LSN) bool {
 	if lsn.P1 < smallerLSN.P1 {
 		return true
