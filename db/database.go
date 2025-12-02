@@ -212,7 +212,7 @@ func (db *Database) ProcessLDF(carve bool) (int, error) {
 }
 
 func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
-	var page *page.Page = new(page.Page)
+	page := new(page.Page)
 	page.Process(bs, offset, carve)
 
 	return *page
