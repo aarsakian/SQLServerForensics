@@ -670,7 +670,7 @@ func (page *Page) parseBoot(data []byte) {
 
 	slot := page.Slots[0] //only one slot at boot page
 
-	boot := &Boot{}
+	boot := new(Boot)
 
 	utils.Unmarshal(data[slot.Offset+4:], boot)
 	page.Boot = boot
