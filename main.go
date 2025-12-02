@@ -217,7 +217,7 @@ func main() {
 				fullpath := filepath.Join(exp.Location, fmt.Sprintf("[%d]%s",
 					record.GetID(), record.GetFname()))
 				extension := path.Ext(fullpath)
-				switch extension {
+				switch strings.ToLower(extension) {
 				case ".mdf":
 					mdffiles = append(mdffiles, fullpath)
 				case ".ldf":
