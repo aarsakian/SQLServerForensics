@@ -6,8 +6,11 @@ import (
 	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
+	"MSSQLParser/utils"
 	"context"
 	"fmt"
+	"path/filepath"
+	"slices"
 	"sync"
 )
 
@@ -77,6 +80,10 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 	var database db.Database
 
 	processedPages := 0
+	// ensure one to one match
+	slices.SortFunc(mdffiles, utils.RemoveID)
+	slices.SortFunc(ldffiles, utils.RemoveID)
+
 	for idx, inputFile := range mdffiles {
 		if len(ldffiles) > 0 {
 			database = db.Database{Fname: inputFile, Lname: ldffiles[idx]}
@@ -132,38 +139,38 @@ func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, 
 func (PM ProcessManager) ProcessTables(selectedTables []int) {
 
 	for _, database := range PM.Databases {
-
+		wg := new(sync.WaitGroup)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		var listener1, listener2 <-chan db.Table
-		srcCH := make(chan db.Table, CHANNEL_SIZE)
-		broadcaster := channels.NewBroadcastServer(ctx, srcCH)
+		tablesCH := make(chan db.Table, CHANNEL_SIZE)
+		broadcaster := channels.NewBroadcastServer(ctx, tablesCH)
 
-		msg := fmt.Sprintf("table contents of %s ", database.Name)
+		msg := fmt.Sprintf("Processing tables of database %s from %s ", database.Name, database.Fname)
 		fmt.Printf("%s \n", msg)
 		mslogger.Mslogger.Info(msg)
-		wg := new(sync.WaitGroup)
 
 		if PM.exporter.Path != "" {
-			wg.Add(1)
+
 			listener1 = broadcaster.Subscribe()
 
 		}
-		wg.Add(1)
+
 		listener2 = broadcaster.Subscribe()
 
 		go database.ProcessTables(ctx, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
-			srcCH, PM.TableConfiguration.SelectedPages)
+			tablesCH, PM.TableConfiguration.SelectedPages)
 
 		if PM.exporter.Path != "" {
-			go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name,
+			wg.Add(1)
+			lastDBFolder := filepath.Base(filepath.Clean(database.Fname))
+			lastDBFolder = lastDBFolder[:len(lastDBFolder)-len(filepath.Ext(lastDBFolder))]
+			go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name, lastDBFolder,
 				listener1)
 		}
-
+		wg.Add(1)
 		go PM.reporter.ShowTableInfo(wg, listener2)
-
 		wg.Wait()
-
 	}
 
 }
