@@ -19,8 +19,10 @@ type Exporter struct {
 	Path   string
 }
 
-func (exp Exporter) CreateExportPath(databaseName string, tableType string) string {
-	expPath := filepath.Join(exp.Path, databaseName, tableType)
+func (exp Exporter) CreateExportPath(databaseFolder string,
+	databaseName string, tableType string) string {
+
+	expPath := filepath.Join(exp.Path, databaseFolder, databaseName, tableType)
 
 	err := os.Mkdir(expPath, 0750)
 	if err != nil && !os.IsExist(err) {
@@ -30,25 +32,26 @@ func (exp Exporter) CreateExportPath(databaseName string, tableType string) stri
 
 }
 
-func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnames []string, databaseName string, tables <-chan db.Table) {
+func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnames []string,
+	databaseName string, databaseFolder string, tables <-chan db.Table) {
 	defer expWg.Done()
 
 	var images utils.Images
 
-	err := os.RemoveAll(filepath.Join(exp.Path, databaseName))
+	err := os.RemoveAll(filepath.Join(exp.Path, databaseFolder, databaseName))
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = os.MkdirAll(filepath.Join(exp.Path, databaseName), 0750)
+	err = os.MkdirAll(filepath.Join(exp.Path, databaseFolder, databaseName), 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
 
 	for table := range tables {
 
-		expPath := exp.CreateExportPath(databaseName, table.Type)
+		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type)
 		wg := new(sync.WaitGroup)
-		wg.Add(2)
+		wg.Add(1)
 		records := make(chan utils.Record, 1000)
 
 		go table.GetRecords(wg, selectedTableRow, colnames, records)
@@ -61,7 +64,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		}
 
 		if exp.Format == "csv" {
-
+			wg.Add(1)
 			go WriteCSV(wg, records, table.Name, expPath)
 			wg.Wait()
 		}
