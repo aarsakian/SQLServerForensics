@@ -195,7 +195,7 @@ func main() {
 		physicalDisk := new(disk.Disk)
 		physicalDisk.Initialize(*evidencefile, *physicalDrive, *vmdkfile)
 
-		recordsPerPartition, err := physicalDisk.Process(*partitionNum, []int{}, -1, math.MaxUint32)
+		recordsPerPartition, err := physicalDisk.Process(*partitionNum, []int{}, 0, math.MaxUint32)
 
 		defer physicalDisk.Close()
 
