@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.23.5
 
 require (
-	github.com/aarsakian/EWF_Reader v0.0.0-20251105200644-0b8559893950 // indirect
+	github.com/aarsakian/EWF_Reader v0.0.0-20251203183629-b89d73d16d75 // indirect
 	github.com/aarsakian/FileSystemForensics v0.4.2-0.20251202190458-213b4ba397e6 // indirect
 	github.com/aarsakian/MTF_Reader v0.0.0-20240912075451-66400020e5c6 // indirect
 	github.com/aarsakian/VMDK_Reader v0.0.0-20240910071554-9d72aac7f6b9 // indirect
