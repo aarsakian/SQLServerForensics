@@ -54,6 +54,9 @@ Usage instructions have been grouped so as to help the user.
   -physicaldrive int
         select the physical disk number to look for MDF file (requires admin rights!) (default -1)
 
+ -filenames string
+        select mdf files to filter use comma for each file (to be used with evidence)
+
 ### Processing options 
  
  
