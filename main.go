@@ -76,6 +76,8 @@ func main() {
 	showHeader := flag.Bool("showheader", false, "show page header")
 	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
 
+	filenames := flag.String("filenames", "", "select mdf files to filter use comma for each file (to be used with evidence)")
+
 	tablenames := flag.String("tables", "", "select the tables to process (use comma for each table name)")
 	tablepages := flag.String("tablepages", "", "filter rows by pages (use comma)")
 	processTables := flag.Bool("processtables", false, "process tables")
@@ -175,6 +177,10 @@ func main() {
 		flm.Register(filters.PrefixesSuffixesFilter{Prefixes: []string{strings.Split(mdffile, ".")[0], strings.Split(mdffile, ".")[0]},
 			Suffixes: []string{"ldf", "mdf"}})
 
+	}
+
+	if *filenames != "" {
+		flm.Register(filters.NameFilter{Filenames: strings.Split(*filenames, ",")})
 	}
 
 	if *dbfile != "" {
