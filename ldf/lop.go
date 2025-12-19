@@ -118,6 +118,7 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte
 				bsoffset+rowlogcontentoffset, len(bs)))
 			break
 		}
+		//statusA || corruption statusB || row-compression
 		if bs[bsoffset] == 0x30 || bs[bsoffset] == 0x10 || bs[bsoffset] == 0x70 {
 			if int(bsoffset) > len(bs) || int(bsoffset)+int(rowlogcontentoffset) > len(bs) {
 				mslogger.Mslogger.Info(fmt.Sprintf("exiting exceeded log block size by %d block size %d pageID",
