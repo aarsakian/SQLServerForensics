@@ -29,6 +29,7 @@ import (
 	"MSSQLParser/utils"
 	"log"
 	"net"
+	"net/http"
 	"strconv"
 
 	"flag"
@@ -113,6 +114,8 @@ func main() {
 	raw := flag.Bool("showraw", false, "show row data for each column in a table")
 	rpc := flag.Uint("rpc", 0, "use grpc to communicate select port from 1024 and upwards")
 
+	profile := flag.Bool("profile", false, "profile memory usage")
+
 	flag.Parse()
 
 	now := time.Now()
@@ -121,6 +124,14 @@ func main() {
 	FSLogger.InitializeLogger(*logactive, logfilename)
 	VMDKLogger.InitializeLogger(*logactive, logfilename)
 	mtfLogger.InitializeLogger(*logactive, logfilename)
+
+	if *profile {
+
+		go func() {
+			log.Println("pprof listening on :6060")
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
 
 	var mdffiles, ldffiles []string
 
