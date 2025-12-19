@@ -370,13 +370,19 @@ func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 
 }
 
-func (table *Table) AddPurgedRow(record LDF.Record, carved bool) {
+func (table *Table) AddPurgedRow(record LDF.Record, carved bool) error {
 	foundRowMatch := false
 
 	loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
 		fmt.Sprintf(" commited at %s previous slot %d", record.GetEndCommitDate(),
 			record.Lop_Insert_Delete_Mod.RowId.SlotNumber)
+	if record.Lop_Insert_Delete_Mod.DataRow == nil {
+		msg := fmt.Sprintf("Table %s and record LSN %s with lop_insert_delete_modified has no datarow",
+			table.Name, record.CurrentLSN.ToStr())
+		mslogger.Mslogger.Warning(msg)
+		return errors.New(msg)
 
+	}
 	row := table.ProcessRow(len(table.Rows), *record.Lop_Insert_Delete_Mod.DataRow,
 		page.PagesPerId[uint32]{}, page.PagesPerId[uint32]{}, record.Lop_Insert_Delete_Mod.PartitionID)
 
@@ -405,6 +411,7 @@ func (table *Table) AddPurgedRow(record LDF.Record, carved bool) {
 		table.Rows = append(table.Rows, row)
 	}
 
+	return nil
 }
 
 func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
