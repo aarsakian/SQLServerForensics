@@ -4,6 +4,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"errors"
 	"fmt"
 )
 
@@ -43,7 +44,7 @@ type LOP_END_CKPT struct {
 	EndDBVers uint16
 }
 
-type LOP_INSERT_DELETE_MOD struct {
+type LOP_INSERT_DELETE struct {
 	RowId                utils.RowId //0-8 locate the page
 	Unknown              [4]byte     //8-12
 	PreviousPageLSN      utils.LSN   //12-22
@@ -52,10 +53,26 @@ type LOP_INSERT_DELETE_MOD struct {
 	OffsetInRow          uint16      //starting position of the modified data within the data row
 	ModifySize           uint16      //34-36
 	RowFlags             [2]byte     //36-38
-	NumElements          uint16      //38-40
+	NumElements          uint16      //38-40 num of varlen cols
 	RowLogContentOffsets []uint16
 	DataRow              *page.DataRow
 	RowLogContents       [][]byte // other rowlog contents except DataRow
+}
+
+type LOP_MODIFY struct {
+	RowId                utils.RowId //0-8 locate the page
+	Unknown              [4]byte     //8-12
+	PreviousPageLSN      utils.LSN   //12-22
+	Unknown2             [2]byte     //22-24
+	PartitionID          uint64      //24-32 locate the table
+	OffsetInRow          uint16      //starting position of the modified data within the data row
+	ModifySize           uint16      //34-36
+	RowFlags             [2]byte     //36-38
+	NumElements          uint16      //38-40 num of varlen cols
+	RowLogContentOffsets []uint16
+	DataRow              *page.DataRow
+	RowLogContentBefore  []byte // other rowlog contents except DataRow
+	RowLogContentAfter   []byte
 }
 
 /*other lop types that have RowID info*/
@@ -80,33 +97,36 @@ func (lop_end_ckpt *LOP_END_CKPT) Process(bs []byte) {
 	utils.Unmarshal(bs, lop_end_ckpt)
 }
 
-func (lop_insert_del_mod LOP_INSERT_DELETE_MOD) ShowInfo() {
+func (lop_insert_del_mod LOP_INSERT_DELETE) ShowInfo() {
 	fmt.Printf("FileID:PageID:SlotID %s Prev Page LSN %s Partition ID %d\n",
 		lop_insert_del_mod.RowId.ToStr(), lop_insert_del_mod.PreviousPageLSN.ToStr(),
 		lop_insert_del_mod.PartitionID)
 }
 
-func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) Process(bs []byte) {
+func (Lop_Insert_Delete *LOP_INSERT_DELETE) Process(bs []byte) {
 	if 40 > len(bs) {
 		return
 	}
-	utils.Unmarshal(bs, lop_insert_delete_mod)
+	offset, err := utils.Unmarshal(bs, Lop_Insert_Delete)
+	if err != nil {
+		return
+	}
 
 	mslogger.Mslogger.Info(fmt.Sprintf("processing lop insert/del rec row %d page %d",
-		lop_insert_delete_mod.RowId.SlotNumber, lop_insert_delete_mod.RowId.PageId))
+		Lop_Insert_Delete.RowId.SlotNumber, Lop_Insert_Delete.RowId.PageId))
 
-	lop_insert_delete_mod.ProcessRowContents(bs[40:])
+	Lop_Insert_Delete.ProcessRowContents(bs[offset:])
 
 }
 
-func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte) {
+func (Lop_Insert_Delete *LOP_INSERT_DELETE) ProcessRowContents(bs []byte) {
 
-	bsoffset := 2 * lop_insert_delete_mod.NumElements
-	if lop_insert_delete_mod.NumElements*2%4 != 0 {
-		bsoffset += (4 - lop_insert_delete_mod.NumElements*2%4)
+	bsoffset := uint16(0)
+	if Lop_Insert_Delete.NumElements*2%4 != 0 {
+		bsoffset += (4 - Lop_Insert_Delete.NumElements*2%4)
 	}
 
-	for _, rowlogcontentoffset := range lop_insert_delete_mod.RowLogContentOffsets {
+	for _, rowlogcontentoffset := range Lop_Insert_Delete.RowLogContentOffsets {
 
 		if rowlogcontentoffset == 0 { //exp to check
 			bsoffset += 1 //move to next row log content
@@ -128,19 +148,40 @@ func (lop_insert_delete_mod *LOP_INSERT_DELETE_MOD) ProcessRowContents(bs []byte
 			datarow := new(page.DataRow)
 			datarow.Parse(bs[bsoffset:bsoffset+rowlogcontentoffset], int(bsoffset)+int(rowlogcontentoffset), -1)
 
-			lop_insert_delete_mod.DataRow = datarow
+			Lop_Insert_Delete.DataRow = datarow
 		} else {
-			if int(bsoffset) > len(bs) || int(bsoffset)+int(rowlogcontentoffset) > len(bs) {
-				return
-			}
-			rowlogcontents := make([]byte, len(bs[bsoffset:bsoffset+rowlogcontentoffset]))
-			copy(rowlogcontents, bs[bsoffset:bsoffset+rowlogcontentoffset])
-			lop_insert_delete_mod.RowLogContents = append(lop_insert_delete_mod.RowLogContents, rowlogcontents)
+			mslogger.Mslogger.Info("lop insert/delete but datarow not found")
 		}
 
-		bsoffset += rowlogcontentoffset + 4 - (rowlogcontentoffset % 4)
-
 	}
+}
+
+func (lop_modify *LOP_MODIFY) Process(bs []byte) error {
+	if 40 > len(bs) {
+		return errors.New("not enough data to parse")
+	}
+	offset, err := utils.Unmarshal(bs, lop_modify)
+	if err != nil {
+		return err
+	}
+
+	mslogger.Mslogger.Info(fmt.Sprintf("processing lop insert/del rec row %d page %d",
+		lop_modify.RowId.SlotNumber, lop_modify.RowId.PageId))
+
+	oldValueLen := utils.ToUint16(bs[offset : offset+2])
+	newValueLen := utils.ToUint16(bs[offset+2 : offset+4])
+
+	if offset+4+int(oldValueLen) > len(bs) ||
+		offset+4+int(oldValueLen)+int(newValueLen) > len(bs) {
+		msg := fmt.Sprintf("exceeding available length in modify loop %d with modify size %d\n",
+			offset+4+int(oldValueLen)-len(bs), lop_modify.ModifySize)
+		mslogger.Mslogger.Info(msg)
+		return errors.New(msg)
+	}
+	copy(lop_modify.RowLogContentBefore, bs[offset+4:offset+4+int(oldValueLen)])
+	copy(lop_modify.RowLogContentAfter,
+		bs[offset+4+int(oldValueLen):offset+4+int(oldValueLen)+int(newValueLen)])
+	return nil
 }
 
 func (lop_begin *LOP_BEGIN) Process(bs []byte) {
