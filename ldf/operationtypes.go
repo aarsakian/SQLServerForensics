@@ -36,8 +36,26 @@ var OperationType = map[uint8]string{
 	206: "LOP_REPL_NOOP", 207: "LOP_TEXT_VALUE", 211: "LOP_SHINK_NOOP", 221: "LOP_INVALIDATE_CACHE",
 }
 
+// 0->7 heap & index
+// 8->14 allocation & space management
+// 15->17 versioning & spapshot isolation
+// 18->21 system catalogs & metadata
+// 22->25 transaction & log management
+//26-27 filestream
+//28->31 recovery & repair
+
 var ContextType = map[uint8]string{
 	0: "LCX_NULL", 1: "LCX_HEAP", 2: "LCX_CLUSTERED",
-	3: "LCX_INDEX_LEAF", 4: "LCX_INDEX_INTERIOR", 8: "LCX_GAM",
-	10: "LCX_IAM", 11: "LCX_PFS", 23: "LCX_BOOT_PAGE_CKPT",
+	3: "LCX_INDEX_LEAF", 4: "LCX_INDEX_INTERIOR",
+	5: "LCX_TEXT_MIX", 6: "LCX_TEXT_TREE", 7: "LCX_TEXT_ROOT",
+	8: "LCX_PFS", 9: "LCX_GAM",
+	11: "LCX_IAM", 12: "LCX_BOO_PAGE", 13: "LCX_DIFF_MAP",
+	14: "LCX_BULK_OPERATION",
+	15: "LCX_VERSION_STORE", 16: "LCX_VERSIONING_INFO",
+	17: "LCX_SNAPSHOT",
+	18: "LCX_SYSTEM_TABLE", 19: "LCX_METADATA", 20: "LCX_SERVICE_BROKER",
+	21: "LCX_SECURITY",
+	22: "LCX_LOCK_MANAGER", 23: "LCX_TRANSACTION_MANAGER", 24: "LCX_XACT",
+	25: "LCX_LOG_MANAGER",
+	26: "LCX_FILESTREAM_DATA", 27: "LCX_FILESTREAM_METADATA",
 }
