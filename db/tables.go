@@ -328,13 +328,14 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 	colmap := make(ColMap)
 	nofNullCols := 0
 	for _, col := range table.Schema {
-		if record.Lop_Insert_Delete_Mod.DataRow == nil {
-			msg := fmt.Sprintf("Lop Insert Record missing DataRow %s", record.CurrentLSN.ToStr())
+		if record.Lop_Insert_Delete.DataRow == nil {
+			lsn := record.CurrentLSN.ToStr()
+			msg := fmt.Sprintf("Lop Insert Record missing DataRow %s", lsn)
 			mslogger.Mslogger.Warning(msg)
 			continue
 		}
 
-		colval, e := col.addContent(*record.Lop_Insert_Delete_Mod.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete_Mod.PartitionID, nofNullCols)
+		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID, nofNullCols)
 		if e == nil {
 			colmap[col.Name] = ColData{Content: colval}
 		}
@@ -351,7 +352,7 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 
 func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
 
-	rowid := int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)
+	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
 
 	if len(table.Rows) > rowid {
 
@@ -375,16 +376,16 @@ func (table *Table) AddPurgedRow(record LDF.Record, carved bool) error {
 
 	loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
 		fmt.Sprintf(" commited at %s previous slot %d", record.GetEndCommitDate(),
-			record.Lop_Insert_Delete_Mod.RowId.SlotNumber)
-	if record.Lop_Insert_Delete_Mod.DataRow == nil {
-		msg := fmt.Sprintf("Table %s and record LSN %s with lop_insert_delete_modified has no datarow",
+			record.Lop_Insert_Delete.RowId.SlotNumber)
+	if record.Lop_Insert_Delete.DataRow == nil {
+		msg := fmt.Sprintf("Table %s and record LSN %s with LOP_INSERT_DELETEified has no datarow",
 			table.Name, record.CurrentLSN.ToStr())
 		mslogger.Mslogger.Warning(msg)
 		return errors.New(msg)
 
 	}
-	row := table.ProcessRow(len(table.Rows), *record.Lop_Insert_Delete_Mod.DataRow,
-		page.PagesPerId[uint32]{}, page.PagesPerId[uint32]{}, record.Lop_Insert_Delete_Mod.PartitionID)
+	row := table.ProcessRow(len(table.Rows), *record.Lop_Insert_Delete.DataRow,
+		page.PagesPerId[uint32]{}, page.PagesPerId[uint32]{}, record.Lop_Insert_Delete.PartitionID)
 
 	//before adding a purged row check if the same row was carved
 	for rowid, existingRow := range table.Rows {
@@ -416,7 +417,7 @@ func (table *Table) AddPurgedRow(record LDF.Record, carved bool) error {
 
 func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 
-	rowid := int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)
+	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
 	if len(table.Rows) > rowid {
 		row := table.Rows[rowid]
 		row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
@@ -425,17 +426,17 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 		row.Logged = true
 
 		for _, c := range table.Schema {
-			if c.OffsetMap[record.Lop_Insert_Delete_Mod.PartitionID] >= int16(record.Lop_Insert_Delete_Mod.OffsetInRow) {
+			if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
 				var newcontent bytes.Buffer
 				newcontent.Grow(int(c.Size))
 
 				colData := row.ColMap[c.Name]
 				//new data from startoffset -> startoffset + modifysize
-				startOffset := int16(record.Lop_Insert_Delete_Mod.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete_Mod.PartitionID]
+				startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
 				if startOffset > 0 {
 					newcontent.Write(colData.Content[:startOffset]) //unchanged content
-					newcontent.Write(record.Lop_Insert_Delete_Mod.RowLogContents[0])
-					newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete_Mod.ModifySize):])
+					newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
+					newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
 
 					colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
 					row.ColMap[c.Name] = colData
@@ -454,9 +455,9 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 func (table *Table) addLogChanges(records LDF.Records) {
 	groupedPerSlotID := make(map[int]LDF.Records)
 	for _, record := range records {
-		if record.Lop_Insert_Delete_Mod != nil {
-			groupedPerSlotID[int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)] =
-				append(groupedPerSlotID[int(record.Lop_Insert_Delete_Mod.RowId.SlotNumber)], record)
+		if record.Lop_Insert_Delete != nil {
+			groupedPerSlotID[int(record.Lop_Insert_Delete.RowId.SlotNumber)] =
+				append(groupedPerSlotID[int(record.Lop_Insert_Delete.RowId.SlotNumber)], record)
 		} else {
 			groupedPerSlotID[int(record.Generic_LOP.RowId.SlotNumber)] =
 				append(groupedPerSlotID[int(record.Generic_LOP.RowId.SlotNumber)], record)
