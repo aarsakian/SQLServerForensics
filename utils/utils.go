@@ -936,7 +936,8 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			if name == "CurrentLSN" {
 				continue
 			}
-			if nameType == "LSN" {
+			switch nameType {
+			case "LSN":
 				var lsn LSN
 				err := checkBounds(name, idx+10-len(data))
 				if err != nil {
@@ -945,12 +946,12 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 				Unmarshal(data[idx:idx+10], &lsn)
 				field.Set(reflect.ValueOf(lsn))
 				idx += 10
-			} else if nameType == "RowId" {
+			case "RowId":
 				var rowId RowId
 				Unmarshal(data[idx:], &rowId)
 				field.Set(reflect.ValueOf(rowId))
 				idx += 8
-			} else if nameType == "TransactionID" {
+			case "TransactionID":
 				var transID TransactionID
 				Unmarshal(data[idx:], &transID)
 				field.Set(reflect.ValueOf(transID))
@@ -976,8 +977,10 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 		case reflect.Slice:
 			name := structType.Elem().Field(i).Name
 
-			if name == "FixedLenCols" {
-				if interfaceName == "DataRow" {
+			switch name {
+			case "FixedLenCols":
+				switch interfaceName {
+				case "DataRow":
 					var dst []byte
 
 					nofColsOffset := structValPtr.Elem().FieldByName("NofColsOffset").Uint()
@@ -1000,11 +1003,11 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 
 					field.Set(reflect.ValueOf(dst))
 					idx += field.Len()
-				} else if interfaceName == "IndexRow" { //already copied
+				case "IndexRow": //already copied
 					idx += field.Len()
 				}
 
-			} else if name == "NullBitmap" {
+			case "NullBitmap":
 				nofCols := structValPtr.Elem().FieldByName("NumberOfCols").Uint()
 				bytesNeeded := int(math.Ceil(float64(nofCols) / 8))
 				if idx+bytesNeeded > len(data) {
@@ -1018,7 +1021,7 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 
 				field.Set(reflect.ValueOf(byteArrayDst))
 				idx += bytesNeeded
-			} else if name == "VarLengthColOffsets" {
+			case "VarLengthColOffsets":
 				var temp int16
 				var arr []int16
 				nofVarLenCols := structValPtr.Elem().FieldByName("NumberOfVarLengthCols").Uint()
@@ -1034,7 +1037,7 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 					idx += 2
 				}
 				field.Set(reflect.ValueOf(arr))
-			} else if name == "RowLogContentOffsets" {
+			case "RowLogContentOffsets":
 				var temp uint16
 				var arr []uint16
 				nofCols := structValPtr.Elem().FieldByName("NumElements").Uint()
