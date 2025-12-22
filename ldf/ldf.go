@@ -139,7 +139,8 @@ func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 			bs = make([]byte, 72)
 			_, err = file.ReadAt(bs, offset+logBlockoffset)
 			if err != nil {
-				fmt.Printf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
+				msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
+				mslogger.Mslogger.Error(msg)
 				return recordsProcessed
 			}
 			logBlock := new(LogBlock)
@@ -224,7 +225,8 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 		record.CurrentLSN = currentLSN
 
 		prevRecord := LSN_to_Record[record.PreviousLSN]
-		if prevRecord != nil {
+		//currentLSN must differ
+		if prevRecord != nil && prevRecord.CurrentLSN != record.CurrentLSN {
 			record.PreviousRecord = prevRecord
 			prevRecord.NextRecord = record
 		}
@@ -240,12 +242,22 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 		//LOP_END_CKPT = end of checkpoint
 		switch OperationType[record.Operation] {
 
-		case "LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW", "LOP_INSERT_SPLIT",
-			"LOP_DELETE_SPLIT", "LOP_MODIFY_SPLIT":
+		case "LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_INSERT_SPLIT",
+			"LOP_DELETE_SPLIT":
 
-			Lop_Insert_Delete_Mod_mod := new(LOP_INSERT_DELETE_MOD)
-			Lop_Insert_Delete_Mod_mod.Process(bs[recordOffset+24:])
-			record.Lop_Insert_Delete_Mod = Lop_Insert_Delete_Mod_mod
+			lop_insert_delete := new(LOP_INSERT_DELETE)
+
+			// here we have datarows
+			if record.GetContextType() == "LCX_HEAP" || record.GetContextType() == "LCX_CLUSTERED" {
+				lop_insert_delete.Process(bs[recordOffset+24:])
+				record.Lop_Insert_Delete = lop_insert_delete
+			}
+
+		case "LOP_MODIFY_ROW", "LOP_MODIFY_SPLIT":
+			lop_modify := new(LOP_MODIFY)
+			if record.GetContextType() == "LCX_HEAP" || record.GetContextType() == "LCX_CLUSTERED" {
+				lop_modify.Process(bs[recordOffset+24:])
+			}
 
 		case "LOP_BEGIN_XACT":
 			lop_begin_xact := new(LOP_BEGIN)
