@@ -1,5 +1,17 @@
 Copyright 2025 Armen Arsakian
 
+This project is dual-licensed. You may choose to use the Software under
+EITHER of the following licenses:
+
+1. Apache License, Version 2.0, with the Commons Clause restriction
+   (non-commercial, source-available), OR
+
+2. GNU Affero General Public License, Version 3 (AGPLv3).
+
+----------------------------------------------------------------------
+OPTION 1: Apache License 2.0 + Commons Clause (Non-Commercial)
+----------------------------------------------------------------------
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at:
@@ -14,16 +26,37 @@ limitations under the License.
 
 Commons Clause Restriction:
 
-The Software is provided under the Apache License 2.0, with the following restriction added by the Commons Clause:
+The Software is provided under the Apache License 2.0, with the following
+restriction added by the Commons Clause:
 
-The license granted herein does not include the right to Sell the Software. For purposes of this clause, “Sell” means practicing any or all of the rights granted to you under the License for commercial purposes, including without limitation:
+The license granted herein does not include the right to Sell the Software.
+For purposes of this clause, “Sell” means practicing any or all of the rights
+granted to you under the License for commercial purposes, including without
+limitation:
 
 - Selling access to the Software
-- Offering the Software as a paid service or part of a commercial product
+- Offering the Software as a paid service or as part of a commercial product
 - Using the Software to provide paid consulting, support, or hosting
+
+Commercial use also includes internal use of the Software by any organization
+in connection with revenue‑generating activities, security operations,
+incident response, or forensic investigations.
 
 To obtain a commercial license, please contact: contact AT arsakian.com
 
+----------------------------------------------------------------------
+OPTION 2: GNU Affero General Public License v3 (AGPLv3)
+----------------------------------------------------------------------
+
+Alternatively, you may use this Software under the terms of the
+GNU Affero General Public License, Version 3.
+
+A copy of the AGPLv3 license is available at:
+
+    https://www.gnu.org/licenses/agpl-3.0.html
+
+----------------------------------------------------------------------
 Software: SQL Forensics
-License: Apache License 2.0 + Commons Clause  
 Licensor: Armen Arsakian
+----------------------------------------------------------------------
+
