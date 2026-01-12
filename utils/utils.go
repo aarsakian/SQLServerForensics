@@ -841,94 +841,64 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 		switch field.Kind() {
 
 		case reflect.Uint8:
-			var temp uint8
-
 			err := checkBounds(name, idx+1-len(data))
 			if err != nil {
 				return idx, err
 			}
-
-			binary.Read(bytes.NewBuffer(data[idx:idx+1]), binary.LittleEndian, &temp)
-			field.SetUint(uint64(temp))
+			field.SetUint(uint64(data[idx]))
 			idx += 1
+
 		case reflect.Int16:
-			var temp int16
-
 			err := checkBounds(name, idx+2-len(data))
 			if err != nil {
 				return idx, err
 			}
-
-			binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
-			field.SetInt(int64(temp))
+			field.SetInt(int64(int16(binary.LittleEndian.Uint16(data[idx : idx+2]))))
 			idx += 2
-		case reflect.Uint16:
-			var temp uint16
 
+		case reflect.Uint16:
 			err := checkBounds(name, idx+2-len(data))
 			if err != nil {
 				return idx, err
 			}
-
 			if name == "NumberOfVarLengthCols" &&
 				!HasVarLengthCols(uint8(structValPtr.Elem().FieldByName("StatusA").Uint())) {
-
-				return idx, nil // reached end of datarow exit
-			} else {
-				binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+				return idx, nil
 			}
-
-			field.SetUint(uint64(temp))
+			field.SetUint(uint64(binary.LittleEndian.Uint16(data[idx : idx+2])))
 			idx += 2
-		case reflect.Int32:
-			var temp int32
 
+		case reflect.Int32:
 			err := checkBounds(name, idx+4-len(data))
 			if err != nil {
 				return idx, err
 			}
-
-			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
-			field.SetInt(int64(temp))
+			field.SetInt(int64(int32(binary.LittleEndian.Uint32(data[idx : idx+4]))))
 			idx += 4
 
 		case reflect.Uint32:
-			var temp uint32
-
 			err := checkBounds(name, idx+4-len(data))
 			if err != nil {
 				return idx, err
 			}
-
-			binary.Read(bytes.NewBuffer(data[idx:idx+4]), binary.LittleEndian, &temp)
-			field.SetUint(uint64(temp))
+			field.SetUint(uint64(binary.LittleEndian.Uint32(data[idx : idx+4])))
 			idx += 4
 
 		case reflect.Uint64:
-			var temp uint64
-
 			err := checkBounds(name, idx+8-len(data))
 			if err != nil {
 				return idx, err
 			}
-
-			binary.Read(bytes.NewBuffer(data[idx:idx+8]), binary.LittleEndian, &temp)
+			field.SetUint(binary.LittleEndian.Uint64(data[idx : idx+8]))
 			idx += 8
-
-			field.SetUint(temp)
 
 		case reflect.Int64:
-			var temp int64
-
 			err := checkBounds(name, idx+8-len(data))
 			if err != nil {
 				return idx, err
 			}
-
-			binary.Read(bytes.NewBuffer(data[idx:idx+8]), binary.LittleEndian, &temp)
+			field.SetInt(int64(binary.LittleEndian.Uint64(data[idx : idx+8])))
 			idx += 8
-
-			field.SetInt(temp)
 
 		case reflect.Struct:
 			nameType := structType.Elem().Field(i).Type.Name()
