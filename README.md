@@ -7,7 +7,7 @@ This tool is designed for digital forensics examiners, incident responders, and 
 
 ### Technical details ###
 
-This tool performs *read-only* operations on SQL Server database files. However, users must understand that ***data loss might occur or corruption may occur *** if low-level access methods are used on live systems.
+This tool performs *read-only* operations on SQL Server database files. However, users must understand that ***data loss might occur or corruption may occur*** if low-level access methods are used on live systems.
 The low level access option works exclusively on a ***local copy*** of your database. Copying is being performed at a cluster level using the lowest-level userspace  Win32 API available ensuring minimal interference with the operating system's running processes.
 
 The table below outlines the implications of accessing your database on a running server. 
