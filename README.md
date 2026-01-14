@@ -285,7 +285,7 @@ Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_M
 You can apply all operations of database file mdf to bak files, for instance see below:
 
 Export all tables of backup file ***AdventureWorks2022.bak***, mdf produced file will be saved to location ***BackupDB***
->.\MSSQLParser.exe -mtf ..\Shared-mssql\data\AdventureWorks2022.bak -location BackupDB -processtables -export TablesFromBackup
+> .\MSSQLParser.exe -mtf ..\Shared-mssql\data\AdventureWorks2022.bak -location BackupDB -processtables -export TablesFromBackup
 
 
 ### Working evidence files 
