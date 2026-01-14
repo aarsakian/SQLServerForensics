@@ -4,6 +4,8 @@
 ## Description ##
 This tool is designed for digital forensics examiners, incident responders, and database engineers who need direct, efficient access to the internal structures of SQL Server databases without relying on SQL Server itself. It provides the DFIR community with a fast, convenient, and reliable way to inspect database contents—whether working in a controlled lab environment or conducting on‑site field investigations.
 
+***Who is this For?***
+Professionals who work in financial fraud cases and want to investigate the contents of an SQL Server database, uncover details not visible to regular users, recover deleted records through carving and correlate transaction-log-activity with table records. 
 
 ### Technical details ###
 
