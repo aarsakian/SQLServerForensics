@@ -2,31 +2,35 @@
  
 
 ## Description ##
-This tool is designed to perform read-only operations on database files. However, users must understand that ***permanent data loss might occur*** or corruption may occur if low-level access methods are used on active systems.
-The low level option works only on a local copy of your database. Copying is being performed at a cluster level using low level OS APIs. 
+This tool is designed to perform *read-only* operations on SQL Server database files. However, users must understand that ***data loss might occur*** or corruption may occur if low-level access methods are used on live systems.
+The low level access option works exclusively on a local copy of your database. Copying is being performed at a cluster level using the lowest userspace level Win32 API. 
 
-Below is a table helping you to understand the implications of accessing your database for a running server. 
+The table below will help you to understand the implications of accessing your database on a running server. 
 | Access Method| Implication | Server is running |
 | ----------- | ----------- | --- |
 | stopservice | Certain data loss | Server will be stopped | 
-| physical disk | Unlikely |  Disruptions to the performance  |
+| physical disk | Unlikely |  Performance impact  |
 
- It can parse tables ***directly*** from mdf files and TAPE archives (full backup files). If you opt to read backup (bak) files the contents are saved to mdf files *locally* (default location is MDF folder) before being processed. Carving table recods is also supported. Log Parsing is available, if you provide the ldf file. It will attempt to correlate existing table records with the respective log records. Carving log records is also available. 
+ The tool can parse tables ***directly*** from mdf files and TAPE archives (full backup files).  When reading BAK files, their contents are first extracted into local MDF files (default location is MDF folder) before being processed. Log processing from BAK files  is not currently supported. 
+ 
+ Carving table recods is supported. Log parsing and carving is available as well when an LDF  file is provided. The tool attempts to correlate existing table records with their respective log records. 
 
- For advanced users there are a lot of options to inspect the internals of your database including the log file. Inspection is supported  at a page level, data row level, and  data column level, log action.
+Advanced users can inspect the internals of a SQL Server database, including the log file. Inspection is supported  at a page level, data row level, and  data column level, log action.
  
 
-For responders who want immediate access to the MS SQL database, they can stop service (please note that there are irreversible consequences in your data, not recommended) or you can use low level access reading directly from physical disk *without* stopping the server. ***Admin*** access priveleges are required for both kind of operations. If you opt for low level access your mdf file and ldf file will be respectively copied *locally*, before being processed (defaut location is MDF folder). The responder needs to know how logging works so as to avoid being suprised of missing data, for instance commited data that is missing from a table. 
+Responders who want immediate access to a SQL Server database, they can stop SQL Server service  (not recommended due to irreversible data consequences) or you can use low level physical-disk access  *without* stopping the server. Both methods require ***Admin*** access. 
+
+When low level access is used, MDF file and LDF files will be respectively copied *locally*, before  processing (defaut location is MDF folder). Responders need to know how logging works behind the scenes, so as to avoid misinterpreting missing data. For instance, committed rows that do not yet appear in a table.
 
 
- Digital forensics examiners can access SQL database by reading mdf, ldf, bak files directly from images. Supported images are dd, EWF (E01), vmdk. There are no third parties to read expert witness format and NTFS file system. Both functionalities are provided by external libraries developed by the same author. Files discovered are being copied locally (default location MDF folder). 
+ Digital forensics examiners can access SQL database by reading mdf, ldf, bak files directly from images. Supported images include dd, EWF (E01), vmdk (including sparce images). No third parties depedencies are required to read expert witness format files (E01) and NTFS file system. Both capabilities are provided by external libraries developed by the same author. Files discovered are copied locally (default location MDF folder) before processing. 
 
 
-A GUI is on the way which will communicate via rpc calls  (protobufs) to the backend. It will offer limited functionality compared to command line usage. 
+A GUI is under development, which  communicates via rpc calls (protobufs) to the backend. It will be available under a paid license. 
 
-Many more features will be introduced and testing will be continued, but no time scheduling can be announced.
+Additional features will be introduced over time, but no specific time release schedule can be provided. 
 
-The development of this tool is based on personal research and published papers. 
+The development of this tool is based on personal research and published academic work. 
 
 ## LICENSING ## 
 Read license file.
@@ -43,7 +47,7 @@ Usage instructions have been grouped so as to help the user.
         absolute path to the LDF file
 
 -mtf string
-        path to bak file (TAPE format)
+        path to bak file (TAPE format) (log pages are not processed to be changed in the future)
 
 -evidence string
         path to image file
