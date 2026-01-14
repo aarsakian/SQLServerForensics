@@ -50,6 +50,8 @@ github.com/aarsakian/FileSystemForensics v0.5.1-0.20260111073053-3fe297fcf3af h1
 github.com/aarsakian/FileSystemForensics v0.5.1-0.20260111073053-3fe297fcf3af/go.mod h1:KckmUNATUbfi8XuCkgWmTLoAAo76Tk9JKU5fKghnb3o=
 github.com/aarsakian/FileSystemForensics v0.5.2 h1:7FOYb6l1OAxSiYnpe356ZB5IdIu1OD4/povK6OKYU8A=
 github.com/aarsakian/FileSystemForensics v0.5.2/go.mod h1:KckmUNATUbfi8XuCkgWmTLoAAo76Tk9JKU5fKghnb3o=
+github.com/aarsakian/FileSystemForensics v0.5.3 h1:9z7mUE0vysrlBIZK4LYrQ8d3tbNgKzcrJE3VsUn1AGU=
+github.com/aarsakian/FileSystemForensics v0.5.3/go.mod h1:KckmUNATUbfi8XuCkgWmTLoAAo76Tk9JKU5fKghnb3o=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379 h1:T2lSAVpvGsE2O7olYbLIFoRWTZF02aIZWgqymfKv8c8=
 github.com/aarsakian/MFTExtractor v0.0.0-20231011120430-cb35ae522379/go.mod h1:5rDBrKabUaUjAXOiPmJm8AdPAKkKcXit89TF48U8bBE=
 github.com/aarsakian/MFTExtractor v0.0.0-20231012164709-8e3d94c6a208 h1:s0GOggLWGsUMioWpEJG873BaNvSQk2VIXUH0s3Fi5mM=
