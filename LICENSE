@@ -55,8 +55,40 @@ A copy of the AGPLv3 license is available at:
 
     https://www.gnu.org/licenses/agpl-3.0.html
 
+
+
+
+----------------------------------------------------------------------
+LIABILITY DISCLAIMER
+----------------------------------------------------------------------
+
+The Software is provided solely for educational, research, and forensic
+analysis purposes. It is not designed, intended, or warranted for use
+in production systems, mission‑critical environments, or any context
+where data integrity, availability, accuracy, or security is required.
+
+All results produced by the Software must be independently validated by
+qualified professionals. The Licensor makes no representations or
+warranties regarding the correctness, completeness, reliability, or
+suitability of the Software for any purpose.
+
+To the maximum extent permitted by applicable law, the Software is
+provided “AS IS” without warranty of any kind, express or implied,
+including but not limited to warranties of merchantability, fitness for
+a particular purpose, non‑infringement, or accuracy of results.
+
+In no event shall the Licensor be liable for any damages, losses,
+incidents, investigations, legal outcomes, system failures, data
+corruption, security breaches, or any other consequences arising from
+the use, misuse, or inability to use the Software.
+
+Use of the Software in any investigative, legal, regulatory, or
+security‑sensitive context is performed entirely at the user’s own
+risk. The user is solely responsible for ensuring compliance with all
+applicable laws, regulations, policies, and professional standards.
+
+
 ----------------------------------------------------------------------
 Software: SQL Forensics
 Licensor: Armen Arsakian
 ----------------------------------------------------------------------
-
