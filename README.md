@@ -6,7 +6,8 @@ This tool is designed for digital forensics examiners, incident responders, and 
 
 ***Who is this For?***
 
-Professionals who work in financial fraud cases and want to investigate the contents of an SQL Server database, uncover details not visible to regular users, recover deleted records through carving and correlate transaction-log-activity with table records. 
+Professionals involved in financial-fraud investigations, or cases involving leaked company data will find this tool especially valuable. It enables them to examine the contents of an SQL Server database, uncover details not visible to regular users, recover deleted records through carving and correlate transaction-log-activity with table records. 
+
 
 ### Technical details ###
 
