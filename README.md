@@ -1,5 +1,24 @@
 # Microsoft SQL Server Forensics tool.
  
+## Table of Contents ##
+
+***[Description](#description)***  
+***[Technical Details](#technical-details)***  
+***[Licensing](#licensing)***  
+***[Usage Instructions](#usage-instructions)***  
+[Input Options](#input-options)   
+[Output Options](#output-options)  
+[Export Options](#export-options)  
+[Log Options](#log-options)  
+[Misc options](#misc-options)  
+***[Examples](#examples)***  
+[Table Operations](#table-operations)  
+[Page Internals Inspection](#page-internals-inspection)   
+[Transaction Log internals Inspection](#transaction-log-internals-inspection)    
+[Full Archive Backup (BAK)](#full-archive-backup-bak)  
+[Working With Evidence](#working-with-evidence)  
+
+
 
 ## Description ##
 This tool is designed for digital forensics examiners, incident responders, and database engineers who need direct, efficient access to the internal structures of SQL Server databases without relying on SQL Server itself. It provides the DFIR community with a fast, convenient, and reliable way to inspect database contents—whether working in a controlled lab environment or conducting on‑site field investigations.
@@ -9,7 +28,7 @@ This tool is designed for digital forensics examiners, incident responders, and 
 Professionals involved in financial-fraud investigations, or cases involving leaked company data will find this tool especially valuable. It enables them to examine the contents of an SQL Server database, uncover details not visible to regular users, recover deleted records through carving and correlate transaction-log-activity with table records. 
 
 
-### Technical details ###
+## Technical Details ##
 
 This tool performs *read-only* operations on SQL Server database files. However, users must understand that ***data loss might occur or corruption may occur*** if low-level access methods are used on live systems.
 The low level access option works exclusively on a ***local copy*** of your database. Copying is being performed at a cluster level using the lowest-level userspace  Win32 API available ensuring minimal interference with the operating system's running processes.
@@ -265,7 +284,7 @@ Show table contents of table ***PersonPhone*** of database file ***AdventureWork
 Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** ,  ***carve*** records, correlate with log file entries ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** including carved records. 
 When a record is found in the transaction log relevant timestamps are shown. 
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -ldf 1 -showtableldf -carve -showcontent
-###  Page internals inspection 
+###  Page Internals Inspection 
 
 Show page number and index names of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableindex -tables PersonPhone
@@ -280,19 +299,19 @@ Show page information including ***index structure FileID, PageID, Key, RowSize*
 
 
 
-### Transaction Log internals inspection 
+### Transaction Log Internals Inspection 
 Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** such as ***Log Block Header Slots,  size of block, FirstLSN*** operations for log file ***AdventureWorks2022_log.ldf*** 
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showldf -ldf 1
 
 
-### Full archive backup (BAK)
+### Full Archive Backup (BAK)
 You can apply all operations of database file mdf to bak files, for instance see below:
 
 Export all tables of backup file ***AdventureWorks2022.bak***, mdf produced file will be saved to location ***BackupDB***
 > .\MSSQLParser.exe -mtf ..\Shared-mssql\data\AdventureWorks2022.bak -location BackupDB -processtables -export TablesFromBackup
 
 
-### Working evidence files 
+### Working With Evidence
 Export all tables to ***MyExport*** of any database file found in image ***tester-ewf***, database files are exported to ***MyDBs*** (Locating database files is based on extension)
 >.\MSSQLParser.exe -evidence C:\Users\User\Downloads\evidence\tester-ewf.E01 -location
  MyDBs -processtables -export Myexport
