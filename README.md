@@ -4,6 +4,7 @@
 
 ***[Description](#description)***  
 ***[Technical Details](#technical-details)***  
+[Dependencies](#depedencies)  
 ***[Licensing](#licensing)***  
 ***[Usage Instructions](#usage-instructions)***  
 [Input Options](#input-options)   
@@ -59,6 +60,9 @@ A GUI is under development, which  communicates via rpc calls (protobufs) to the
 Additional features will be introduced over time, but no specific time release schedule can be provided. 
 
 The development of this tool is based on personal research and published academic work. 
+
+### Depedencies ###  
+This tool requires [EWF library](https://github.com/aarsakian/EWF_Reader) for parsing E01 images, [MTF library](https://github.com/aarsakian/MTF_Reader) for handling TAPE (bak) files, and [VMDK library](https://github.com/aarsakian/VMDK_Reader) for reading VMware disk images, [NTFS library](https://github.com/aarsakian/FileSystemForensics) for accessing NTFS file systems without relying on Windows file system APIs. The afore mentioned libraries are developed by the same author. In addition, it requires selected modules of the [x](https://go.dev/wiki/X-Repositories) for interacting with Windows APIs and the [Google's grpc](https://pkg.go.dev/google.golang.org/grpc) libraries for using protobufs.
 
 ## LICENSING ## 
 Read license file.
