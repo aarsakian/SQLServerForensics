@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -16,6 +17,7 @@ import (
 var PAGELEN = 8192
 
 type Database struct {
+	BakName             string // path to bak payload file
 	Fname               string // path to mdf file
 	Lname               string // path to ldf file
 	Name                string
@@ -63,25 +65,26 @@ func (db *Database) ProcessSystemTables() {
 
 			pageType := page.Header.ObjectId
 
-			if pageType == SystemTablesFlags["sysschobjs"] {
+			switch pageType {
+			case SystemTablesFlags["sysschobjs"]:
 				db.tablesInfo.Populate(page.DataRows)
 
-			} else if pageType == SystemTablesFlags["syscolpars"] {
+			case SystemTablesFlags["syscolpars"]:
 
 				db.columnsinfo.Populate(page.DataRows)
 
-			} else if pageType == SystemTablesFlags["sysallocationunits"] {
+			case SystemTablesFlags["sysallocationunits"]:
 				db.tablesAllocations.Populate(page.DataRows)
 
-			} else if pageType == SystemTablesFlags["sysrscols"] {
+			case SystemTablesFlags["sysrscols"]:
 				db.columnsPartitions.Populate(page.DataRows)
-			} else if pageType == SystemTablesFlags["sysrowsets"] {
+			case SystemTablesFlags["sysrowsets"]:
 				db.tablesPartitions.Populate(page.DataRows)
-			} else if pageType == SystemTablesFlags["sysiscols"] {
+			case SystemTablesFlags["sysiscols"]:
 				db.columnsStatistics.Populate(page.DataRows)
-			} else if pageType == SystemTablesFlags["sysidxstats"] {
+			case SystemTablesFlags["sysidxstats"]:
 				db.indexesInfo.Populate(page.DataRows)
-			} else if pageType == SystemTablesFlags["sysfiles"] {
+			case SystemTablesFlags["sysfiles"]:
 				db.sysfiles.Populate(page.DataRows)
 			}
 
@@ -104,6 +107,19 @@ func (db *Database) ProcessSystemTables() {
 	fmt.Printf("msg %s\n", msg)
 }
 
+func (db *Database) ProcessBAK(carve bool) (int, error) {
+	file, err := os.Open(db.BakName) //
+	if err != nil {
+		// handle the error here
+		fmt.Printf("err %s reading the bak file. \n", err)
+		return 0, err
+
+	}
+	defer file.Close()
+
+	return db.ProcessPages(file, []int{}, -1, math.MaxInt, carve)
+}
+
 func (db *Database) ProcessMDF(selectedPages []int, fromPage int, toPage int, carve bool) (int, error) {
 
 	file, err := os.Open(db.Fname) //
@@ -118,6 +134,12 @@ func (db *Database) ProcessMDF(selectedPages []int, fromPage int, toPage int, ca
 		 Please note that that uncommited data migh be lost.\n`)
 		return 0, err
 	}
+	defer file.Close()
+	return db.ProcessPages(file, selectedPages, fromPage, toPage, carve)
+
+}
+
+func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage int, toPage int, carve bool) (int, error) {
 
 	fsize, err := file.Stat() //file descriptor
 	if err != nil {
@@ -125,8 +147,6 @@ func (db *Database) ProcessMDF(selectedPages []int, fromPage int, toPage int, ca
 		return 0, err
 	}
 	// read the file
-
-	defer file.Close()
 
 	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
 
