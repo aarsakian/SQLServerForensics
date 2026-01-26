@@ -825,6 +825,8 @@ func checkBounds(name string, diffSize int) error {
 
 func Unmarshal(data []byte, v interface{}) (int, error) {
 	idx := 0
+
+	lenData := len(data)
 	structValPtr := reflect.ValueOf(v)
 	structType := reflect.TypeOf(v)
 	interfaceName := structType.Elem().Name()
@@ -841,25 +843,33 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 		switch field.Kind() {
 
 		case reflect.Uint8:
-			err := checkBounds(name, idx+1-len(data))
-			if err != nil {
-				return idx, err
+			if idx+1 > lenData {
+				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+					name, idx+1-lenData)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
+
 			field.SetUint(uint64(data[idx]))
 			idx += 1
 
 		case reflect.Int16:
-			err := checkBounds(name, idx+2-len(data))
-			if err != nil {
-				return idx, err
+			if idx+2 > lenData {
+				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+					name, idx+2-lenData)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
+
 			field.SetInt(int64(int16(binary.LittleEndian.Uint16(data[idx : idx+2]))))
 			idx += 2
 
 		case reflect.Uint16:
-			err := checkBounds(name, idx+2-len(data))
-			if err != nil {
-				return idx, err
+			if idx+2 > lenData {
+				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+					name, idx+2-lenData)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
 			if name == "NumberOfVarLengthCols" &&
 				!HasVarLengthCols(uint8(structValPtr.Elem().FieldByName("StatusA").Uint())) {
@@ -869,33 +879,41 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			idx += 2
 
 		case reflect.Int32:
-			err := checkBounds(name, idx+4-len(data))
-			if err != nil {
-				return idx, err
+			if idx+4 > lenData {
+				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+					name, idx+4-lenData)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
 			field.SetInt(int64(int32(binary.LittleEndian.Uint32(data[idx : idx+4]))))
 			idx += 4
 
 		case reflect.Uint32:
-			err := checkBounds(name, idx+4-len(data))
-			if err != nil {
-				return idx, err
+			if idx+4 > lenData {
+				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+					name, idx+4-lenData)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
 			field.SetUint(uint64(binary.LittleEndian.Uint32(data[idx : idx+4])))
 			idx += 4
 
 		case reflect.Uint64:
-			err := checkBounds(name, idx+8-len(data))
-			if err != nil {
-				return idx, err
+			if idx+8 > lenData {
+				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+					name, idx+8-lenData)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
 			field.SetUint(binary.LittleEndian.Uint64(data[idx : idx+8]))
 			idx += 8
 
 		case reflect.Int64:
-			err := checkBounds(name, idx+8-len(data))
-			if err != nil {
-				return idx, err
+			if idx+8 > lenData {
+				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+					name, idx+8-lenData)
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
 			field.SetInt(int64(binary.LittleEndian.Uint64(data[idx : idx+8])))
 			idx += 8
@@ -931,19 +949,17 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 		case reflect.Array:
 			arrT := reflect.ArrayOf(field.Len(), reflect.TypeOf(data[0])) //create array type to hold the slice
 			arr := reflect.New(arrT).Elem()                               //initialize and access array
-			var end int
-			if idx+field.Len() > len(data) {
-				end = len(data)
-			} else {
-				end = idx + field.Len()
-			}
-			for idx, val := range data[idx:end] {
+			n := field.Len()
 
-				arr.Index(idx).Set(reflect.ValueOf(val))
+			if idx+n > lenData {
+				n = lenData - idx
 			}
-
+			dst := arr.Slice(0, n).Bytes()
+			copy(dst, data[idx:idx+n])
 			field.Set(arr)
-			idx += field.Len()
+
+			idx += n
+
 		case reflect.Slice:
 			name := structType.Elem().Field(i).Name
 
@@ -1002,7 +1018,7 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 						mslogger.Mslogger.Error(msg)
 						return idx + 2, errors.New("var Length col offset calculation exceeds length of data")
 					}
-					binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+					temp = int16(binary.LittleEndian.Uint16(data[idx : idx+2]))
 					arr = append(arr, temp)
 					idx += 2
 				}
@@ -1018,7 +1034,7 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 						mslogger.Mslogger.Error(msg)
 						return idx + 2, errors.New("log length col offset calculation exceeds length of data")
 					}
-					binary.Read(bytes.NewBuffer(data[idx:idx+2]), binary.LittleEndian, &temp)
+					temp = binary.LittleEndian.Uint16(data[idx : idx+2])
 					arr = append(arr, temp)
 					idx += 2
 				}
