@@ -74,6 +74,22 @@ func (PM *ProcessManager) SetShowCarve(showcarve bool) {
 	PM.reporter.ShowCarved = showcarve
 }
 
+func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
+	var database db.Database
+	totalProcessedPages := 0
+
+	for _, bakPayload := range bakPayloads {
+		database = db.Database{BakName: bakPayload}
+		processedPages, err := database.ProcessBAK(false)
+		if err != nil {
+			continue
+		}
+		totalProcessedPages += processedPages
+	}
+	return totalProcessedPages
+
+}
+
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 	selectedPages []int, fromPage int, toPage int, carve bool) int {
 
