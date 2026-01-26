@@ -133,7 +133,7 @@ func main() {
 		}()
 	}
 
-	var mdffiles, ldffiles []string
+	var mdffiles, ldffiles, bakfiles, bakPayloads []string
 
 	var mdffile, basepath string
 
@@ -239,6 +239,8 @@ func main() {
 					mdffiles = append(mdffiles, fullpath)
 				case ".ldf":
 					ldffiles = append(ldffiles, fullpath)
+				case ".bak":
+					bakfiles = append(bakfiles, fullpath)
 				}
 
 			}
@@ -253,11 +255,15 @@ func main() {
 
 	}
 
-	if *mtffile != "" {
-		mtf_s := mtf.MTF{Fname: *mtffile}
-		mtf_s.Process()
-		mtf_s.Export(*location)
-		mdffiles = append(mdffiles, filepath.Join("MDF", mtf_s.GetExportFileName()))
+	if *mtffile != "" || *bakactive {
+		bakfiles = append(bakfiles, *mtffile)
+		for _, bakfile := range bakfiles {
+			mtf_s := mtf.MTF{Fname: bakfile}
+			mtf_s.Process()
+			mtf_s.Export(*location)
+			bakPayloads = append(bakPayloads, filepath.Join("MDF", mtf_s.GetExportFileName()))
+		}
+
 	}
 
 	var selectedTableRowsInt []int
@@ -289,6 +295,9 @@ func main() {
 	}
 
 	start := time.Now()
+
+	pm.ProcessBAKFiles(bakPayloads)
+
 	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles,
 		utils.StringsToIntArray(*selectedPages),
 		*fromPage, *toPage, *carve)
