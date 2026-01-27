@@ -13,6 +13,14 @@ import (
 var PAGELEN = uint16(8192)
 var HEADERLEN = uint16(96)
 
+type InvalidPageTypeError string
+
+func (e InvalidPageTypeError) Error() string { return string(e) }
+
+type InvalidPageSanityError string
+
+func (e InvalidPageSanityError) Error() string { return string(e) }
+
 var PageTypes = map[uint8]string{
 	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 6: "Work File", 7: "Sort", 8: "GAM", 9: "SGAM",
 	10: "IAM", 11: "PFS", 13: "Boot", 14: "Server Configuration", 15: "File Header",
@@ -684,49 +692,52 @@ func (page *Page) parseFileHeader(data []byte) {
 	page.FileHeader = fileHeader
 }
 
-func (page *Page) Process(data []byte, offset int, carve bool) {
+func (page *Page) Process(data []byte, offset int, carve bool) error {
 	HEADERLEN := 96
 
 	var header Header
 	utils.Unmarshal(data[0:HEADERLEN], &header)
 
-	if header.isValid() && header.sanityCheck() {
-		page.Header = header
-		mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
-			header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
-
-		page.PopulateSlots(data[PAGELEN-2*header.SlotCnt:])
-
-		if len(page.Slots) != int(header.SlotCnt) {
-			mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d",
-				header.SlotCnt, len(page.Slots)))
-		}
-
-		switch page.GetType() {
-		case "PFS":
-			page.parsePFS(data)
-		case "GAM":
-			page.parseGAM(data)
-		case "SGAM":
-			page.parseSGAM(data)
-		case "DATA":
-			page.parseDATA(data, offset, carve)
-		case "LOB":
-			page.parseLOB(data)
-		case "TEXT":
-			page.parseLOB(data)
-		case "Index":
-			page.parseIndex(data, offset)
-		case "IAM":
-			page.parseIAM(data)
-		case "File Header":
-			page.parseFileHeader(data)
-		case "Boot":
-			page.parseBoot(data)
-		}
-
+	if !header.isValid() {
+		return InvalidPageTypeError("Invalid page header")
+	} else if !header.sanityCheck() {
+		return InvalidPageSanityError(fmt.Sprintf("Page %d failed sanity checks", header.PageId))
 	}
 
+	page.Header = header
+	mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
+		header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
+
+	page.PopulateSlots(data[PAGELEN-2*header.SlotCnt:])
+
+	if len(page.Slots) != int(header.SlotCnt) {
+		mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d",
+			header.SlotCnt, len(page.Slots)))
+	}
+
+	switch page.GetType() {
+	case "PFS":
+		page.parsePFS(data)
+	case "GAM":
+		page.parseGAM(data)
+	case "SGAM":
+		page.parseSGAM(data)
+	case "DATA":
+		page.parseDATA(data, offset, carve)
+	case "LOB":
+		page.parseLOB(data)
+	case "TEXT":
+		page.parseLOB(data)
+	case "Index":
+		page.parseIndex(data, offset)
+	case "IAM":
+		page.parseIAM(data)
+	case "File Header":
+		page.parseFileHeader(data)
+	case "Boot":
+		page.parseBoot(data)
+	}
+	return nil
 }
 
 func (page *Page) PopulateSlots(data []byte) {
