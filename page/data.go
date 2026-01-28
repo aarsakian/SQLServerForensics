@@ -172,15 +172,26 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 		msg := fmt.Sprintf("%d var col at %d", idx, offset+int(startVarColOffset))
 		mslogger.Mslogger.Info(msg)
 
-		if endVarColOffset < 0 {
-			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
+		// -1 NULL, -2 Row Overflow, -3 Sparse Null, -4 Sparse Non Null
+		if endVarColOffset < -4 {
+			msg := fmt.Sprintf("invalid %d negative offset %d var col at %d", idx, endVarColOffset, offset+int(startVarColOffset))
+			mslogger.Mslogger.Warning(msg)
+			break
+
+		}
+
+		if len(dataRow.VarLengthColOffsets)*2 >= 8192 {
+			msg := fmt.Sprintf("number of val len col offsets %d exceeds page size", len(dataRow.VarLengthColOffsets))
+			mslogger.Mslogger.Warning(msg)
+
+			break
 		}
 
 		if endVarColOffset <= startVarColOffset {
 			continue
 		} else if int(startVarColOffset) > len(data) {
 			break
-		} else if int(endVarColOffset) > len(data) {
+		} else if int(endVarColOffset) > len(data) || endVarColOffset < 0 {
 			endVarColOffset = int16(len(data))
 		} else if int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
 			endVarColOffset = int16(8192 - 2*len(dataRow.VarLengthColOffsets))
