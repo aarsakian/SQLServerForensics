@@ -131,48 +131,21 @@ func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 		vlfheader := new(VLFHeader)
 		vlfheader.Process(bs)
 		vlf.Header = vlfheader
+
 		mslogger.Mslogger.Info(fmt.Sprintf("Located VLF at %d", offset))
+
 		logBlockoffset := int64(8192)
+		bs = make([]byte, vlf.Header.FileSize-uint64(logBlockoffset))
 
-		for logBlockoffset <= int64(vlf.Header.FileSize) {
-			//log block header
-			bs = make([]byte, 72)
-			_, err = file.ReadAt(bs, offset+logBlockoffset)
-			if err != nil {
-				msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
-				mslogger.Mslogger.Error(msg)
-				return recordsProcessed
-			}
-			logBlock := new(LogBlock)
-			logBlock.ProcessHeader(bs)
-
-			if logBlock.Header.Size == 0 {
-				msg := fmt.Sprintf("LogBlock header size is zero at offset %d continuing", offset+logBlockoffset)
-				mslogger.Mslogger.Warning(msg)
-				logBlockoffset += int64(LOGBLOCKMINSIZE)
-				continue
-			} else if !logBlock.Header.IsValid() {
-				msg := fmt.Sprintf("LogBlock header invalid at offset %d continuing", offset+logBlockoffset)
-				mslogger.Mslogger.Warning(msg)
-				logBlockoffset += int64(LOGBLOCKMINSIZE)
-				continue
-			}
-			mslogger.Mslogger.Info(fmt.Sprintf("Located log block at %d Nof Slots %d",
-				offset+logBlockoffset, logBlock.Header.NofSlots))
-			//logBlock size
-			bs = make([]byte, logBlock.Header.Size)
-			_, err = file.ReadAt(bs, offset+logBlockoffset)
-			if err != nil {
-				fmt.Printf("error reading log page at --- %d\n", offset)
-				return recordsProcessed
-			}
-			recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset, carve, minLSN)
-
-			vlf.Blocks = append(vlf.Blocks, *logBlock)
-
-			logBlockoffset += logBlock.GetSize()
-
+		_, err = file.ReadAt(bs, offset+logBlockoffset)
+		if err != nil {
+			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
+			mslogger.Mslogger.Error(msg)
+			return recordsProcessed
 		}
+
+		recordsProcessed += vlf.Process(bs, offset, carve, minLSN)
+
 		*vlfs = append(*vlfs, *vlf)
 
 		if int64(vlf.Header.FileSize) == 0 {
@@ -181,6 +154,41 @@ func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 			break
 		}
 		offset += int64(vlf.Header.FileSize) //needs check
+	}
+	return recordsProcessed
+
+}
+
+func (vlf *VLF) Process(bs []byte, offset int64, carve bool, minLSN utils.LSN) int {
+	recordsProcessed := 0
+	logBlockoffset := int64(0)
+	for logBlockoffset <= int64(len(bs)) {
+		//log block header
+
+		logBlock := new(LogBlock)
+		logBlock.ProcessHeader(bs[:72])
+
+		if logBlock.Header.Size == 0 {
+			msg := fmt.Sprintf("LogBlock header size is zero at offset %d continuing", offset+logBlockoffset)
+			mslogger.Mslogger.Warning(msg)
+			logBlockoffset += int64(LOGBLOCKMINSIZE)
+			continue
+		} else if !logBlock.Header.IsValid() {
+			msg := fmt.Sprintf("LogBlock header invalid at offset %d continuing", offset+logBlockoffset)
+			mslogger.Mslogger.Warning(msg)
+			logBlockoffset += int64(LOGBLOCKMINSIZE)
+			continue
+		}
+		mslogger.Mslogger.Info(fmt.Sprintf("Located log block at %d Nof Slots %d",
+			offset+logBlockoffset, logBlock.Header.NofSlots))
+		//logBlock size
+
+		recordsProcessed += logBlock.ProcessRecords(bs[logBlockoffset:], offset+logBlockoffset, carve, minLSN)
+
+		vlf.Blocks = append(vlf.Blocks, *logBlock)
+
+		logBlockoffset += int64(logBlock.GetSize())
+
 	}
 	return recordsProcessed
 
