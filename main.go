@@ -295,12 +295,14 @@ func main() {
 	}
 
 	start := time.Now()
-
-	pm.ProcessBAKFiles(bakPayloads)
-
-	processedPages := pm.ProcessDBFiles(mdffiles, ldffiles,
-		utils.StringsToIntArray(*selectedPages),
-		*fromPage, *toPage, *carve)
+	processedPages := 0
+	if len(bakPayloads) > 0 {
+		processedPages = pm.ProcessBAKFiles(bakPayloads)
+	} else {
+		processedPages = pm.ProcessDBFiles(mdffiles, ldffiles,
+			utils.StringsToIntArray(*selectedPages),
+			*fromPage, *toPage, *carve)
+	}
 
 	fmt.Printf("Processed %d pages %d MB in %f secs \n",
 		processedPages, processedPages*8192/1000/1024, time.Since(start).Seconds())
