@@ -873,7 +873,9 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 			}
 			if name == "NumberOfVarLengthCols" &&
 				!HasVarLengthCols(uint8(structValPtr.Elem().FieldByName("StatusA").Uint())) {
-				return idx, nil
+				msg := "statusA flag reveals that no varying length cols are located instead field number of varlength cols contradicts"
+				mslogger.Mslogger.Error(msg)
+				return idx, errors.New(msg)
 			}
 			field.SetUint(uint64(binary.LittleEndian.Uint16(data[idx : idx+2])))
 			idx += 2
