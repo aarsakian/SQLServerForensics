@@ -85,6 +85,8 @@ func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
 			continue
 		}
 		totalProcessedPages += processedPages
+		database.ProcessSystemTables()
+		PM.Databases = append(PM.Databases, database)
 	}
 	return totalProcessedPages
 
