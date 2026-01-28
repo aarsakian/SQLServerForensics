@@ -117,10 +117,14 @@ func (db *Database) ProcessBAK(carve bool) (int, error) {
 	}
 	defer file.Close()
 
-	return db.ProcessPages(file, []int{}, -1, math.MaxInt, carve)
+	processedPage, _, err := db.ProcessPages(file, []int{}, -1, math.MaxInt, carve)
+
+	return processedPage, err
+
 }
 
 func (db *Database) ProcessMDF(selectedPages []int, fromPage int, toPage int, carve bool) (int, error) {
+	var processesPages int
 
 	file, err := os.Open(db.Fname) //
 	if err != nil {
@@ -135,16 +139,19 @@ func (db *Database) ProcessMDF(selectedPages []int, fromPage int, toPage int, ca
 		return 0, err
 	}
 	defer file.Close()
-	return db.ProcessPages(file, selectedPages, fromPage, toPage, carve)
-
+	processesPages, _, err = db.ProcessPages(file, selectedPages, fromPage, toPage, carve)
+	return processesPages, err
 }
 
-func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage int, toPage int, carve bool) (int, error) {
+func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage int, toPage int, carve bool) (int, []int, error) {
+	totalProcessedPages := 0
+	//offsets that might contain log records and other useful info
+	var suspisiousOffsets []int
 
 	fsize, err := file.Stat() //file descriptor
 	if err != nil {
 		mslogger.Mslogger.Error(err)
-		return 0, err
+		return 0, suspisiousOffsets, err
 	}
 	// read the file
 
@@ -152,15 +159,13 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 
 	pages := page.PagesPerId[uint64]{}
 
-	totalProcessedPages := 0
-
 	for offset := 0; offset < int(fsize.Size()); offset += PAGELEN {
 		_, err := file.ReadAt(bs, int64(offset))
 
 		if err != nil {
 			fmt.Printf("error reading file --->%s prev offset %d  mod %d",
 				err, offset/PAGELEN, offset%PAGELEN)
-			return 0, err
+			return 0, suspisiousOffsets, err
 		}
 
 		/*if selectedPages != -1 && (offset/PAGELEN < selectedPage ||
@@ -177,20 +182,25 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 		}
 		msg := fmt.Sprintf("Processing page at %d", offset)
 		mslogger.Mslogger.Info(msg)
-		page := db.ProcessPage(bs, offset, carve)
+		page_, err := db.ProcessPage(bs, offset, carve)
 
-		if db.Name == "" && page.Boot != nil {
-			db.Name = page.Boot.GetDBName()
-			db.minLSN = page.Boot.Dbi_checkptLSN
+		switch err.(type) {
+		case page.InvalidPageTypeError:
+			suspisiousOffsets = append(suspisiousOffsets, offset)
 		}
 
-		allocUnitID := page.Header.GetMetadataAllocUnitId()
+		if db.Name == "" && page_.Boot != nil {
+			db.Name = page_.Boot.GetDBName()
+			db.minLSN = page_.Boot.Dbi_checkptLSN
+		}
+
+		allocUnitID := page_.Header.GetMetadataAllocUnitId()
 		if allocUnitID == 0 {
 			msg := fmt.Sprintf("Skipped Processing page at offset %d no alloc unit", offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
-		pages.Add(allocUnitID, page)
+		pages.Add(allocUnitID, page_)
 
 		totalProcessedPages++
 
@@ -200,7 +210,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 	fmt.Printf("%s\n", msg)
 
 	db.PagesPerAllocUnitID = pages
-	return totalProcessedPages, nil
+	return totalProcessedPages, suspisiousOffsets, nil
 }
 
 func (db *Database) ProcessLDF(carve bool) (int, error) {
@@ -222,8 +232,7 @@ func (db *Database) ProcessLDF(carve bool) (int, error) {
 		return 0, err
 	}
 
-	db.LogPage = db.ProcessPage(bs, offset, carve)
-
+	db.LogPage, _ = db.ProcessPage(bs, offset, carve)
 	db.VLFs = new(LDF.VLFs)
 	recordsProcessed := db.VLFs.Process(*file, carve, db.minLSN)
 	fmt.Printf("LDF processing completed %d log records processed\n", recordsProcessed)
@@ -231,11 +240,11 @@ func (db *Database) ProcessLDF(carve bool) (int, error) {
 	return recordsProcessed, nil
 }
 
-func (db Database) ProcessPage(bs []byte, offset int, carve bool) page.Page {
+func (db Database) ProcessPage(bs []byte, offset int, carve bool) (page.Page, error) {
 	page := new(page.Page)
-	page.Process(bs, offset, carve)
+	err := page.Process(bs, offset, carve)
 
-	return *page
+	return *page, err
 }
 
 func (db *Database) FilterBySystemTables(systemTables string) {
