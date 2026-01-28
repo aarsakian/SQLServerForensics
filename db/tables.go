@@ -378,7 +378,7 @@ func (table *Table) AddPurgedRow(record LDF.Record, carved bool) error {
 		fmt.Sprintf(" commited at %s previous slot %d", record.GetEndCommitDate(),
 			record.Lop_Insert_Delete.RowId.SlotNumber)
 	if record.Lop_Insert_Delete.DataRow == nil {
-		msg := fmt.Sprintf("Table %s and record LSN %s with LOP_INSERT_DELETEified has no datarow",
+		msg := fmt.Sprintf("Table %s and record LSN %s with LOP_INSERT_DELETE has no datarow",
 			table.Name, record.CurrentLSN.ToStr())
 		mslogger.Mslogger.Warning(msg)
 		return errors.New(msg)
