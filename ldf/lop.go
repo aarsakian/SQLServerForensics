@@ -199,6 +199,16 @@ func (lop_begin *LOP_BEGIN) ShowInfo() {
 		lop_begin.XactID, lop_begin.TransactionName, lop_begin.TransactionSID)
 }
 
+func (lop_end_cpkt LOP_END_CKPT) ShowInfo() {
+	fmt.Printf("EndTime %s database end version %d\n",
+		utils.DateTimeTostr(lop_end_cpkt.EndTime[:]), lop_end_cpkt.EndDBVers)
+}
+
+func (lop_begin_ckpt LOP_BEGIN_CKPT) ShowInfo() {
+	fmt.Printf("BegTime %s database begin version %d\n",
+		utils.DateTimeTostr(lop_begin_ckpt.BeginTime[:]), lop_begin_ckpt.BeginDBVersion)
+}
+
 func (lop_commit *LOP_COMMIT) Process(bs []byte) {
 	utils.Unmarshal(bs, lop_commit)
 
