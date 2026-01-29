@@ -59,12 +59,14 @@ type Auid struct {
 
 type Images [][]byte
 
-func (lsn LSN) IsGreater(smallerLSN LSN) bool {
+func (lsn LSN) IsGreaterEqual(smallerLSN LSN) bool {
 	if lsn.P1 > smallerLSN.P1 {
 		return true
 	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 > smallerLSN.P2 {
 		return true
 	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 == smallerLSN.P2 && lsn.P3 > smallerLSN.P3 {
+		return true
+	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 == smallerLSN.P2 && lsn.P3 == smallerLSN.P3 {
 		return true
 	} else {
 		return false
@@ -923,16 +925,20 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 		case reflect.Struct:
 			nameType := structType.Elem().Field(i).Type.Name()
 			name := structType.Elem().Field(i).Name
+			//this value is set outside
 			if name == "CurrentLSN" {
 				continue
 			}
 			switch nameType {
 			case "LSN":
-				var lsn LSN
-				err := checkBounds(name, idx+10-len(data))
-				if err != nil {
-					return idx, err
+				if idx+10 > len(data) {
+					msg := fmt.Sprintf("datarow available size exceed at %s by %d",
+						name, idx+10-lenData)
+					mslogger.Mslogger.Error(msg)
+					return idx, errors.New(msg)
 				}
+				var lsn LSN
+
 				Unmarshal(data[idx:idx+10], &lsn)
 				field.Set(reflect.ValueOf(lsn))
 				idx += 10
