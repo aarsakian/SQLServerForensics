@@ -41,6 +41,21 @@ LSN of the oldest active transaction
 LSN of the process that reads transaction log records
 */
 
+const (
+	FlagFirstInSector uint8 = 0x01
+	FlagLastInSector  uint8 = 0x02
+	FlagFirstInBlock  uint8 = 0x04
+	FlagLastInBlock   uint8 = 0x08
+	FlagCommit        uint8 = 0x10
+	FlagCLR           uint8 = 0x20
+	FlagBeginXact     uint8 = 0x40
+	FlagReserverd     uint8 = 0x80
+)
+
+const ValidFlags uint8 = FlagFirstInSector | FlagLastInSector | FlagFirstInBlock | FlagLastInBlock |
+	FlagCommit |
+	FlagCLR | FlagBeginXact | FlagReserverd
+
 var LOGBLOCKMINSIZE int = 512
 
 type VLFs []VLF
@@ -88,7 +103,7 @@ type LogBlockHeader struct {
 
 // The fifth bit indicates whether the block is the first block
 func (logblockheader LogBlockHeader) IsFirst() bool {
-	return logblockheader.FlagBit&0x10 == 0x10
+	return logblockheader.FlagBit&0x4 == 0x04
 }
 
 // the fourth bit indicates whether it is the last block.
@@ -96,9 +111,9 @@ func (logblockheader LogBlockHeader) IsLast() bool {
 	return logblockheader.FlagBit&0x08 == 0x08
 }
 
+// exclude non valid flags
 func (logblockheadr LogBlockHeader) IsValid() bool {
-	return logblockheadr.FlagBit == 0x40 || logblockheadr.FlagBit == 0x50 ||
-		logblockheadr.FlagBit == 0x58
+	return (logblockheadr.FlagBit & ^ValidFlags) == 0
 }
 
 func (logBlock LogBlock) GetSize() int64 {
@@ -135,16 +150,8 @@ func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 		mslogger.Mslogger.Info(fmt.Sprintf("Located VLF at %d", offset))
 
 		logBlockoffset := int64(8192)
-		bs = make([]byte, vlf.Header.FileSize-uint64(logBlockoffset))
-
-		_, err = file.ReadAt(bs, offset+logBlockoffset)
-		if err != nil {
-			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
-			mslogger.Mslogger.Error(msg)
-			return recordsProcessed
-		}
-
-		recordsProcessed += vlf.Process(bs, offset, carve, minLSN)
+		// 22 to take into account log block header
+		recordsProcessed += vlf.Process(file, offset+logBlockoffset, carve, minLSN)
 
 		*vlfs = append(*vlfs, *vlf)
 
@@ -159,14 +166,23 @@ func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 
 }
 
-func (vlf *VLF) Process(bs []byte, offset int64, carve bool, minLSN utils.LSN) int {
+func (vlf *VLF) Process(file os.File, offset int64, carve bool, minLSN utils.LSN) int {
+
 	recordsProcessed := 0
 	logBlockoffset := int64(0)
-	for logBlockoffset <= int64(len(bs)) {
+	for logBlockoffset <= int64(vlf.Header.FileSize) {
 		//log block header
+		bs := make([]byte, 72)
+
+		_, err := file.ReadAt(bs, offset+logBlockoffset)
+		if err != nil {
+			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
+			mslogger.Mslogger.Error(msg)
+			return recordsProcessed
+		}
 
 		logBlock := new(LogBlock)
-		logBlock.ProcessHeader(bs[:72])
+		logBlock.ProcessHeader(bs)
 
 		if logBlock.Header.Size == 0 {
 			msg := fmt.Sprintf("LogBlock header size is zero at offset %d continuing", offset+logBlockoffset)
@@ -183,7 +199,16 @@ func (vlf *VLF) Process(bs []byte, offset int64, carve bool, minLSN utils.LSN) i
 			offset+logBlockoffset, logBlock.Header.NofSlots))
 		//logBlock size
 
-		recordsProcessed += logBlock.ProcessRecords(bs[logBlockoffset:], offset+logBlockoffset, carve, minLSN)
+		bs = make([]byte, logBlock.Header.Size)
+
+		_, err = file.ReadAt(bs, offset+logBlockoffset)
+		if err != nil {
+			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
+			mslogger.Mslogger.Error(msg)
+			return recordsProcessed
+		}
+
+		recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset, carve, minLSN)
 
 		vlf.Blocks = append(vlf.Blocks, *logBlock)
 
@@ -204,7 +229,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 
 	LSN_to_Record := make(map[utils.LSN]*Record)
 
-	for recordId := 0; recordId < len(recordOffsets); recordId++ {
+	for recordId := range recordOffsets {
 		if len(bs) < 2*(recordId+1) {
 			msg := fmt.Sprintf("log record id exceeds buffer at %d", recordId)
 			mslogger.Mslogger.Warning(msg)
@@ -217,15 +242,20 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 	currentLSN := logBlock.Header.FirstLSN
 
 	for _, recordOffset := range recordOffsets {
-		if len(bs) < int(recordOffset) {
+		if len(bs) <= int(recordOffset)+4 {
 			msg := fmt.Sprintf("log record offset exceeds buffer at %d", recordOffset)
 			mslogger.Mslogger.Warning(msg)
 			break
 		}
 		record := new(Record)
-		utils.Unmarshal(bs[recordOffset:], record)
+		prefix := new(RecordPrefix)
+		utils.Unmarshal(bs[recordOffset:], prefix)
+
+		record.Prefix = prefix
+		//account for record prefix
+		utils.Unmarshal(bs[recordOffset+4:], record)
 		LSN_to_Record[currentLSN] = record
-		if currentLSN.IsGreater(minLSN) {
+		if currentLSN.IsGreaterEqual(minLSN) {
 			record.Carved = false
 		} else {
 			record.Carved = true
@@ -245,6 +275,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 		if !carve && record.Carved {
 			continue
 		}
+		recordOffset += 20 + 4
 
 		//LOP_BEGIN_CKPT = start of checkpoint
 		//LOP_END_CKPT = end of checkpoint
@@ -257,35 +288,40 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 
 			// here we have datarows
 			if record.GetContextType() == "LCX_HEAP" || record.GetContextType() == "LCX_CLUSTERED" {
-				lop_insert_delete.Process(bs[recordOffset+24:])
+				lop_insert_delete.Process(bs[recordOffset:])
 				record.Lop_Insert_Delete = lop_insert_delete
 			}
 
 		case "LOP_MODIFY_ROW", "LOP_MODIFY_SPLIT":
 			lop_modify := new(LOP_MODIFY)
-			if record.GetContextType() == "LCX_HEAP" || record.GetContextType() == "LCX_CLUSTERED" {
-				lop_modify.Process(bs[recordOffset+24:])
+			if record.GetContextType() == "LCX_HEAP" ||
+				record.GetContextType() == "LCX_CLUSTERED" ||
+				record.GetContextType() == "LCX_INDEX_LEAF" ||
+				record.GetContextType() == "LCX_INDEX_INTERMEDIATE" ||
+				record.GetContextType() == "LCX_LOB_DATA" ||
+				record.GetContextType() == "LCX_METADATA" {
+				lop_modify.Process(bs[recordOffset:])
 			}
 
 		case "LOP_BEGIN_XACT":
 			lop_begin_xact := new(LOP_BEGIN)
-			lop_begin_xact.Process(bs[recordOffset+24:])
+			lop_begin_xact.Process(bs[recordOffset:])
 			record.Lop_Begin = lop_begin_xact
 		case "LOP_COMMIT_XACT":
 			lop_commit := new(LOP_COMMIT)
-			lop_commit.Process(bs[recordOffset+24:])
+			lop_commit.Process(bs[recordOffset:])
 			record.Lop_Commit = lop_commit
 		case "LOP_BEGIN_CKPT":
 			lop_begin_ckpt := new(LOP_BEGIN_CKPT)
-			lop_begin_ckpt.Process(bs[recordOffset+24:])
+			lop_begin_ckpt.Process(bs[recordOffset:])
 			record.Lop_Begin_CKPT = lop_begin_ckpt
 		case "LOP_END_CKPT":
 			lop_end_ckpt := new(LOP_END_CKPT)
-			lop_end_ckpt.Process(bs[recordOffset+24:])
+			lop_end_ckpt.Process(bs[recordOffset:])
 			record.Lop_End_CKPT = lop_end_ckpt
 		case "LOP_EXPUNGE_ROWS":
 			lop_exp_row := new(Generic_LOP)
-			lop_exp_row.Process(bs[recordOffset+24:])
+			lop_exp_row.Process(bs[recordOffset:])
 			record.Generic_LOP = lop_exp_row
 		}
 
@@ -319,6 +355,9 @@ func (logBlock LogBlock) ShowInfo(filterloptype string) {
 	}
 
 	for _, record := range logBlock.Records {
+		if record.Carved {
+			continue
+		}
 		record.ShowLOPInfo(filterloptype)
 	}
 }
