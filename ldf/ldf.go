@@ -355,9 +355,6 @@ func (logBlock LogBlock) ShowInfo(filterloptype string) {
 	}
 
 	for _, record := range logBlock.Records {
-		if record.Carved {
-			continue
-		}
 		record.ShowLOPInfo(filterloptype)
 	}
 }
