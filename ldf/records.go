@@ -14,19 +14,23 @@ type OriginalParityBytes []uint8
 
 type Records []Record
 
+// 4 byte prefix
+type RecordPrefix struct {
+	Flags      uint8
+	SlotNumber uint8
+	Size       uint16
+}
+
 // he corresponding log records will contain the data page number and the slot number of the data page they affect.
 // aligned at 4 byte boundary
 // Every transaction must have an LOP_BEGIN_XACT
 // and a record to close the xact, usually LOP_COMMIT_XACT.
 type Record struct {
-	CurrentLSN        utils.LSN
-	Unknown           [2]byte
-	Length            uint16              //size of fixed length area 2-4
-	PreviousLSN       utils.LSN           //4-14 VLF:LOG BLOCK:LOG RECORD
-	Flag              uint16              //14-16
-	TransactionID     utils.TransactionID //16-22
-	Operation         uint8               //what type of data is stored 23
-	Context           uint8               //24
+	PreviousLSN       utils.LSN           //0-10
+	TransactionID     utils.TransactionID //10-16
+	Flag              uint16              //16-18
+	Operation         uint8               //what type of data is stored 19
+	Context           uint8               //20
 	Lop_Insert_Delete *LOP_INSERT_DELETE
 	Lop_Begin         *LOP_BEGIN
 	Lop_Commit        *LOP_COMMIT
@@ -36,6 +40,8 @@ type Record struct {
 	PreviousRecord    *Record
 	NextRecord        *Record
 	Carved            bool
+	Prefix            *RecordPrefix
+	CurrentLSN        utils.LSN //this value will be set by context
 }
 
 type ByIncreasingLSN []Record
@@ -64,11 +70,11 @@ func (record Record) GetContextType() string {
 }
 
 func (record Record) HasGreaterLSN(lsn utils.LSN) bool {
-	return record.PreviousLSN.IsGreater(lsn)
+	return record.PreviousLSN.IsGreaterEqual(lsn)
 }
 
 func (record Record) HasLessLSN(lsn utils.LSN) bool {
-	return !record.PreviousLSN.IsGreater(lsn)
+	return !record.PreviousLSN.IsGreaterEqual(lsn)
 }
 
 func (record Record) GetBeginRecordPtr() (*Record, error) {
@@ -125,9 +131,10 @@ func (record Record) GetEndCommitDate() string {
 
 func (record Record) ShowLOPInfo(filterloptype string) {
 	if filterloptype == "any" {
-		fmt.Printf("Current LSN %s Previous LSN %s transID %s %s %s \n",
+		fmt.Printf("Current LSN %s Previous LSN %s TransID %s Flag Bits %d %s %s \n",
 			record.CurrentLSN.ToStr(),
 			record.PreviousLSN.ToStr(), record.TransactionID.ToStr(),
+			record.Flag,
 			OperationType[record.Operation],
 			record.GetContextType())
 	}
@@ -141,8 +148,13 @@ func (record Record) ShowLOPInfo(filterloptype string) {
 	} else if record.Lop_Commit != nil &&
 		(filterloptype == "commit" || filterloptype == "any") {
 		record.Lop_Commit.ShowInfo()
+	} else if record.Lop_Begin_CKPT != nil &&
+		(filterloptype == "begin_ckpt" || filterloptype == "any") {
+		record.Lop_Begin_CKPT.ShowInfo()
+	} else if record.Lop_End_CKPT != nil &&
+		(filterloptype == "end_ckpt" || filterloptype == "any") {
+		record.Lop_End_CKPT.ShowInfo()
 	}
-
 }
 
 func (record Record) HasOperationType(operationtypes []string) bool {
