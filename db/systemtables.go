@@ -328,52 +328,35 @@ func (syscolpars SysColpars) GetType() string {
 
 }
 
-func (syscolpars SysColpars) isColNullable() bool {
-	if 1-(syscolpars.Status&1) == 1 {
-		return true
-	} else {
-		return false
-	}
+func (c SysColpars) isColNullable() bool {
+	// 0x01 is the NOT NULL bit.
+	// If (status & 1) == 0, the column IS nullable.
+	return c.Status&0x01 == 0
 }
 
-func (syscolpars SysColpars) isAnsiPadded() bool {
-	if syscolpars.Status&2 == 1 {
-		return true
-	} else {
-		return false
-	}
+func (c SysColpars) isAnsiPadded() bool {
+	// 0x02 indicates ANSI Padding (CPM_NOTRIM)
+	return c.Status&0x02 != 0
 }
 
-func (syscolpars SysColpars) isIdentity() bool {
-	if syscolpars.Status&4 == 1 {
-		return true
-	} else {
-		return false
-	}
+func (c SysColpars) isIdentity() bool {
+	// 0x04 is the Identity bit (CPM_IDENTCOL)
+	return c.Status&0x04 != 0
 }
 
-func (syscolpars SysColpars) isRowGUIDCol() bool {
-	if syscolpars.Status&8 == 1 {
-		return true
-	} else {
-		return false
-	}
+func (c SysColpars) isRowGUIDCol() bool {
+	// 0x08 is the RowGUID bit (CPM_ROWGUIDCOL)
+	return c.Status&0x08 != 0
 }
 
-func (syscolpars SysColpars) isComputed() bool {
-	if syscolpars.Status&16 == 1 {
-		return true
-	} else {
-		return false
-	}
+func (c SysColpars) isComputed() bool {
+	// 0x10 (16) is the Computed bit (CPM_COMPUTED)
+	return c.Status&0x10 != 0
 }
 
-func (syscolpars SysColpars) isFilestream() bool {
-	if syscolpars.Status&32 == 1 {
-		return true
-	} else {
-		return false
-	}
+func (c SysColpars) isFilestream() bool {
+	// 0x20 (32) is the Filestream bit (CPM_FILESTREAM)
+	return c.Status&0x20 != 0
 }
 
 func (syscolpars SysColpars) GetAdditionalAttributes() string {
@@ -400,6 +383,7 @@ func (syscolpars SysColpars) GetAdditionalAttributes() string {
 	if syscolpars.isFilestream() {
 		attributes.WriteString("Filestream ")
 	}
+
 	return attributes.String()
 }
 
