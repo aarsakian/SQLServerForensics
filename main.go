@@ -109,7 +109,7 @@ func main() {
 	exportImage := flag.Bool("exportImages", false, "export images saved as blob")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
-	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|any")
+	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|begin_ckpt|end_ckpt|any")
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
 	raw := flag.Bool("showraw", false, "show row data for each column in a table")
 	rpc := flag.Uint("rpc", 0, "use grpc to communicate select port from 1024 and upwards")
