@@ -504,6 +504,9 @@ func (table *Table) setVarLenCols() {
 		if table.Schema[idx].isStatic() {
 			continue
 		}
+		if table.Schema[idx].IsComputed {
+			continue
+		}
 		table.Schema[idx].VarLenOrder = uint16(vid)
 
 		vid++
@@ -523,13 +526,21 @@ func (table *Table) addColumns(columns []SysColpars) {
 				Charmap:   utils.LocateWindowsCharmap(codepage),
 				CodePage:  codepage,
 				Precision: col.Prec, Scale: col.Scale,
-				OffsetMap: map[uint64]int16{}, Properties: col.GetAdditionalAttributes()})
+				OffsetMap:    map[uint64]int16{},
+				IsAnsiPadded: col.isAnsiPadded(),
+				IsIdentity:   col.isIdentity(),
+				IsRowGUIDCol: col.isRowGUIDCol(),
+				IsComputed:   col.isComputed(),
+				IsFilestream: col.isFilestream(),
+			})
 
 		} else {
 			table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
 				Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
 				Precision: col.Prec, Scale: col.Scale,
-				OffsetMap: map[uint64]int16{}, Properties: col.GetAdditionalAttributes()})
+				OffsetMap: map[uint64]int16{}, IsAnsiPadded: col.isAnsiPadded(),
+				IsIdentity: col.isIdentity(), IsRowGUIDCol: col.isRowGUIDCol(),
+				IsComputed: col.isComputed(), IsFilestream: col.isFilestream()})
 		}
 
 	}
@@ -544,14 +555,16 @@ func (table Table) printSchema() {
 			if !col.isStatic() {
 				continue
 			}
-			fmt.Printf(" | %s %s %s", col.Name, col.Type, col.Properties)
+			fmt.Printf(" | %s %s Padded %t Identity %t RowGUID %t Computed %t Filestream %t",
+				col.Name, col.Type, col.IsAnsiPadded, col.IsIdentity, col.IsRowGUIDCol, col.IsComputed, col.IsFilestream)
 		}
 		fmt.Printf("\nDynamic cols\n")
 		for _, col := range table.Schema {
 			if col.isStatic() {
 				continue
 			}
-			fmt.Printf("| %s %s %s", col.Name, col.Type, col.Properties)
+			fmt.Printf("| %s %s Padded %t Identity %t RowGUID %t Computed %t Filestream %t",
+				col.Name, col.Type, col.IsAnsiPadded, col.IsIdentity, col.IsRowGUIDCol, col.IsComputed, col.IsFilestream)
 		}
 		fmt.Printf("\n")
 	}
@@ -1018,12 +1031,16 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 		}
 		//check only when number of cols equal to nofCols
 		if colnum < int(datarow.NumberOfCols) && utils.HasFlagSet(bitrepresentation, colnum+1) { //col is NULL skip when ASCII 49  (1)
+			//computed cols are not stored
 
 			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
 			//mslogger.Mslogger.Error(msg)
 
 			nofNullCols++
 			continue
+		}
+		if col.IsComputed {
+			continue //computed cols are not stored
 		}
 
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
