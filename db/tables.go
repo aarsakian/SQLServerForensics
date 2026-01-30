@@ -1023,14 +1023,20 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 	bitrepresentation := datarow.PrintNullBitmapToBit(nofCols)
 
 	nofNullCols := 0 // only null var cols
+	computedCols := 0
 
 	for colnum, col := range table.Schema {
 		//schema is sorted by colorder use colnum instead of col.Order
 		if colnum+1 != int(col.Order) {
 			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
 		}
+		if col.IsComputed {
+			computedCols++
+			continue //computed cols are not stored
+		}
 		//check only when number of cols equal to nofCols
-		if colnum < int(datarow.NumberOfCols) && utils.HasFlagSet(bitrepresentation, colnum+1) { //col is NULL skip when ASCII 49  (1)
+		if colnum < int(datarow.NumberOfCols) &&
+			utils.HasFlagSet(bitrepresentation, colnum+1-computedCols) { //col is NULL skip when ASCII 49  (1)
 			//computed cols are not stored
 
 			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
@@ -1038,9 +1044,6 @@ func (table Table) ProcessRow(rownum int, datarow page.DataRow,
 
 			nofNullCols++
 			continue
-		}
-		if col.IsComputed {
-			continue //computed cols are not stored
 		}
 
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
