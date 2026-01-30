@@ -18,18 +18,23 @@ type ColData struct {
 type ColMap map[string]ColData //name->coldata
 
 type Column struct {
-	Name        string
-	Type        string
-	Size        int16
-	Order       uint16
-	VarLenOrder uint16
-	CollationId uint32
-	Precision   uint8
-	Scale       uint8
-	Charmap     *charmap.Charmap
-	CodePage    string
-	OffsetMap   map[uint64]int16 //partitionId -> offset
-	Properties  string
+	Name         string
+	Type         string
+	Size         int16
+	Order        uint16
+	VarLenOrder  uint16
+	CollationId  uint32
+	Precision    uint8
+	Scale        uint8
+	Charmap      *charmap.Charmap
+	CodePage     string
+	OffsetMap    map[uint64]int16 //partitionId -> offset
+	IslNullable  bool
+	IsAnsiPadded bool
+	IsIdentity   bool
+	IsRowGUIDCol bool
+	IsComputed   bool
+	IsFilestream bool
 }
 
 type SqlVariant struct {
@@ -63,11 +68,12 @@ func (c Column) parseReal(data []byte) string {
 }
 
 func (sqlVariant SqlVariant) getData() string {
-	if sqlVariant.BaseType == 0x23 {
+	switch sqlVariant.BaseType {
+	case 0x23:
 		return fmt.Sprintf("%d", utils.ToInt32(sqlVariant.Value))
-	} else if sqlVariant.BaseType == 0x7f {
+	case 0x7f:
 		return fmt.Sprintf("%d", utils.ToInt64(sqlVariant.Value))
-	} else if sqlVariant.BaseType == 0xad { //string
+	case 0xad: //string
 		return fmt.Sprintf("%x", sqlVariant.Value)
 	}
 	return ""
@@ -90,10 +96,11 @@ func (c Column) parseSqlVariant(data []byte) SqlVariant {
 	var sqlVariant *SqlVariant = new(SqlVariant)
 	utils.Unmarshal(data, sqlVariant)
 	var sqlVariantProperties SqlVariantProperties
-	if sqlVariant.BaseType == 0x38 { //int
+	switch sqlVariant.BaseType {
+	case 0x38: //int
 		sqlVariantProperties = SqlVariantProperties{Precision: data[2], Scale: data[3]}
 		sqlVariant.Value = data[3:]
-	} else if sqlVariant.BaseType == 0x23 { //string
+	case 0x23: //string
 
 		sqlVariantProperties = SqlVariantProperties{MaximumLength: utils.ToUint16(data[2:4]),
 			CollationId: utils.ToUint32(data[4:8])}
@@ -110,65 +117,67 @@ func (c Column) toString(data []byte) string {
 	}
 	//always defines number of bytes n never defines number of characters stored
 	//<2019 sql server versions save in cp codepages
-	if c.Type == "varchar" || c.Type == "text" || c.Type == "char" {
+	switch c.Type {
+	case "varchar", "text", "char":
 		return utils.Decode(data, c.Charmap, c.CodePage)
 
-	} else if c.Type == "nvarchar" || c.Type == "ntext" || c.Type == "nchar" { //n = number of byte pairs (10=10x2 20bytes in Latin1_Gen.... SC_UTF8)
+	case "nvarchar", "ntext", "nchar": //n = number of byte pairs (10=10x2 20bytes in Latin1_Gen.... SC_UTF8)
 		return utils.DecodeUTF16(data)
-	} else if c.Type == "datetime2" {
+	case "datetime2":
 		return utils.DateTime2Tostr(data)
-	} else if c.Type == "datetime" {
+	case "datetime":
 		return utils.DateTimeTostr(data)
-	} else if c.Type == "int" {
+	case "int":
 		return fmt.Sprintf("%d", utils.ToInt32(data))
-	} else if c.Type == "smallint" {
+	case "smallint":
 		return fmt.Sprintf("%d", utils.ToInt16(data))
-	} else if c.Type == "tinyint" {
+	case "tinyint":
 		return fmt.Sprintf("%d", utils.ToInt8(data))
-	} else if c.Type == "bigint" {
+	case "bigint":
 		return fmt.Sprintf("%d", utils.ToInt64(data))
-	} else if c.Type == "varbinary" {
+	case "varbinary":
 		return fmt.Sprintf("%x", data)
-	} else if c.Type == "decimal" || c.Type == "numeric" { //synonyms
+	case "decimal", "numeric": //synonyms
 		return c.parseDecimal(data)
-	} else if c.Type == "sql_variant" {
+	case "sql_variant":
 		sqlVariant := c.parseSqlVariant(data)
 		return sqlVariant.getData()
-	} else if c.Type == "image" {
+	case "image":
 		return b64.StdEncoding.EncodeToString(data)
-	} else if c.Type == "bit" {
+	case "bit":
 		return utils.BitToString(data, 1) // less than 8 cols one byte required > 2 two bytes
-	} else if c.Type == "uniqueidentifier" {
+	case "uniqueidentifier":
 		return fmt.Sprintf("%x-%x-%x-%x-%x", utils.Reverse(data[0:4]), utils.Reverse(data[4:6]),
 			utils.Reverse(data[6:8]), data[8:10], data[10:16])
-	} else if c.Type == "money" {
+	case "money":
 		return utils.MoneyToStr(data)
-	} else if c.Type == "date" {
+	case "date":
 		return utils.CheckLenBefore(data, utils.DateToStr)
-	} else if c.Type == "float" {
+	case "float":
 		return utils.CheckLenBefore(data, utils.FloatToStr)
-	} else if c.Type == "real" {
+	case "real":
 		return c.parseReal(data)
-	} else if c.Type == "smalldatetime" {
+	case "smalldatetime":
 		return utils.ParseSmallDateTime(data)
-	} else if c.Type == "hierarchyid" {
+	case "hierarchyid":
 		return fmt.Sprintf("%x", data)
-	} else if c.Type == "time" {
+	case "time":
 		return c.ParseTime(data)
-	} else {
+	default:
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
 	}
 }
 
 func (c Column) Parse(data []byte) interface{} {
-	if c.Type == "int" {
+	switch c.Type {
+	case "int":
 		return utils.ToInt32(data)
-	} else if c.Type == "smallint" {
+	case "smallint":
 		return utils.ToInt16(data)
-	} else if c.Type == "tinyint" {
+	case "tinyint":
 		return utils.ToInt8(data)
-	} else {
+	default:
 		return nil
 	}
 }
