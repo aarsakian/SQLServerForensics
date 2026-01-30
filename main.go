@@ -177,11 +177,14 @@ func main() {
 		flm.Register(filters.ExtensionsFilter{Extensions: []string{"bak"}})
 	}
 
-	if *ldbfile != "" || *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
-		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF", "LDF"}})
+	if *filenames == "" {
+		if *ldbfile != "" || *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
+			flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF", "LDF"}})
 
-	} else {
-		flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF"}})
+		} else {
+			flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF"}})
+		}
+
 	}
 
 	if mdffile != "" && *ldbfile != "" {
@@ -255,8 +258,11 @@ func main() {
 
 	}
 
-	if *mtffile != "" || *bakactive {
+	if *mtffile != "" {
 		bakfiles = append(bakfiles, *mtffile)
+	}
+	if *bakactive || *mtffile != "" {
+
 		for _, bakfile := range bakfiles {
 			mtf_s := mtf.MTF{Fname: bakfile}
 			mtf_s.Process()
