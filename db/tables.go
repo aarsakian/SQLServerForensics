@@ -516,8 +516,11 @@ func (table *Table) setVarLenCols() {
 func (table *Table) setMetadataBlobs(sysobjvalues []SysObjValues) {
 
 	for _, sysobjvalue := range sysobjvalues {
-		if sysobjvalue.Valclass == 7 {
+		// metadata fragment
+		if sysobjvalue.Valclass == 2 {
 
+			table.Schema[sysobjvalue.Subobjid-1].Computed =
+				&Computed{Definition: string(sysobjvalue.Imageval[:])}
 		}
 
 	}
@@ -542,7 +545,9 @@ func (table *Table) addColumns(columns []SysColpars) {
 				IsIdentity:   col.isIdentity(),
 				IsRowGUIDCol: col.isRowGUIDCol(),
 				IsComputed:   col.isComputed(),
+				IsColumnSet:  col.isColumnSet(),
 				IsFilestream: col.isFilestream(),
+				IsPersisted:  col.isPersisted(),
 			})
 
 		} else {
@@ -551,7 +556,8 @@ func (table *Table) addColumns(columns []SysColpars) {
 				Precision: col.Prec, Scale: col.Scale,
 				OffsetMap: map[uint64]int16{}, IsAnsiPadded: col.isAnsiPadded(),
 				IsIdentity: col.isIdentity(), IsRowGUIDCol: col.isRowGUIDCol(),
-				IsComputed: col.isComputed(), IsFilestream: col.isFilestream()})
+				IsComputed: col.isComputed(), IsColumnSet: col.isColumnSet(),
+				IsFilestream: col.isFilestream(), IsPersisted: col.isPersisted()})
 		}
 
 	}
@@ -750,7 +756,10 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 					continue
 				}
 				colData := row.ColMap[c.Name]
-
+				if c.IsComputed && !c.IsPersisted {
+					vals = append(vals, c.Computed.Definition)
+					continue
+				}
 				vals = append(vals, c.toString(colData.Content))
 			}
 
@@ -918,7 +927,11 @@ func (table Table) printData(showtorow int, skiprows int,
 					continue
 				}
 				colData := row.ColMap[c.Name]
-				c.Print(colData.Content)
+				if c.IsComputed && !c.IsPersisted {
+					c.Computed.Print()
+				} else {
+					c.Print(colData.Content)
+				}
 
 				if showldf && colData.LoggedColData != nil {
 					fmt.Printf(" -> ")
