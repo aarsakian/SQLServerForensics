@@ -513,6 +513,17 @@ func (table *Table) setVarLenCols() {
 	}
 }
 
+func (table *Table) setMetadataBlobs(sysobjvalues []SysObjValues) {
+
+	for _, sysobjvalue := range sysobjvalues {
+		if sysobjvalue.Valclass == 7 {
+
+		}
+
+	}
+
+}
+
 func (table *Table) addColumns(columns []SysColpars) {
 
 	for _, col := range columns {
