@@ -15,6 +15,11 @@ type ColData struct {
 	LoggedColData *ColData
 }
 
+type Computed struct {
+	Definition string
+	Persisted  bool
+}
+
 type ColMap map[string]ColData //name->coldata
 
 type Column struct {
@@ -35,6 +40,7 @@ type Column struct {
 	IsRowGUIDCol bool
 	IsComputed   bool
 	IsFilestream bool
+	Computed     *Computed
 }
 
 type SqlVariant struct {
