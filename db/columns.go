@@ -17,7 +17,6 @@ type ColData struct {
 
 type Computed struct {
 	Definition string
-	Persisted  bool
 }
 
 type ColMap map[string]ColData //name->coldata
@@ -39,6 +38,8 @@ type Column struct {
 	IsIdentity   bool
 	IsRowGUIDCol bool
 	IsComputed   bool
+	IsPersisted  bool
+	IsColumnSet  bool
 	IsFilestream bool
 	Computed     *Computed
 }
@@ -47,6 +48,10 @@ func (c Column) Print(data []byte) {
 
 	fmt.Printf("%s ", c.toString(data))
 
+}
+
+func (computed Computed) Print() {
+	fmt.Printf("%s", computed.Definition)
 }
 
 func (c Column) parseDecimal(data []byte) string {
@@ -126,6 +131,7 @@ func (c Column) toString(data []byte) string {
 		return fmt.Sprintf("%x", data)
 	case "time":
 		return c.ParseTime(data)
+
 	default:
 		mslogger.Mslogger.Warning(fmt.Sprintf("col %s type %s not yet implemented", c.Name, c.Type))
 		return fmt.Sprintf("unhandled type %s", c.Type)
