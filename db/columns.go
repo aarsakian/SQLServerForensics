@@ -43,20 +43,6 @@ type Column struct {
 	Computed     *Computed
 }
 
-type SqlVariant struct {
-	BaseType   uint8
-	Version    uint8
-	Properties *SqlVariantProperties
-	Value      []byte
-}
-
-type SqlVariantProperties struct {
-	Precision     uint8
-	Scale         uint8
-	MaximumLength uint16
-	CollationId   uint32
-}
-
 func (c Column) Print(data []byte) {
 
 	fmt.Printf("%s ", c.toString(data))
@@ -73,18 +59,6 @@ func (c Column) parseReal(data []byte) string {
 
 }
 
-func (sqlVariant SqlVariant) getData() string {
-	switch sqlVariant.BaseType {
-	case 0x23:
-		return fmt.Sprintf("%d", utils.ToInt32(sqlVariant.Value))
-	case 0x7f:
-		return fmt.Sprintf("%d", utils.ToInt64(sqlVariant.Value))
-	case 0xad: //string
-		return fmt.Sprintf("%x", sqlVariant.Value)
-	}
-	return ""
-}
-
 func (c Column) isStatic() bool {
 
 	if c.Type == "varchar" || c.Type == "nvarchar" ||
@@ -96,24 +70,6 @@ func (c Column) isStatic() bool {
 		return true
 	}
 
-}
-
-func (c Column) parseSqlVariant(data []byte) SqlVariant {
-	var sqlVariant *SqlVariant = new(SqlVariant)
-	utils.Unmarshal(data, sqlVariant)
-	var sqlVariantProperties SqlVariantProperties
-	switch sqlVariant.BaseType {
-	case 0x38: //int
-		sqlVariantProperties = SqlVariantProperties{Precision: data[2], Scale: data[3]}
-		sqlVariant.Value = data[3:]
-	case 0x23: //string
-
-		sqlVariantProperties = SqlVariantProperties{MaximumLength: utils.ToUint16(data[2:4]),
-			CollationId: utils.ToUint32(data[4:8])}
-		sqlVariant.Value = data[8:]
-	}
-	sqlVariant.Properties = &sqlVariantProperties
-	return *sqlVariant
 }
 
 func (c Column) toString(data []byte) string {
@@ -146,8 +102,9 @@ func (c Column) toString(data []byte) string {
 	case "decimal", "numeric": //synonyms
 		return c.parseDecimal(data)
 	case "sql_variant":
-		sqlVariant := c.parseSqlVariant(data)
-		return sqlVariant.getData()
+		sqlvariant := new(utils.SqlVariant)
+		sqlvariant.Parse(data)
+		return sqlvariant.GetData()
 	case "image":
 		return b64.StdEncoding.EncodeToString(data)
 	case "bit":
