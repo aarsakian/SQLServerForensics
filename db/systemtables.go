@@ -362,6 +362,16 @@ func (c SysColpars) isFilestream() bool {
 	return c.Status&0x20 != 0
 }
 
+func (c SysColpars) isPersisted() bool {
+	// 0x40 (64) is the Persisted bit (CPM_PERSISTED)
+	return c.Status&0x200000 != 0
+}
+
+func (c SysColpars) isColumnSet() bool {
+	// 0x80 (128) is the ColumnSet bit (CPM_COLUMNSET)
+	return c.Status&0x2000000 != 0
+}
+
 func (syscolpars SysColpars) GetAdditionalAttributes() string {
 	var attributes strings.Builder
 	if syscolpars.isComputed() {
@@ -553,7 +563,8 @@ func (metadataBlobs MetadataBlobs) Populate(datarows page.DataRows) {
 		}
 		sysobjvalues := new(SysObjValues)
 		utils.Unmarshal(datarow.FixedLenCols, sysobjvalues)
-		if sysobjvalues.Valclass > 28 {
+		// Validate valclass
+		if sysobjvalues.Valclass > 7 {
 			msg := fmt.Sprintf("sysobjvalues valclass %d not valid", sysobjvalues.Valclass)
 			mslogger.Mslogger.Warning(msg)
 			continue
@@ -573,6 +584,11 @@ func (metadataBlobs MetadataBlobs) Populate(datarows page.DataRows) {
 
 		metadataBlobs[sysobjvalues.Objid] = append(metadataBlobs[sysobjvalues.Objid], *sysobjvalues)
 	}
+}
+
+func (sysobjvalues SysObjValues) GetValueAsString() string {
+	return string(sysobjvalues.Imageval[:])
+
 }
 
 func (sysiscols SysIsCols) filterByIndexId(indexid uint32) SysIsCols {
