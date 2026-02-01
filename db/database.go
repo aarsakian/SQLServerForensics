@@ -32,6 +32,7 @@ type Database struct {
 	tablesAllocations   TablesAllocations
 	columnsPartitions   ColumnsPartitions // rowsetid -> sysrscols
 	columnsStatistics   ColumnsStatistics // objectid -> sysiscols
+	metadataBlobs       MetadataBlobs
 	indexesInfo         IndexesInfo
 	sysfiles            SysFiles //info about files of db mdf, ldf
 	minLSN              utils.LSN
@@ -51,6 +52,7 @@ func (db *Database) ProcessSystemTables() {
 	db.indexesInfo = make(IndexesInfo)             //objectid -> index info
 	db.columnsStatistics = make(ColumnsStatistics) //objectid ->
 	db.sysfiles = make(SysFiles, 2)                // mdf, ldf
+	db.metadataBlobs = make(MetadataBlobs)         //objectid -> metadata blobs
 
 	for node != nil { //for every alloc unit go over pages
 
@@ -68,14 +70,10 @@ func (db *Database) ProcessSystemTables() {
 			switch pageType {
 			case SystemTablesFlags["sysschobjs"]:
 				db.tablesInfo.Populate(page.DataRows)
-
 			case SystemTablesFlags["syscolpars"]:
-
 				db.columnsinfo.Populate(page.DataRows)
-
 			case SystemTablesFlags["sysallocationunits"]:
 				db.tablesAllocations.Populate(page.DataRows)
-
 			case SystemTablesFlags["sysrscols"]:
 				db.columnsPartitions.Populate(page.DataRows)
 			case SystemTablesFlags["sysrowsets"]:
@@ -86,6 +84,8 @@ func (db *Database) ProcessSystemTables() {
 				db.indexesInfo.Populate(page.DataRows)
 			case SystemTablesFlags["sysfiles"]:
 				db.sysfiles.Populate(page.DataRows)
+			case SystemTablesFlags["sysobjvalues"]:
+				db.metadataBlobs.Populate(page.DataRows)
 			}
 
 			/*	else if pageType == -0x69 { // view object not reached
@@ -347,6 +347,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	table.AllocationUnitIdTopartitionId = make(map[uint64]uint64)
 
 	colsinfo := db.columnsinfo[objectid]
+
 	if colsinfo != nil {
 
 		table.addColumns(colsinfo)
@@ -356,6 +357,11 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	} else {
 		msg := fmt.Sprintf("No columns located for table %s", table.Name)
 		mslogger.Mslogger.Warning(msg)
+	}
+
+	metadataBlobsInfo, ok := db.metadataBlobs[objectid]
+	if ok {
+		table.setMetadataBlobs(metadataBlobsInfo)
 	}
 
 	partitions := db.tablesPartitions[objectid] //objectid ->  sysrowsets
