@@ -49,7 +49,7 @@ type SysObjValues struct {
 	Objid    int32
 	Subobjid int32
 	Valnum   int32
-	Value    SqlVariant
+	Value    *utils.SqlVariant
 	Imageval []byte
 }
 
@@ -553,12 +553,20 @@ func (metadataBlobs MetadataBlobs) Populate(datarows page.DataRows) {
 		}
 		sysobjvalues := new(SysObjValues)
 		utils.Unmarshal(datarow.FixedLenCols, sysobjvalues)
-
+		if sysobjvalues.Valclass > 28 {
+			msg := fmt.Sprintf("sysobjvalues valclass %d not valid", sysobjvalues.Valclass)
+			mslogger.Mslogger.Warning(msg)
+			continue
+		}
 		if datarow.VarLenCols != nil {
 			for idx, datacol := range *datarow.VarLenCols {
 				if idx == 1 {
 					sysobjvalues.Imageval = append([]byte(nil), datacol.Content...)
 
+				} else {
+					sqlvariant := new(utils.SqlVariant)
+					sqlvariant.Parse(datacol.Content)
+					sysobjvalues.Value = sqlvariant
 				}
 			}
 		}
