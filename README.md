@@ -35,12 +35,12 @@ This tool performs *read-only* operations on SQL Server database files. However,
 The low level access option works exclusively on a ***local copy*** of your database. Copying is being performed at a cluster level using the lowest-level userspace  Win32 API available ensuring minimal interference with the operating system's running processes.
 
 The table below outlines the implications of accessing your database on a running server. 
-| Access Method| Implication | Server is running |
+| Access Method| Implication | Server is running |2
 | ----------- | ----------- | --- |
 | stopservice | Certain data loss | Server will be stopped | 
 | physical disk | Unlikely |  Performance impact  |
 
- The tool can parse tables ***directly*** from MDF files and TAPE archives (full backup files).  When reading BAK files, their contents are first extracted into local MDF files (default location is MDF folder) before being processed. Log processing from BAK files  is not currently supported. 
+ The tool can parse tables ***directly*** from MDF files and TAPE archives (full backup files).  When reading BAK files, their contents are first extracted into local MDF files (default location is MDF folder) before being processed. Log processing from BAK files  is not currently supported. Page processing is ***experimental*** and it does not rely on  backup block format when parsing but rather using raw page structure.
  
  Carving table records is supported. Log parsing and carving is available as well when an LDF  file is provided.  The tool attempts to correlate existing table records with their corresponding log entries to reconstruct changes and recover additional context.
 
@@ -79,7 +79,7 @@ Usage instructions have been grouped so as to help the user.
         absolute path to the LDF file
 
 -mtf string
-        path to bak file (TAPE format) (log pages are not processed to be changed in the future)
+        path to bak file (TAPE format) (log records are not processed to be changed in the future)
 
 -evidence string
         path to image file
