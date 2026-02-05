@@ -123,6 +123,10 @@ Usage instructions have been grouped so as to help the user.
 ### Output options
  
 #### page related 
+
+  -sortbylsn
+        sort pages by lsn on per allocation unit basis
+
  -showheader
         show page header
 
