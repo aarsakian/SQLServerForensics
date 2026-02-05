@@ -38,6 +38,20 @@ var SystemTablesFlags = map[string]int32{
 
 type Pages []Page
 
+type SortedPagesByLSN []Page
+
+func (p SortedPagesByLSN) Len() int {
+	return len(p)
+}
+
+func (p SortedPagesByLSN) Less(i, j int) bool {
+	return !p[i].Header.LSN.IsGreaterEqual(p[j].Header.LSN)
+}
+
+func (p SortedPagesByLSN) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
 func (p Pages) Len() int {
 	return len(p)
 
@@ -564,13 +578,7 @@ func (page *Page) parsePFS(data []byte) {
 
 func (page Page) PrintHeader(showSlots bool) {
 	header := page.Header
-	fmt.Printf("Metadata AllocUnitId %d  \n",
-		header.GetMetadataAllocUnitId())
-
-	fmt.Printf("Page Id %d type %s objectid %d index %d flags %s slots %d free space %d Prev page %d  Next page %d \n",
-		header.PageId, page.GetType(), header.ObjectId, header.IndexId, header.DecodeFlagBits(),
-		header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
-
+	header.Print()
 	if showSlots {
 
 		page.printSlots()
