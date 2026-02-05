@@ -4,6 +4,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
+	"strings"
 )
 
 // SQL Server Page Header FlagBits (bitmask)
@@ -47,14 +48,15 @@ var flagDescriptions = map[uint16]string{
 }
 
 // DecodeFlagBits returns a list of active flags for a given bitmask.
-func (header Header) DecodeFlagBits() []string {
-	var result []string
+func (header Header) DecodeFlagBits() string {
+	var result strings.Builder
 	for flag, desc := range flagDescriptions {
 		if flag == header.FlagBits {
-			result = append(result, desc)
+			result.WriteString(desc)
+			result.WriteString(",")
 		}
 	}
-	return result
+	return result.String()
 }
 
 type Header struct {
@@ -120,4 +122,11 @@ func (header Header) sanityCheck() bool {
 	}
 
 	return true
+}
+
+func (header Header) Print() {
+	fmt.Printf("Page Id %d type %s objectid %d LSN %s index %d flags %s slots %d free space %d Prev page %d  Next page %d \n",
+		header.PageId, PageTypes[header.Type], header.ObjectId, header.LSN.ToStr(),
+		header.IndexId, header.DecodeFlagBits(),
+		header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 }
