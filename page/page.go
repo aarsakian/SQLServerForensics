@@ -21,6 +21,10 @@ type InvalidPageSanityError string
 
 func (e InvalidPageSanityError) Error() string { return string(e) }
 
+type ZeroPageHeader string
+
+func (e ZeroPageHeader) Error() string { return string(e) }
+
 var PageTypes = map[uint8]string{
 	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 6: "Work File", 7: "Sort", 8: "GAM", 9: "SGAM",
 	10: "IAM", 11: "PFS", 13: "Boot", 14: "Server Configuration", 15: "File Header",
@@ -383,13 +387,14 @@ func (page *Page) parseLOB(data []byte) {
 				lob.Length))
 			continue
 		}
-		if lob.Type == 3 { // data leaf
+		switch lob.Type {
+		case 3: // data leaf
 			content := make([]byte, slot.Offset+lob.Length-(slot.Offset+14))
 			copy(content, data[slot.Offset+14:slot.Offset+lob.Length])
 			lob.Data = content
-		} else if lob.Type == 5 { // lob root
+		case 5: // lob root
 			lob.ParseRoot(data[slot.Offset+14 : slot.Offset+lob.Length])
-		} else if lob.Type == 2 { //internal
+		case 2: //internal
 			lob.ParseInternal(data[slot.Offset+14 : slot.Offset+lob.Length])
 		}
 		lobs = append(lobs, *lob)
@@ -562,8 +567,8 @@ func (page Page) PrintHeader(showSlots bool) {
 	fmt.Printf("Metadata AllocUnitId %d  \n",
 		header.GetMetadataAllocUnitId())
 
-	fmt.Printf("Page Id %d type %s objectid %d index %d, slots %d free space %d Prev page %d  Next page %d \n",
-		header.PageId, page.GetType(), header.ObjectId, header.IndexId,
+	fmt.Printf("Page Id %d type %s objectid %d index %d flags %s slots %d free space %d Prev page %d  Next page %d \n",
+		header.PageId, page.GetType(), header.ObjectId, header.IndexId, header.DecodeFlagBits(),
 		header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 
 	if showSlots {
@@ -696,6 +701,9 @@ func (page *Page) Process(data []byte, offset int, carve bool) error {
 	HEADERLEN := 96
 
 	var header Header
+	if utils.IsZeroed(data[:HEADERLEN]) {
+		return ZeroPageHeader("Zero page header")
+	}
 	utils.Unmarshal(data[0:HEADERLEN], &header)
 
 	if !header.isValid() {
