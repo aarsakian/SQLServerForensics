@@ -337,7 +337,7 @@ func DateToStr(data []byte) string {
 
 	b.Write(data)
 	b.Write([]byte{0x00})
-	daysSince0001 := ToInt32(b.Bytes())
+	daysSince0001 := int(ToInt32(b.Bytes()))
 	years := int(math.Floor(float64(daysSince0001) / float64(365.24)))
 
 	years = years + 1
@@ -472,7 +472,7 @@ func parseDateTime(data []byte) (int, int, int, int, int, int, int) {
 		data = dst
 
 	}
-	daysSince1900 := ToInt32(data[4:8])
+	daysSince1900 := int(ToInt32(data[4:8]))
 	years := int(math.Floor(float64(daysSince1900) / float64(365.24)))
 	// leap year occurs every 4 years expect years divisble by 100 and not 400
 
@@ -564,21 +564,16 @@ func RemoveSignBit(val int16) int16 {
 }
 
 func ToInt64(data []byte) int64 {
-	var temp int64
-	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
-	return temp
+	return int64(binary.LittleEndian.Uint64(data[:]))
+
 }
 
-func ToInt32(data []byte) int {
-	var temp int32
-	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
-	return int(temp)
+func ToInt32(data []byte) int32 {
+	return int32(binary.LittleEndian.Uint32(data[:]))
 }
 
-func ToInt16(data []byte) int {
-	var temp int16
-	binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &temp)
-	return int(temp)
+func ToInt16(data []byte) int16 {
+	return int16(binary.LittleEndian.Uint16(data[:]))
 }
 
 func BitToString(bitmap []byte, bitCount int) string {
@@ -1111,4 +1106,13 @@ func LocateEncoding(collationId string) (string, string, error) {
 		}
 	}
 	return "", "", errors.New("collation not found")
+}
+
+func IsZeroed(data []byte) bool {
+	for val := 0; val < len(data)/8; val++ {
+		if ToInt64(data[val*8:(val+1)*8]) != 0 {
+			return false
+		}
+	}
+	return true
 }
