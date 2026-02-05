@@ -45,7 +45,7 @@ func (p SortedPagesByLSN) Len() int {
 }
 
 func (p SortedPagesByLSN) Less(i, j int) bool {
-	return !p[i].Header.LSN.IsGreaterEqual(p[j].Header.LSN)
+	return p[i].Header.LSN.IsGreaterEqual(p[j].Header.LSN)
 }
 
 func (p SortedPagesByLSN) Swap(i, j int) {
