@@ -2,7 +2,9 @@ package reporter
 
 import (
 	db "MSSQLParser/db"
+	pages "MSSQLParser/page"
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -29,12 +31,15 @@ type Reporter struct {
 	TableType           string
 	Raw                 bool
 	ShowColNames        []string
+	SortByLSN           bool
 }
 
 func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32) {
 	node := database.PagesPerAllocUnitID.GetHeadNode()
 	for node != nil {
-
+		if rp.SortByLSN {
+			sort.Sort(pages.SortedPagesByLSN(node.Pages))
+		}
 		for _, page := range node.Pages {
 			allocMap := page.GetAllocationMaps()
 
