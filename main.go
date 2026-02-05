@@ -114,6 +114,8 @@ func main() {
 	raw := flag.Bool("showraw", false, "show row data for each column in a table")
 	rpc := flag.Uint("rpc", 0, "use grpc to communicate select port from 1024 and upwards")
 
+	sortByLSN := flag.Bool("sortbylsn", false, "sort pages by lsn")
+
 	profile := flag.Bool("profile", false, "profile memory usage")
 
 	flag.Parse()
@@ -291,7 +293,7 @@ func main() {
 		*skippedTableRows, selectedTableRowsInt,
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
-		*exportFormat, *exportImage, *exportPath)
+		*exportFormat, *exportImage, *exportPath, *sortByLSN)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
