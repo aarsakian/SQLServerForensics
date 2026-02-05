@@ -114,7 +114,7 @@ func main() {
 	raw := flag.Bool("showraw", false, "show row data for each column in a table")
 	rpc := flag.Uint("rpc", 0, "use grpc to communicate select port from 1024 and upwards")
 
-	sortByLSN := flag.Bool("sortbylsn", false, "sort pages by lsn")
+	sortByLSN := flag.Bool("sortbylsn", false, "sort pages by lsn on per allocation unit basis")
 
 	profile := flag.Bool("profile", false, "profile memory usage")
 
