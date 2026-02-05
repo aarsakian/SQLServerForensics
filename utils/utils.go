@@ -59,18 +59,14 @@ type Auid struct {
 
 type Images [][]byte
 
-func (lsn LSN) IsGreaterEqual(smallerLSN LSN) bool {
-	if lsn.P1 > smallerLSN.P1 {
-		return true
-	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 > smallerLSN.P2 {
-		return true
-	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 == smallerLSN.P2 && lsn.P3 > smallerLSN.P3 {
-		return true
-	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 == smallerLSN.P2 && lsn.P3 == smallerLSN.P3 {
-		return true
-	} else {
-		return false
+func (a LSN) IsGreaterEqual(b LSN) bool {
+	if a.P1 != b.P1 {
+		return a.P1 > b.P1
 	}
+	if a.P2 != b.P2 {
+		return a.P2 > b.P2
+	}
+	return a.P3 >= b.P3
 }
 
 func RemoveID(file1, file2 string) int {
