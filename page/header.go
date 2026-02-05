@@ -110,7 +110,7 @@ func (header Header) sanityCheck() bool {
 		mslogger.Mslogger.Warning(fmt.Sprintf("number of slots exceeded maximum allowed number %d.", header.SlotCnt))
 		return false
 	}
-	if header.FreeData > 8192-96 && header.Type == 1 { // exclude header size
+	if header.FreeData > 8192-2 && header.Type == 1 { // exclude header size at least one slot
 		mslogger.Mslogger.Warning(fmt.Sprintf("Data Page free area exceeded max allowed size %d", header.FreeData))
 		return false
 
