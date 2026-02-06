@@ -11,6 +11,34 @@ import (
 	"unsafe"
 )
 
+// SQL Server Record Header - StatusBitsA flags
+// bit 1->3 from right to left 0000 0000
+// 0000 0001 = Special versioning 1
+// 0000 0010 = Forwarding 2
+// 0000 0110 = Index record 6
+// 0000 1000 = Blob fragment 8
+// 0000 1010 = Ghost index record A
+// 0000 1100 = Ghost data record D
+// 0000 1110 = Ghost version record E
+// 0001 0000 = Null bitmap exists 10
+// 0010 0000 = Has variable length columns 20
+// 0100 0000 = Versioning 40
+// 1000 0000 = Internal/system record
+const (
+	BitVersioning = 0x40 // Row has versioning info (RCSI/SI)
+	BitForwarded  = 0x02 // Row has been forwarded
+	BitForwarding = 0x04 // Row has been forwarded
+	BitIndex      = 0x06 // Row is an index record
+	BitHasLOB     = 0x08 // Row has LOB or Row-Overflow columns
+
+	BitGhostIndex   = 0x0A // Ghosted (logically deleted)
+	BitGhostData    = 0x0D // Ghosted (logically deleted)
+	BitGhostVersion = 0x0E // Ghosted (logically deleted)
+	BitNullBitmap   = 0x10 // Has NULL bitmap
+	BitVarLenCols   = 0x20 // Has variable-length columns
+
+)
+
 //statusA structure 1-3 bits = page type, 5 = hasnullbitmap, 6=hasvarlencols, 7=version tag?
 
 type ForwardingPointers []ForwardingPointer
@@ -33,12 +61,6 @@ type DataRows []DataRow
 type RowIds []utils.RowId
 
 type DataCols []DataCol //holds varying len cols
-
-var DataRecordType = map[uint8]string{
-	0: "Primary Record", 2: "Forwarded Record", 4: "Forwarding Record", 6: "Index Record",
-	8: "BLOB Fragment", 10: "Ghost Index Record", 12: "Ghost Data Record",
-	14: "Ghost Version Record",
-}
 
 type InlineBLob24 struct {
 	Type       uint8
@@ -79,24 +101,52 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 
 func GetRowType(statusA byte) string {
 
-	res := strconv.FormatUint(uint64(statusA), 2)
-
-	if len(res) > 4 {
-		flag, _ := strconv.ParseUint(res[len(res)-4:], 2, 4)
-		return DataRecordType[uint8(flag)]
-	} else if len(res) > 1 {
-		flag, _ := strconv.ParseUint(res[:], 2, 4)
-		return DataRecordType[uint8(flag)]
+	if statusA&BitGhostVersion == BitGhostVersion {
+		return "Ghost Version Record"
+	} else if statusA&BitGhostData == BitGhostData {
+		return "Ghost Data Record"
+	} else if statusA&BitGhostIndex == BitGhostIndex {
+		return "Ghost Index Record"
+	} else if statusA&BitForwarding == BitForwarding {
+		return "Forwarding Stub Record"
+	} else if statusA&BitForwarded == BitForwarded {
+		return "Forwarded Record"
+	} else {
+		return "Primary Record"
 	}
-	return "record type not found"
-
 }
 
 func (dataRow DataRow) GetFlags() string {
-	recordType := DataRecordType[dataRow.StatusA&14]
-	nullBitmap := (map[bool]string{true: "NULL Bitmap"})[dataRow.HasNullBitmap()]
-	varLenCols := (map[bool]string{true: "Var length Cols"})[dataRow.HasVarLenCols()]
-	return strings.Join([]string{recordType, nullBitmap, varLenCols}, " ")
+	var flags strings.Builder
+	if dataRow.StatusA&BitVersioning == BitVersioning {
+		flags.WriteString("Versioning ")
+	}
+	if dataRow.StatusA&BitGhostIndex == BitGhostIndex {
+		flags.WriteString("Ghost Index ")
+	}
+	if dataRow.StatusA&BitGhostData == BitGhostData {
+		flags.WriteString("Ghost Data ")
+	}
+	if dataRow.StatusA&BitGhostVersion == BitGhostVersion {
+		flags.WriteString("Ghost Version ")
+	}
+	if dataRow.StatusA&BitNullBitmap == BitNullBitmap {
+		flags.WriteString("Has Null Bitmap ")
+	}
+	if dataRow.StatusA&BitVarLenCols == BitVarLenCols {
+		flags.WriteString("Has Var Length Columns ")
+	}
+	if dataRow.StatusA&BitForwarded == BitForwarded {
+		flags.WriteString("Forwarded Row ")
+	}
+	if dataRow.StatusA&BitForwarding == BitForwarding {
+		flags.WriteString("Forwarding Stub ")
+	}
+	if dataRow.StatusA&BitHasLOB == BitHasLOB {
+		flags.WriteString("Has LOB/Row-Overflow Columns ")
+	}
+
+	return flags.String()
 }
 
 func (dataRow DataRow) HasNullBitmap() bool {

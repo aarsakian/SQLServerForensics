@@ -45,7 +45,7 @@ func (p SortedPagesByLSN) Len() int {
 }
 
 func (p SortedPagesByLSN) Less(i, j int) bool {
-	return p[i].Header.LSN.IsGreaterEqual(p[j].Header.LSN)
+	return !p[i].Header.LSN.IsGreaterEqual(p[j].Header.LSN)
 }
 
 func (p SortedPagesByLSN) Swap(i, j int) {
@@ -463,13 +463,13 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		} else { //last slot
 			allocatedDataRowSize = page.Header.FreeData - slot.Offset
 		}
-
-		if GetRowType(data[slot.Offset]) == "Forwarding Record" { // forward pointer header
+		switch GetRowType(data[slot.Offset]) {
+		case "Forwarding Record": // forward pointer header
 			utils.Unmarshal(data[slot.Offset:slot.Offset+uint16(allocatedDataRowSize)],
 				forwardingPointer)
 			page.ForwardingPointers = append(page.ForwardingPointers, *forwardingPointer)
 
-		} else if GetRowType(data[slot.Offset]) == "Primary Record" {
+		case "Primary Record":
 			actualDataRowSize = uint16(dataRow.Parse(data[slot.Offset:slot.Offset+allocatedDataRowSize],
 				int(slot.Offset)+offset, page.Header.ObjectId))
 
@@ -490,6 +490,18 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 	if carve {
 		page.CarveData(data, offset)
 	}
+}
+
+func (pagesPerID PagesPerId[K]) GetAllPages() Pages {
+
+	node := pagesPerID.list.head
+	pages := node.Pages
+	for node.Next != nil {
+		pages = append(pages, node.Pages...)
+		node = node.Next
+
+	}
+	return pages
 }
 
 func (page *Page) CarveData(data []byte, offset int) {
@@ -530,7 +542,7 @@ func (page *Page) CarveData(data []byte, offset int) {
 
 			// accept only primary records
 
-			if GetRowType(data[slotOffset+slackOffset]) == "Ghost Data Record" {
+			if GetRowType(data[slotOffset+slackOffset]) == "Ghost Record" {
 				slotnum += 1 //extra slot recovered
 				dataRow := DataRow{Carved: true}
 				actualDataRowSize = uint16(dataRow.Parse(
