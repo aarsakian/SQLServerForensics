@@ -31,63 +31,76 @@ type Reporter struct {
 	TableType           string
 	Raw                 bool
 	ShowColNames        []string
-	SortByLSN           bool
+	SortByLSN           string
 }
 
 func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32) {
 	node := database.PagesPerAllocUnitID.GetHeadNode()
-	for node != nil {
-		if rp.SortByLSN {
-			sort.Sort(pages.SortedPagesByLSN(node.Pages))
+
+	if rp.SortByLSN == "all" {
+		allPages := database.PagesPerAllocUnitID.GetAllPages()
+		sort.Sort(pages.SortedPagesByLSN(allPages))
+		for _, page := range allPages {
+			rp.ShowPage(page, selectedPages)
 		}
-		for _, page := range node.Pages {
-			allocMap := page.GetAllocationMaps()
-
-			if rp.ShowPFS && page.GetType() == "PFS" ||
-				rp.ShowIAMExtents && page.GetType() == "IAM" ||
-				rp.ShowGamExtents && page.GetType() == "GAM" ||
-				rp.ShowSGamExtents && page.GetType() == "SGAM" {
-
-				allocMap.ShowAllocations()
+	} else {
+		for node != nil {
+			if rp.SortByLSN == "allocunit" {
+				sort.Sort(pages.SortedPagesByLSN(node.Pages))
 			}
-			if rp.ShowHeader {
-				page.PrintHeader(rp.ShowSlots)
+			for _, page := range node.Pages {
+				rp.ShowPage(page, selectedPages)
 			}
-			if rp.ShowDataCols {
-				page.ShowRowData()
-			}
-
-			if rp.ShowSlots {
-				page.ShowSlotInfo()
-			}
-
-			if rp.ShowPageStats {
-				if page.GetType() == "PFS" {
-					pfsstatus := allocMap.GetAllocationStatus(selectedPages)
-					fmt.Printf("PFS %s ", pfsstatus)
-				} else if page.GetType() == "GAM" {
-					gamstatus := allocMap.GetAllocationStatus(selectedPages)
-					fmt.Printf("GAM %s ", gamstatus)
-				} else if page.GetType() == "SGAM" {
-					sgamstatus := allocMap.GetAllocationStatus(selectedPages)
-					fmt.Printf("SGAM %s ", sgamstatus)
-				} else {
-					fmt.Printf("PFS, GAM, SGAM, DATA page type not found")
-				}
-			}
-			if rp.ShowIndex {
-				page.ShowIndexRows()
-			}
-
-			if rp.ShowCarved && rp.ShowDataCols {
-				page.ShowCarvedDataRows()
-			}
+			node = node.Next
 
 		}
-		node = node.Next
 
 	}
 
+}
+
+func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32) {
+	allocMap := page.GetAllocationMaps()
+
+	if rp.ShowPFS && page.GetType() == "PFS" ||
+		rp.ShowIAMExtents && page.GetType() == "IAM" ||
+		rp.ShowGamExtents && page.GetType() == "GAM" ||
+		rp.ShowSGamExtents && page.GetType() == "SGAM" {
+
+		allocMap.ShowAllocations()
+	}
+	if rp.ShowHeader {
+		page.PrintHeader(rp.ShowSlots)
+	}
+	if rp.ShowDataCols {
+		page.ShowRowData()
+	}
+
+	if rp.ShowSlots {
+		page.ShowSlotInfo()
+	}
+
+	if rp.ShowPageStats {
+		if page.GetType() == "PFS" {
+			pfsstatus := allocMap.GetAllocationStatus(selectedPages)
+			fmt.Printf("PFS %s ", pfsstatus)
+		} else if page.GetType() == "GAM" {
+			gamstatus := allocMap.GetAllocationStatus(selectedPages)
+			fmt.Printf("GAM %s ", gamstatus)
+		} else if page.GetType() == "SGAM" {
+			sgamstatus := allocMap.GetAllocationStatus(selectedPages)
+			fmt.Printf("SGAM %s ", sgamstatus)
+		} else {
+			fmt.Printf("PFS, GAM, SGAM, DATA page type not found")
+		}
+	}
+	if rp.ShowIndex {
+		page.ShowIndexRows()
+	}
+
+	if rp.ShowCarved && rp.ShowDataCols {
+		page.ShowCarvedDataRows()
+	}
 }
 
 func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
