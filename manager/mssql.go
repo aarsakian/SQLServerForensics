@@ -37,7 +37,7 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 	showTableIndex bool, showPageStats bool, showIndex bool, toTableRow int,
 	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
 	showLDF bool, tabletype string, raw bool, colnames []string,
-	exportFormat string, exportImage bool, exportPath string, sortByLSN bool) {
+	exportFormat string, exportImage bool, exportPath string, sortByLSN string) {
 
 	PM.reporter = reporter.Reporter{ShowGamExtents: showGamExtents,
 		ShowSGamExtents:     showSGamExtents,
