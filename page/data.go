@@ -193,6 +193,7 @@ func (dataRow DataRow) GetVarCalOffset() int16 { // start offset for var col len
 }
 
 func (dataRow DataRow) ShowData() {
+	fmt.Printf("Row Status : %s \t", dataRow.GetFlags())
 	if dataRow.SystemTable != nil {
 		dataRow.SystemTable.ShowData()
 	}
