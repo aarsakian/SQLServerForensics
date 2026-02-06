@@ -124,8 +124,8 @@ Usage instructions have been grouped so as to help the user.
  
 #### page related 
 
-  -sortbylsn
-        sort pages by lsn on per allocation unit basis
+  -sortbylsn string
+        sort pages  all|allocunit (sort all pages or sort per allocation unit basis)
 
  -showheader
         show page header
