@@ -109,6 +109,9 @@ func (c Column) toString(data []byte) string {
 	case "sql_variant":
 		sqlvariant := new(utils.SqlVariant)
 		sqlvariant.Parse(data)
+		if len(sqlvariant.Value) == 0 {
+			return ""
+		}
 		return sqlvariant.GetData()
 	case "image":
 		return b64.StdEncoding.EncodeToString(data)
