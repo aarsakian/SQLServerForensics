@@ -4,7 +4,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
-	"unsafe"
+	"math"
 )
 
 // If a clustered index is created, must be unique so that nonclustered index entries can point to exactly one specific row.
@@ -68,92 +68,67 @@ type IndexRow struct {
 	VarLenCols            *DataCols
 }
 
-func (indexRow *IndexRow) Parse(data []byte, offset int) {
+func (indexRow *IndexRow) Parse(data []byte, offset int, fixedColsLen uint16) {
+
 	indexRow.StatusA = data[0]
-	if indexRow.IsNonLeafRecord() {
-		indexIntermediate := new(IndexNoNLeafClustered)
-		utils.Unmarshal(data[1:], indexIntermediate)
+	if !indexRow.IsIndexRecord() {
+		mslogger.Mslogger.Warning(fmt.Sprintf("Not an index record at offset %d", offset))
+		return
+	}
 
-		structSize := int(unsafe.Sizeof(indexIntermediate))
-		if 1+structSize >= len(data) {
-			mslogger.Mslogger.Warning("Non Leaf Record exceeded buffer size")
-			return
+	indexRow.FixedLenCols = append([]byte(nil), data[1:fixedColsLen]...)
+	currOffset := fixedColsLen
+	if indexRow.HasNullBitmap() {
+		indexRow.NumberOfCols = utils.ToUint16(data[currOffset : currOffset+2])
+		bytesNeeded := uint16(math.Floor(float64(indexRow.NumberOfCols) / 8))
+		if bytesNeeded == 0 {
+			bytesNeeded = 1
 		}
-		indexIntermediate.KeyValue = make([]byte, len(data[1+structSize:]))
-		copy(indexIntermediate.KeyValue, data[1+structSize:])
+		indexRow.NullBitmap = data[currOffset+2 : currOffset+2+bytesNeeded]
+		currOffset += 2 + bytesNeeded
+	}
+	if indexRow.HasVarLenCols() {
 
-		indexRow.NoNLeafClustered = indexIntermediate
-
-	} else if indexRow.IsRecordClustered() && len(data) > 6 { // root ?
-
-		indexNoNLeaf := new(IndexNoNLeaf)
-
-		utils.Unmarshal(data[len(data)-6:], indexNoNLeaf)
-
-		structSize := 6 //int(unsafe.Sizeof(indexNoNLeaf))
-		if len(data) > structSize {
-			indexNoNLeaf.KeyValue = make([]byte, len(data[1:len(data)-structSize]))
-			copy(indexNoNLeaf.KeyValue, data[1:len(data)-structSize])
-			indexRow.NoNLeaf = indexNoNLeaf
-		}
-
-	} else if indexRow.IsRecordClustered() { //leaf
-		indexLeafClustered := new(IndexLeafClustered)
-
-		indexLeafClustered.KeyValue = make([]byte, len(data))
-		copy(indexLeafClustered.KeyValue, data)
-		indexRow.LeafClustered = indexLeafClustered
-
-	} else if indexRow.IsLeafNoNClusteredRecord() && len(data) == 6 {
-		indexNoNLeaf := new(IndexNoNLeaf)
-
-		utils.Unmarshal(data[len(data)-6:], indexNoNLeaf)
-		indexRow.NoNLeaf = indexNoNLeaf
-
-	} else if indexRow.IsLeafNoNClusteredRecord() && len(data) > 8 {
-		indexLeafNoNClustered := new(IndexLeafNoNClustered)
-		utils.Unmarshal(data[len(data)-8:], indexLeafNoNClustered)
-
-		structSize := int(unsafe.Sizeof(indexLeafNoNClustered))
-		indexLeafNoNClustered.KeyValue = make([]byte, len(data[1:len(data)-structSize]))
-		copy(indexLeafNoNClustered.KeyValue, data[1:len(data)-structSize])
-
-		indexRow.LeafNoNClustered = indexLeafNoNClustered
-	} else {
-		mslogger.Mslogger.Warning(fmt.Sprintf("Index row has NoNLeaf %d", offset))
+		indexRow.ProcessVaryingCols(data[currOffset:], int(currOffset))
 	}
 
 }
 
 func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
-	baseOffset := int16(1 + len(indexRow.FixedLenCols) + 2 + len(indexRow.NullBitmap) + 2 + len(indexRow.VarLengthColOffsets)*2) //status + len of fixed cols
-	var datacols DataCols
+	indexRow.NumberOfVarLengthCols = utils.ToUint16(data[0:2])
+	for i := 0; i < int(indexRow.NumberOfVarLengthCols); i++ {
+		varLenColOffset := utils.ToInt16(data[2+2*i : 4+2*i])
+		indexRow.VarLengthColOffsets = append(indexRow.VarLengthColOffsets, varLenColOffset)
+	}
 
+	var datacols DataCols
+	baseOffset := 2 + 2*int(indexRow.NumberOfVarLengthCols) // move offset to the start of varying len cols
 	for idx, varLenColOffset := range indexRow.VarLengthColOffsets {
 
-		dst := make([]byte, varLenColOffset-baseOffset) //buffer for varying le cols
-		copy(dst, data[baseOffset:varLenColOffset])
+		//varlencoloffset is the offset to the end of the varying length column,
+		// so we need to calculate the length of the column by subtracting the base offset from the varlencoloffset
+		dst := make([]byte, int(varLenColOffset)-baseOffset) //buffer for varying le cols
+		copy(dst, data[baseOffset:int(varLenColOffset)-offset])
 		datacols = append(datacols,
-			DataCol{id: idx, Content: dst, offset: uint16(varLenColOffset)})
-		baseOffset = varLenColOffset
+			DataCol{id: idx, Content: dst, offset: uint16(baseOffset + offset)})
+		baseOffset = int(varLenColOffset) - offset // move offset to the end of the current varying len col
 	}
 	indexRow.VarLenCols = &datacols
 }
 
-func (indexRow IndexRow) IsPrimary() bool {
-	return indexRow.StatusA == 0
-}
-
 func (indexRow IndexRow) IsIndexRecord() bool {
-	return indexRow.StatusA&3 == 3
+	return indexRow.StatusA&6 == 6
 }
 
+func (indexRow IndexRow) HasNullBitmap() bool {
+	return indexRow.StatusA&16 == 16
+}
+
+func (indexRow IndexRow) HasVarLenCols() bool {
+	return indexRow.StatusA&32 == 32
+}
 func (indexRow IndexRow) IsNonLeafRecord() bool {
 	return indexRow.StatusA&38 == 38
-}
-
-func (indexRow IndexRow) IsRecordClustered() bool {
-	return indexRow.StatusA&6 == 6
 }
 
 func (indexRow IndexRow) IsLeafNoNClusteredRecord() bool {
@@ -161,7 +136,7 @@ func (indexRow IndexRow) IsLeafNoNClusteredRecord() bool {
 }
 
 func (indexRow IndexRow) IsGhostRecord() bool {
-	return indexRow.StatusA&5 == 5
+	return indexRow.StatusA&10 == 10
 }
 
 func (indexRow IndexRow) ShowData() {
