@@ -190,6 +190,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32
 		if !table.Indexes[idx].isClustered {
 			continue
 		}
+
 		indexedDataPages = table.Indexes[idx].Populate(indexPages)
 
 	}
@@ -246,8 +247,6 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 	var pages *page.PagesPerIdNode
 	pagesQueue = append(pagesQueue, tindex.rootPageId)
 
-	var keyValue []byte
-
 	var indexedDataPages []uint32
 	for len(pagesQueue) != 0 && pagesQueue[0] != 0 {
 
@@ -258,40 +257,52 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 		if pages == nil {
 			break
 		}
-		page := pages.Pages[0]
-		for _, indexrow := range page.IndexRows {
-			if indexrow.NoNLeaf != nil {
-				indexedDataPages = append(indexedDataPages, indexrow.NoNLeaf.ChildPageID)
-				pagesQueue = append(pagesQueue, indexrow.NoNLeaf.ChildPageID)
 
-				keyValue = indexrow.NoNLeaf.KeyValue
-			} else if indexrow.NoNLeafClustered != nil {
-				keyValue = indexrow.NoNLeafClustered.KeyValue
+		for idx := range pages.Pages[0].IndexRows {
 
-				indexedDataPages = append(indexedDataPages, indexrow.NoNLeafClustered.ChildPageID)
-				pagesQueue = append(pagesQueue, indexrow.NoNLeafClustered.ChildPageID)
-			} else if indexrow.LeafClustered != nil {
-				keyValue = indexrow.LeafClustered.KeyValue
-			} else if indexrow.LeafNoNClustered != nil {
-				keyValue = indexrow.LeafNoNClustered.KeyValue
-			} else {
-				continue
-			}
 			cmap := ColMap{}
 
 			startOffset := 0
 
+			VarLenIndexColOrder := 0
+
 			for _, c := range tindex.columns {
 
-				if startOffset > len(keyValue) || startOffset+int(c.Size) > len(keyValue) {
+				/*if startOffset > len(keyValue) || startOffset+int(c.Size) > len(keyValue) {
 					msg := fmt.Sprintf("data length of non-leaf index is exhausted by %d at page Id %d",
 						startOffset+int(c.Size)-len(keyValue), page.Header.PageId)
 					mslogger.Mslogger.Warning(msg)
 					break
+				}*/
+				if c.isStatic() {
+					if pages.Pages[0].IndexRows[idx].FixedLenCols != nil {
+						cmap[c.Name] = ColData{Content: pages.Pages[0].IndexRows[idx].FixedLenCols[startOffset : startOffset+int(c.Size)]}
+						startOffset += int(c.Size)
+					}
+
+				} else {
+					if pages.Pages[0].IndexRows[idx].VarLenCols != nil {
+						//not all var len cols are part of the index key, only those defined as index key columns are, so we need to check the var len order of the column to know which varying length column in the index row corresponds to the column in the table schema
+						cmap[c.Name] = ColData{Content: (*pages.Pages[0].IndexRows[idx].VarLenCols)[VarLenIndexColOrder].Content}
+						VarLenIndexColOrder++
+					}
+
 				}
 
-				cmap[c.Name] = ColData{Content: keyValue[startOffset : startOffset+int(c.Size)]}
-				startOffset += int(c.Size)
+			}
+			//remaining is indexnonleaf data
+			if startOffset < len(pages.Pages[0].IndexRows[idx].FixedLenCols) {
+				indexNonLeaf := new(page.IndexNoNLeaf)
+				utils.Unmarshal(pages.Pages[0].IndexRows[idx].FixedLenCols[startOffset:],
+					indexNonLeaf)
+
+				//top level index pages point to other index pages until the leaf level is reached, at which point the index rows point to data pages
+				if pages.Pages[0].Header.Level > 1 {
+					pagesQueue = append(pagesQueue, indexNonLeaf.ChildPageID)
+				} else {
+					indexedDataPages = append(indexedDataPages, indexNonLeaf.ChildPageID)
+				}
+				pages.Pages[0].IndexRows[idx].NoNLeaf = indexNonLeaf
 			}
 
 			rows = append(rows, Row{ColMap: cmap})
@@ -985,58 +996,73 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 
 	rownum := 0
-	node := dataPages.GetHeadNode()
-	for node != nil {
-		page := node.Pages[0]
-		pageId := page.Header.PageId
-		if page.HasForwardingPointers() {
-			forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
+	if table.PageIDsPerType["IndexedDATA"] != nil {
+		for _, pageId := range table.PageIDsPerType["IndexedDATA"] {
+			page := dataPages.Lookup[pageId].Pages[0]
 
+			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages, rownum)
+		}
+	} else {
+		node := dataPages.GetHeadNode()
+		for node != nil {
+			page := node.Pages[0]
+			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages, rownum)
+			node = node.Next
 		}
 
-		table.indexType = page.GetIndexType()
-		pageAllocationUnitId := page.Header.GetMetadataAllocUnitId()
-		partitionId := table.AllocationUnitIdTopartitionId[pageAllocationUnitId]
-
-		nofCols := len(table.Schema)
-
-		for _, datarow := range page.DataRows {
-
-			if datarow.Carved && datarow.NullBitmap == nil {
-				msg := fmt.Sprintf("Null Bitmap in carved  in row %d,  page %d and schema cols %d table %s",
-					rownum, pageId, nofCols, table.Name)
-				mslogger.Mslogger.Warning(msg)
-				continue
-			}
-			rownum++
-			if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-				msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
-					int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
-				mslogger.Mslogger.Warning(msg)
-				//continue
-			}
-			if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
-				msg := fmt.Sprintf("Mismatch in number of declared data var cols %d in row %d,  page %d and with actual cols %d table %s",
-					int(datarow.NumberOfVarLengthCols), rownum, pageId, len(*datarow.VarLenCols), table.Name)
-				mslogger.Mslogger.Warning(msg)
-				//continue
-			}
-
-			if datarow.HasVersionTag() {
-				msg := fmt.Sprintf("Datarow %d at pageId %d has versioning enabled. Table %s",
-					rownum, pageId, table.Name)
-				mslogger.Mslogger.Warning(msg)
-
-			}
-
-			table.Rows = append(table.Rows,
-				table.ProcessRow(rownum, datarow, lobPages, textLobPages, partitionId))
-
-		}
-
-		node = node.Next
 	}
 
+}
+
+func (table *Table) setContentFromPage(page page.Page,
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32],
+	forwardPages map[uint32][]uint32, rownum int) int {
+	pageId := page.Header.PageId
+	if page.HasForwardingPointers() {
+		forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
+
+	}
+
+	table.indexType = page.GetIndexType()
+	pageAllocationUnitId := page.Header.GetMetadataAllocUnitId()
+	partitionId := table.AllocationUnitIdTopartitionId[pageAllocationUnitId]
+
+	nofCols := len(table.Schema)
+
+	for _, datarow := range page.DataRows {
+
+		if datarow.Carved && datarow.NullBitmap == nil {
+			msg := fmt.Sprintf("Null Bitmap in carved  in row %d,  page %d and schema cols %d table %s",
+				rownum, pageId, nofCols, table.Name)
+			mslogger.Mslogger.Warning(msg)
+			continue
+		}
+		rownum++
+		if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
+			msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
+				int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
+			mslogger.Mslogger.Warning(msg)
+			//continue
+		}
+		if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
+			msg := fmt.Sprintf("Mismatch in number of declared data var cols %d in row %d,  page %d and with actual cols %d table %s",
+				int(datarow.NumberOfVarLengthCols), rownum, pageId, len(*datarow.VarLenCols), table.Name)
+			mslogger.Mslogger.Warning(msg)
+			//continue
+		}
+
+		if datarow.HasVersionTag() {
+			msg := fmt.Sprintf("Datarow %d at pageId %d has versioning enabled. Table %s",
+				rownum, pageId, table.Name)
+			mslogger.Mslogger.Warning(msg)
+
+		}
+
+		table.Rows = append(table.Rows,
+			table.ProcessRow(rownum, datarow, lobPages, textLobPages, partitionId))
+
+	}
+	return rownum
 }
 
 func (table Table) ProcessRow(rownum int, datarow page.DataRow,
