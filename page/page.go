@@ -654,6 +654,7 @@ func (page *Page) parseIAM(data []byte) {
 
 func (page *Page) parseIndex(data []byte, offset int) {
 	page.IndexRows = make(IndexRows, len(page.Slots))
+
 	for slotnum, slot := range page.Slots {
 		msg := fmt.Sprintf("%d index row at %d", slotnum, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
@@ -681,8 +682,9 @@ func (page *Page) parseIndex(data []byte, offset int) {
 			mslogger.Mslogger.Warning(msg)
 			break
 		}
+
 		indexRow := new(IndexRow)
-		indexRow.Parse(data[slot.Offset:slot.Offset+indexRowLen], offset+int(slot.Offset))
+		indexRow.Parse(data[slot.Offset:slot.Offset+indexRowLen], offset+int(slot.Offset), page.Header.PMinLen)
 
 		/*dst := make([]byte, page.Header.PMinLen-1)                                     // allocate memory for fixed len cols
 		copy(dst, data[slot.Offset+1:slot.Offset+Slots(page.Header.PMinLen)]) //first always statusA
