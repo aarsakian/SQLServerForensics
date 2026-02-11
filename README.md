@@ -35,7 +35,8 @@ This tool performs *read-only* operations on SQL Server database files. However,
 The low level access option works exclusively on a ***local copy*** of your database. Copying is being performed at a cluster level using the lowest-level userspace  Win32 API available ensuring minimal interference with the operating system's running processes.
 
 The table below outlines the implications of accessing your database on a running server. 
-| Access Method| Implication | Server is running |2
+
+| Access Method| Implication | Server is running |
 | ----------- | ----------- | --- |
 | stopservice | Certain data loss | Server will be stopped | 
 | physical disk | Unlikely |  Performance impact  |
