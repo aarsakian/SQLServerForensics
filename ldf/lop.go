@@ -146,7 +146,7 @@ func (Lop_Insert_Delete *LOP_INSERT_DELETE) ProcessRowContents(bs []byte) {
 				return
 			}
 			datarow := new(page.DataRow)
-			datarow.Parse(bs[bsoffset:int(bsoffset)+int(rowlogcontentoffset)], int(bsoffset)+int(rowlogcontentoffset), -1)
+			datarow.Parse(bs[bsoffset:int(bsoffset)+int(rowlogcontentoffset)], int(bsoffset)+int(rowlogcontentoffset), 0)
 
 			Lop_Insert_Delete.DataRow = datarow
 		} else {

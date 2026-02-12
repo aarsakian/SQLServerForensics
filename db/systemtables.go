@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var SystemTablesFlags = map[string]int32{
+var SystemTablesFlags = map[string]uint32{
 	"syscolpars": 0x00000029, "sysrowsets": 0x00000005, "sysiscols": 0x00000037,
 	"sysallocationunits": 0x00000007, "sysidxstats": 0x000036,
 	"sysschobjs": 0x00000022, "sysrscols": 0x00000003,
