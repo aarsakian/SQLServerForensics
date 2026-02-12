@@ -361,7 +361,7 @@ func (dataRow DataRow) ProcessData(colId uint16, colsize int16, startoffset int1
 
 }
 
-func (dataRow *DataRow) Parse(data []byte, offset int, pageType int32) int {
+func (dataRow *DataRow) Parse(data []byte, offset int, pageType uint32) int {
 
 	dataRowSize, _ := utils.Unmarshal(data, dataRow)
 	if len(data) > 14 && dataRow.HasVersionTag() {

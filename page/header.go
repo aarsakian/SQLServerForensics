@@ -72,7 +72,7 @@ type Header struct {
 	NextPage       uint32    //16-20
 	NextPageFileId uint16    //20-22
 	SlotCnt        uint16    //22-24   number of slots (records) that hold data
-	ObjectId       int32     //24-28 AllocUnitId.idObj
+	ObjectId       uint32    //24-28 AllocUnitId.idObj
 	FreeCnt        uint16    //28-30 free space in bytes
 	FreeData       uint16    //30-32 offset from the start of the page to the first byte after the last record
 	PageId         uint32    //32-36
