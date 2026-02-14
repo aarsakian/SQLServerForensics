@@ -57,7 +57,17 @@ type Auid struct {
 	Zeros    uint32
 }
 
-type Images [][]byte
+type Image struct {
+	Name    string
+	Content []byte
+	Id      int
+}
+
+type Images []Image
+
+func (image Image) GetFilename() string {
+	return fmt.Sprintf("%s_%d.img", image.Name, image.Id)
+}
 
 func (a LSN) IsGreaterEqual(b LSN) bool {
 	if a.P1 != b.P1 {
