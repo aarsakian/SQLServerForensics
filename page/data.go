@@ -53,7 +53,6 @@ type DataCol struct {
 	offset       uint16
 	Content      []byte
 	InlineBlob24 *InlineBLob24
-	InlineBlob16 *InlineBLob16
 }
 
 type DataRows []DataRow
@@ -61,22 +60,6 @@ type DataRows []DataRow
 type RowIds []utils.RowId
 
 type DataCols []DataCol //holds varying len cols
-
-type InlineBLob24 struct {
-	Type       uint8
-	IndexLevel uint16
-	Unused     byte
-	UpdateSeq  uint32
-	Timestamp  uint32
-	Length     uint32
-	RowId      utils.RowId //12-
-}
-
-type InlineBLob16 struct { //points to text lob
-	Timestamp uint32
-	Length    uint32
-	RowId     utils.RowId //4-
-}
 
 type TagVersion struct {
 	RowId utils.RowId
@@ -166,21 +149,19 @@ func (dataCol DataCol) hasBlob24() bool {
 
 }
 
-func (dataCol DataCol) hasBlob16() bool {
-	return dataCol.InlineBlob16 != nil
-
-}
-
-func (dataCol DataCol) GetLOBPage() (utils.RowId, uint32) {
-	if dataCol.hasBlob16() {
-		return dataCol.InlineBlob16.RowId, dataCol.InlineBlob16.Timestamp // needs check for more rowids
-	} else if dataCol.hasBlob24() {
-		return dataCol.InlineBlob24.RowId, dataCol.InlineBlob24.Timestamp // needs check for more rowids
+func (dataCol DataCol) GetLOBPage() ([]utils.RowId, uint32) {
+	var rowsid []utils.RowId
+	if dataCol.hasBlob24() {
+		rowsid = append(rowsid, dataCol.InlineBlob24.RowId)
+		for _, inlineBLob16 := range dataCol.InlineBlob24.Inlines {
+			rowsid = append(rowsid, inlineBLob16.RowId)
+		}
+		return rowsid, dataCol.InlineBlob24.Timestamp // needs check for more rowids
 	}
-	return utils.RowId{}, 0
+	return []utils.RowId{}, 0
 }
 
-func (dataRow DataRow) GetBloBInfo(colNum uint16) (utils.RowId, uint32) {
+func (dataRow DataRow) GetBloBInfo(colNum uint16) ([]utils.RowId, uint32) {
 	return (*dataRow.VarLenCols)[colNum].GetLOBPage()
 }
 
@@ -216,18 +197,20 @@ func (dataRow DataRow) ShowData() {
 
 func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // data per slot
 	var datacols DataCols
-	var inlineBlob24 *InlineBLob24
-	var inlineBlob16 *InlineBLob16
+
 	startVarColOffset := dataRow.GetVarCalOffset()
+	negativeOffset := false
+
 	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
 		msg := fmt.Sprintf("%d var col at %d", idx, offset+int(startVarColOffset))
 		mslogger.Mslogger.Info(msg)
 
 		// -1 NULL, -2 Row Overflow, -3 Sparse Null, -4 Sparse Non Null
-		if endVarColOffset < -4 {
+		if endVarColOffset < 0 {
+			negativeOffset = true
+			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
 			msg := fmt.Sprintf("invalid %d negative offset %d var col at %d", idx, endVarColOffset, offset+int(startVarColOffset))
 			mslogger.Mslogger.Warning(msg)
-			break
 
 		}
 
@@ -252,28 +235,13 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 		copy(cpy, data[startVarColOffset:endVarColOffset])
 		startVarColOffset = endVarColOffset
 
-		var rowId *utils.RowId = new(utils.RowId)
-		if len(cpy) == 24 { // only way to guess that we have a row overflow data
-			inlineBlob24 = new(InlineBLob24)
-			utils.Unmarshal(cpy, inlineBlob24)
-			utils.Unmarshal(cpy[16:], rowId)
-			inlineBlob24.RowId = *rowId
-
-		} else if len(cpy) == 16 {
-			inlineBlob16 = new(InlineBLob16)
-			utils.Unmarshal(cpy, inlineBlob16)
-			utils.Unmarshal(cpy[8:], rowId)
-			inlineBlob16.RowId = *rowId
-		}
-
-		if inlineBlob16 != nil {
+		if negativeOffset && len(cpy) >= 24 && len(cpy)%12 == 0 { // only way to guess that we have a row overflow data
+			inlineBlob24 := new(InlineBLob24)
+			inlineBlob24.Process(cpy)
 			datacols = append(datacols,
-				DataCol{id: idx, Content: cpy, offset: uint16(startVarColOffset), InlineBlob16: inlineBlob16})
-			inlineBlob16 = nil
-		} else if inlineBlob24 != nil {
-			datacols = append(datacols,
-				DataCol{id: idx, Content: cpy, offset: uint16(startVarColOffset), InlineBlob24: inlineBlob24})
-			inlineBlob24 = nil
+				DataCol{id: idx, Content: cpy, offset: uint16(startVarColOffset),
+					InlineBlob24: inlineBlob24})
+
 		} else {
 			datacols = append(datacols,
 				DataCol{id: idx, Content: cpy, offset: uint16(startVarColOffset)})
@@ -347,12 +315,16 @@ func (dataRow DataRow) ProcessData(colId uint16, colsize int16, startoffset int1
 
 		}
 
-		rowId, textTimestamp := dataRow.GetBloBInfo(valorder)
-		if !lobPages.IsEmpty() && rowId.FileId != 0 { //only when there are lobpages proceed
+		rowIds, textTimestamp := dataRow.GetBloBInfo(valorder)
+		if !lobPages.IsEmpty() && len(rowIds) != 0 { //only when there are lobpages proceed
+			var content []byte
+			for _, rowId := range rowIds {
+				lobPage := lobPages.GetFirstPage(rowId.PageId)
+				content = append(content,
+					lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp))...) // might change)
+			}
+			return content, nil
 
-			lobPage := lobPages.GetFirstPage(rowId.PageId)
-
-			return lobPage.GetLobData(lobPages, textLobPages, uint(rowId.SlotNumber), uint(textTimestamp)), nil // might change
 		} else {
 			return (*dataRow.VarLenCols)[valorder].Content, nil
 		}
