@@ -227,7 +227,7 @@ Usage instructions have been grouped so as to help the user.
         export tables to selected path
 
   -exporimages
-        export blobs (will be exported to a folder images under the table name)
+        export blobs (will be exported to a folder images under the database name)
 
 
   -format string
