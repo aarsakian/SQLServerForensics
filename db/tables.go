@@ -782,21 +782,21 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 	close(records)
 }
 
-func (table Table) GetImages() utils.Images {
-	var images utils.Images
-
-	for _, row := range table.Rows {
+func (table Table) GetImages(wg *sync.WaitGroup, images chan<- utils.Image) {
+	defer wg.Done()
+	for rowid, row := range table.Rows {
 
 		for _, c := range table.Schema {
-			if c.Type != "image" {
+			if c.Type != "image" && c.Type != "varbinary" {
 				continue
 			}
 			colData := row.ColMap[c.Name]
 
-			images = append(images, colData.Content)
+			images <- utils.Image{Name: c.Name, Content: colData.Content, Id: rowid}
 		}
 	}
-	return images
+	close(images)
+
 }
 
 func (table Table) printHeader(showcolnames []string) {
@@ -998,6 +998,7 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 	rownum := 0
 	if table.PageIDsPerType["IndexedDATA"] != nil {
 		for _, pageId := range table.PageIDsPerType["IndexedDATA"] {
+
 			page := dataPages.Lookup[pageId].Pages[0]
 
 			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages, rownum)
