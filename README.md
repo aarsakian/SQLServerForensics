@@ -226,8 +226,8 @@ Usage instructions have been grouped so as to help the user.
  -export string
         export tables to selected path
 
-  -exportImages
-        export images saved as blob
+  -exporimages
+        export blobs (will be exported to a folder images under the table name)
 
 
   -format string
