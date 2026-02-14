@@ -7,28 +7,33 @@ import (
 	"log"
 	"os"
 	"path"
+	"sync"
 )
 
-func writeImages(images utils.Images, fileprefix string, folder string) {
-	base_path := path.Join(folder, "images")
-	err := os.Mkdir(base_path, 0750)
+func writeImages(wg *sync.WaitGroup, images chan utils.Image, tablename string, folder string) {
+	defer wg.Done()
+
+	base_path := path.Join(folder, "images", tablename)
+	err := os.MkdirAll(base_path, 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
-	for idx, image := range images {
-		if len(image) == 0 {
+	for image := range images {
+		if len(image.Content) == 0 {
 			continue
 		}
-		file, err := os.Create(fmt.Sprintf("%s_%d.img", path.Join(base_path, fileprefix), idx))
-		defer file.Close()
+		imagefilename := image.GetFilename()
+		file, err := os.Create(path.Join(base_path, imagefilename))
+
 		if err != nil {
 			mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
 		}
-
-		_, err = file.Write(image)
+		defer file.Close()
+		_, err = file.Write(image.Content)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
+
 }
