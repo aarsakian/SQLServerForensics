@@ -36,7 +36,6 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	databaseName string, databaseFolder string, tables <-chan db.Table) {
 	defer expWg.Done()
 
-	var images utils.Images
 	databaseName = filepath.Base(databaseName)
 	err := os.RemoveAll(filepath.Join(exp.Path, databaseFolder, databaseName))
 	if err != nil {
@@ -57,9 +56,11 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		go table.GetRecords(wg, selectedTableRow, colnames, records)
 
 		if exp.Image {
-			images = table.GetImages()
-
-			writeImages(images, table.Name, expPath)
+			images := make(chan utils.Image, 10)
+			wg.Add(1)
+			go table.GetImages(wg, images)
+			wg.Add(1)
+			go writeImages(wg, images, table.Name, expPath)
 
 		}
 
