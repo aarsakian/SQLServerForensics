@@ -37,7 +37,8 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 	showTableIndex bool, showPageStats bool, showIndex bool, toTableRow int,
 	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
 	showLDF bool, tabletype string, raw bool, colnames []string,
-	exportFormat string, exportImage bool, exportPath string, sortByLSN string) {
+	exportFormat string, exportImage bool, exportPath string, sortByLSN string,
+	walkLSN string) {
 
 	PM.reporter = reporter.Reporter{ShowGamExtents: showGamExtents,
 		ShowSGamExtents:     showSGamExtents,
@@ -62,6 +63,7 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 		Raw:                 raw,
 		ShowColNames:        colnames,
 		SortByLSN:           sortByLSN,
+		WalkLSN:             walkLSN,
 	}
 
 	PM.exporter = exporter.Exporter{Format: exportFormat, Image: exportImage, Path: exportPath}
@@ -128,6 +130,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		if err == nil && ldfRecordsProcessed > 0 {
 			database.AddLogRecords(carve)
+			database.CorrelateLDFToPages()
 		}
 
 		processedPages += totalProcessedPages
@@ -205,7 +208,7 @@ func (PM ProcessManager) GetDatabaseNames() []string {
 
 func (PM ProcessManager) ShowInfo(selectedPages []uint32, filterlop string) {
 	for _, database := range PM.Databases {
-		PM.reporter.ShowPageInfo(database, selectedPages)
+		PM.reporter.ShowPageInfo(database, selectedPages, filterlop)
 		PM.reporter.ShowLDFInfo(database, selectedPages, filterlop)
 
 	}
