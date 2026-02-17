@@ -1,6 +1,7 @@
 package db
 
 import (
+	"MSSQLParser/data"
 	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
@@ -126,14 +127,14 @@ func (table *Table) udateColIndex(sysiscols SysIsCols) {
 }
 
 func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64],
-	logRecords LDF.Records) {
+	logRecordsMap LDF.RecordsMap) {
 	var allocatedPages page.Pages
 
 	var candidateRecords LDF.Records
 
 	// only data changes
 
-	logRecords = logRecords.FilterOutNullOperations()
+	logRecords := logRecordsMap.FilterOutNullOperations()
 
 	for allocUnitID := range table.AllocationUnitIdTopartitionId {
 		allocatedPages = append(allocatedPages, pagesPerAllocUnitID.GetPages(allocUnitID)...)
@@ -1066,7 +1067,7 @@ func (table *Table) setContentFromPage(page page.Page,
 	return rownum
 }
 
-func (table Table) ProcessRow(rownum int, datarow page.DataRow,
+func (table Table) ProcessRow(rownum int, datarow data.DataRow,
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], partitionId uint64) Row {
 
 	colmap := make(ColMap)
