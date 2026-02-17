@@ -167,13 +167,6 @@ type Result[F, S, T, FH, FT, SX, SV any] struct {
 	Seventh SV
 }
 
-type SystemTable interface {
-	GetName() string
-	SetName([]byte)
-	ShowData()
-	GetData() (any, any)
-}
-
 func (sysobject SysObjects) GetData() (any, any) {
 	return nil, nil
 }
