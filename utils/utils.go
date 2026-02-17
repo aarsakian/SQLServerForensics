@@ -719,13 +719,13 @@ func FilterMap[L any, T ~[]L, K comparable](s map[K]T, f func(L) bool) map[K]T {
 	return r
 }
 
-func FilterMapToList[L any, T ~[]L, K comparable](s map[K]T, f func(L) bool) T {
-	r := T{}
+func FilterMapToList[L any, T []*L, K comparable](s map[K]*L, f func(L) bool) []L {
+	var r []L
 	for _, Vs := range s {
-		for _, v := range Vs {
-			if f(v) {
-				r = append(r, v)
-			}
+
+		if f(*Vs) {
+			r = append(r, *Vs)
+
 		}
 	}
 	return r
