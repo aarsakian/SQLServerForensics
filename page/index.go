@@ -1,6 +1,7 @@
 package page
 
 import (
+	datac "MSSQLParser/data"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
@@ -65,7 +66,7 @@ type IndexRow struct {
 	NullBitmap            []byte //
 	NumberOfVarLengthCols uint16 //0-
 	VarLengthColOffsets   []int16
-	VarLenCols            *DataCols
+	VarLenCols            *datac.DataCols
 }
 
 func (indexRow *IndexRow) Parse(data []byte, offset int, fixedColsLen uint16) {
@@ -101,7 +102,7 @@ func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 		indexRow.VarLengthColOffsets = append(indexRow.VarLengthColOffsets, varLenColOffset)
 	}
 
-	var datacols DataCols
+	var datacols datac.DataCols
 	baseOffset := 2 + 2*int(indexRow.NumberOfVarLengthCols) // move offset to the start of varying len cols
 	for idx, varLenColOffset := range indexRow.VarLengthColOffsets {
 
@@ -110,7 +111,7 @@ func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 		dst := make([]byte, int(varLenColOffset)-baseOffset) //buffer for varying le cols
 		copy(dst, data[baseOffset:int(varLenColOffset)-offset])
 		datacols = append(datacols,
-			DataCol{id: idx, Content: dst, offset: uint16(baseOffset + offset)})
+			datac.DataCol{Id: idx, Content: dst, Offset: uint16(baseOffset + offset)})
 		baseOffset = int(varLenColOffset) - offset // move offset to the end of the current varying len col
 	}
 	indexRow.VarLenCols = &datacols
