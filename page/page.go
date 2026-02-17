@@ -1,6 +1,8 @@
 package page
 
 import (
+	datac "MSSQLParser/data"
+	LDF "MSSQLParser/ldf"
 	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
@@ -147,8 +149,8 @@ func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
 type Page struct {
 	Header             Header
 	Slots              Slots
-	DataRows           DataRows
-	ForwardingPointers ForwardingPointers
+	DataRows           datac.DataRows
+	ForwardingPointers datac.ForwardingPointers
 	LOBS               LOBS
 	PFSPage            *PFSPage
 	GAMExtents         *GAMExtents
@@ -159,6 +161,7 @@ type Page struct {
 	IndexRows          IndexRows
 	Boot               *Boot
 	FileHeader         *FileHeader
+	LDFRecord          *LDF.Record
 }
 
 type AllocationMaps interface {
@@ -180,8 +183,8 @@ func (header Header) getIndexType() string {
 
 }
 
-func (page Page) FilterByTable(tablename string) DataRows {
-	return utils.Filter(page.DataRows, func(datarow DataRow) bool {
+func (page Page) FilterByTable(tablename string) datac.DataRows {
+	return utils.Filter(page.DataRows, func(datarow datac.DataRow) bool {
 		return datarow.SystemTable.GetName() == tablename
 
 	})
@@ -425,8 +428,8 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 	//sorted by offset
 	for slotnum, slot := range page.Slots {
 
-		forwardingPointer := new(ForwardingPointer)
-		dataRow := &DataRow{Carved: false}
+		forwardingPointer := new(datac.ForwardingPointer)
+		dataRow := &datac.DataRow{Carved: false}
 
 		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
 		mslogger.Mslogger.Info(msg)
@@ -463,7 +466,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		} else { //last slot
 			allocatedDataRowSize = page.Header.FreeData - slot.Offset
 		}
-		switch GetRowType(data[slot.Offset]) {
+		switch datac.GetRowType(data[slot.Offset]) {
 		case "Forwarding Record": // forward pointer header
 			utils.Unmarshal(data[slot.Offset:slot.Offset+uint16(allocatedDataRowSize)],
 				forwardingPointer)
@@ -542,9 +545,9 @@ func (page *Page) CarveData(data []byte, offset int) {
 
 			// accept only primary records
 
-			if GetRowType(data[slotOffset+slackOffset]) == "Ghost Record" {
+			if datac.GetRowType(data[slotOffset+slackOffset]) == "Ghost Record" {
 				slotnum += 1 //extra slot recovered
-				dataRow := DataRow{Carved: true}
+				dataRow := datac.DataRow{Carved: true}
 				actualDataRowSize = uint16(dataRow.Parse(
 					data[slotOffset+slackOffset:],
 					int(slotOffset)+int(slackOffset)+offset, page.Header.ObjectId))
