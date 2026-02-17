@@ -4,6 +4,7 @@ import (
 	"MSSQLParser/utils"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -13,6 +14,8 @@ import (
 type OriginalParityBytes []uint8
 
 type Records []Record
+
+type RecordsMap map[utils.LSN]*Record
 
 // 4 byte prefix
 type RecordPrefix struct {
@@ -69,12 +72,12 @@ func (record Record) GetContextType() string {
 	return ContextType[record.Context]
 }
 
-func (record Record) HasGreaterLSN(lsn utils.LSN) bool {
-	return record.PreviousLSN.IsGreaterEqual(lsn)
+func (record Record) HasGreaterEqualLSN(lsn utils.LSN) bool {
+	return record.CurrentLSN.IsGreaterEqual(lsn)
 }
 
-func (record Record) HasLessLSN(lsn utils.LSN) bool {
-	return !record.PreviousLSN.IsGreaterEqual(lsn)
+func (record Record) HasLessEqualLSN(lsn utils.LSN) bool {
+	return !record.CurrentLSN.IsGreaterEqual(lsn)
 }
 
 func (record Record) GetBeginRecordPtr() (*Record, error) {
@@ -158,13 +161,40 @@ func (record Record) ShowLOPInfo(filterloptype string) {
 }
 
 func (record Record) HasOperationType(operationtypes []string) bool {
-	for _, operationtype := range operationtypes {
-		if record.GetOperationType() == operationtype {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(operationtypes, record.GetOperationType())
 }
+
+func (record Record) WalkInfo(direction string, loptype string) {
+
+	switch direction {
+
+	case "prev":
+		record.WalkInfoBackwards(loptype)
+	case "next":
+		record.WalkInfoForward(loptype)
+	case "any":
+		record.WalkInfoBackwards(loptype)
+		record.WalkInfoForward(loptype)
+
+	}
+}
+
+func (record Record) WalkInfoBackwards(loptype string) {
+	for record.PreviousRecord != nil {
+		fmt.Printf(" <-  \t")
+		record.PreviousRecord.ShowLOPInfo(loptype)
+		record = *record.PreviousRecord
+	}
+}
+
+func (record Record) WalkInfoForward(loptype string) {
+	for record.NextRecord != nil {
+		fmt.Printf(" ->  \t")
+		record.NextRecord.ShowLOPInfo(loptype)
+		record = *record.NextRecord
+	}
+}
+
 func (record Record) HasPageID(pageID uint32) bool {
 	return record.Lop_Insert_Delete != nil &&
 		record.Lop_Insert_Delete.RowId.PageId == pageID ||
@@ -180,13 +210,13 @@ func (records Records) FilterByOperation(operationType string) Records {
 
 func (records Records) FilterByGreaterLSN(lsn utils.LSN) Records {
 	return utils.Filter(records, func(record Record) bool {
-		return record.HasGreaterLSN(lsn)
+		return record.HasGreaterEqualLSN(lsn)
 	})
 }
 
 func (records Records) FilterByLessLSN(lsn utils.LSN) Records {
 	return utils.Filter(records, func(record Record) bool {
-		return record.HasLessLSN(lsn)
+		return record.HasLessEqualLSN(lsn)
 	})
 }
 
@@ -196,8 +226,8 @@ func (records Records) FilterByOperations(operationtypes []string) Records {
 	})
 }
 
-func (records Records) FilterOutNullOperations() Records {
-	return utils.Filter(records, func(record Record) bool {
+func (records RecordsMap) FilterOutNullOperations() Records {
+	return utils.FilterMapToList(records, func(record Record) bool {
 		return record.Operation != 0
 	})
 }
@@ -241,13 +271,13 @@ func (records Records) DetermineMinLSN() utils.LSN {
 	return lop_end_records[recordId].Lop_End_CKPT.MinLSN
 }
 
-func (records Records) UpdateCarveStatus(minLSN utils.LSN, carve bool) {
+func (records Records) UpdateCarveStatus(minLSN utils.LSN) {
 	for idx := range records {
-		if records[idx].HasLessLSN(minLSN) {
-			records[idx].Carved = true
-
-		} else if carve { // only when asked for carve
+		if records[idx].HasGreaterEqualLSN(minLSN) {
 			records[idx].Carved = false
+		} else { // only when asked for carve
+			records[idx].Carved = true
 		}
+
 	}
 }
