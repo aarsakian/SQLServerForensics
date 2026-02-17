@@ -1,8 +1,8 @@
 package db
 
 import (
+	"MSSQLParser/data"
 	mslogger "MSSQLParser/logger"
-	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
 	"strings"
@@ -412,7 +412,7 @@ sysconv(bit, c.status & 0x1000000)                               AS is_sparse,--
 sysconv(bit, c.status & 0x2000000)                               AS is_column_set -- CPM_SPARSECOLUMNSET
 */
 
-func (tablesInfo TablesInfo) Populate(datarows page.DataRows) {
+func (tablesInfo TablesInfo) Populate(datarows data.DataRows) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -432,7 +432,7 @@ func (tablesInfo TablesInfo) Populate(datarows page.DataRows) {
 
 }
 
-func (columnsStats ColumnsStatistics) Populate(datarows page.DataRows) {
+func (columnsStats ColumnsStatistics) Populate(datarows data.DataRows) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -445,7 +445,7 @@ func (columnsStats ColumnsStatistics) Populate(datarows page.DataRows) {
 	}
 }
 
-func (sysfiles SysFiles) Populate(datarows page.DataRows) {
+func (sysfiles SysFiles) Populate(datarows data.DataRows) {
 	for idx, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -462,7 +462,7 @@ func (sysallocunits SysAllocUnits) GetId() uint64 {
 	return utils.ToUint64(sysallocunits.Auid[:])
 }
 
-func (indexesInfo IndexesInfo) Populate(datarows page.DataRows) {
+func (indexesInfo IndexesInfo) Populate(datarows data.DataRows) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -482,7 +482,7 @@ func (indexesInfo IndexesInfo) Populate(datarows page.DataRows) {
 
 }
 
-func (columnsinfo ColumnsInfo) Populate(datarows page.DataRows) {
+func (columnsinfo ColumnsInfo) Populate(datarows data.DataRows) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -505,7 +505,7 @@ func (columnsinfo ColumnsInfo) Populate(datarows page.DataRows) {
 
 }
 
-func (tablespartitions TablesPartitions) Populate(datarows page.DataRows) {
+func (tablespartitions TablesPartitions) Populate(datarows data.DataRows) {
 
 	for _, datarow := range datarows {
 		if datarow.Carved {
@@ -519,7 +519,7 @@ func (tablespartitions TablesPartitions) Populate(datarows page.DataRows) {
 	}
 }
 
-func (tablesallocations TablesAllocations) Populate(datarows page.DataRows) {
+func (tablesallocations TablesAllocations) Populate(datarows data.DataRows) {
 
 	for _, datarow := range datarows {
 		if datarow.Carved {
@@ -533,7 +533,7 @@ func (tablesallocations TablesAllocations) Populate(datarows page.DataRows) {
 	}
 }
 
-func (columnsPartitions ColumnsPartitions) Populate(datarows page.DataRows) {
+func (columnsPartitions ColumnsPartitions) Populate(datarows data.DataRows) {
 
 	for _, datarow := range datarows {
 		if datarow.Carved {
@@ -556,7 +556,7 @@ func (columnsPartitions ColumnsPartitions) Populate(datarows page.DataRows) {
 	}
 }
 
-func (metadataBlobs MetadataBlobs) Populate(datarows page.DataRows) {
+func (metadataBlobs MetadataBlobs) Populate(datarows data.DataRows) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
