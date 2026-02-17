@@ -113,7 +113,7 @@ func main() {
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
 	raw := flag.Bool("showraw", false, "show row data for each column in a table")
 	rpc := flag.Uint("rpc", 0, "use grpc to communicate select port from 1024 and upwards")
-
+	walkLSN := flag.String("walklsn", "", "follow lsn allowed values are prev|next")
 	sortByLSN := flag.String("sortbylsn", "", "sort pages  all|allocunit (sort all pages or sort per allocation unit basis)")
 
 	profile := flag.Bool("profile", false, "profile memory usage")
@@ -293,7 +293,7 @@ func main() {
 		*skippedTableRows, selectedTableRowsInt,
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
-		*exportFormat, *exportImage, *exportPath, *sortByLSN)
+		*exportFormat, *exportImage, *exportPath, *sortByLSN, *walkLSN)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
