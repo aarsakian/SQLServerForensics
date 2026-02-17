@@ -153,7 +153,10 @@ Usage instructions have been grouped so as to help the user.
   -showdatacols
         show data cols for each data row
 
--type string
+  -walklsn string
+        follow lsn allowed values are prev|next
+
+ -type string
         filter by page type IAM, GAM, SGAM, PFS, DATA
 
 
@@ -306,7 +309,8 @@ Show page information including ***index structure FileID, PageID, Key, RowSize*
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf   -showindex -pages  11854
 
 
-
+Show page information inclding ***header, relevant log records of any lop type operation, follow log records both directions (previous and next)***
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showheader -filterlop any -walklsn any -sortbylsn any
 
 ### Transaction Log Internals Inspection 
 Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** such as ***Log Block Header Slots,  size of block, FirstLSN*** operations for log file ***AdventureWorks2022_log.ldf*** 
