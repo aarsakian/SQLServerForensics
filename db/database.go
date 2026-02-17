@@ -1,6 +1,7 @@
 package db
 
 import (
+	"MSSQLParser/data"
 	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
@@ -25,7 +26,7 @@ type Database struct {
 	Tables              []Table
 	LogPage             page.Page
 	VLFs                *LDF.VLFs
-	LogRecords          LDF.Records
+	LogRecordsMap       LDF.RecordsMap
 	tablesInfo          TablesInfo
 	columnsinfo         ColumnsInfo
 	tablesPartitions    TablesPartitions
@@ -39,7 +40,7 @@ type Database struct {
 }
 
 type SystemTable interface {
-	Process(page.DataRows)
+	Process(data.DataRows)
 }
 
 func (db *Database) ProcessSystemTables() {
@@ -306,7 +307,7 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 			}
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
-			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogRecords)
+			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogRecordsMap)
 
 			select {
 			case tablesCH <- table:
@@ -474,28 +475,43 @@ func (db Database) FindPageChanges() {
 
 func (db *Database) AddLogRecords(carve bool) {
 	var records LDF.Records
+	db.LogRecordsMap = make(LDF.RecordsMap)
 
 	for _, vlf := range *db.VLFs {
 
 		for _, block := range vlf.Blocks {
-			for _, record := range block.Records {
-				records = append(records, record)
-			}
-
+			records = append(records, block.Records...)
 		}
 	}
 
 	//cross validate with records
 	ok, err := db.ConfirmMinLSN(records)
-	if err == nil && !ok {
+	if err == nil && ok {
 		minLSN := records.DetermineMinLSN()
-		records.UpdateCarveStatus(minLSN, carve)
+		records.UpdateCarveStatus(minLSN)
 	}
-
-	db.LogRecords = records
+	for _, record := range records {
+		db.LogRecordsMap[record.CurrentLSN] = &record
+	}
 
 }
 
 func (db Database) GetLDFName() string {
 	return strings.TrimSpace(db.sysfiles[1].GetName())
+}
+
+func (db Database) CorrelateLDFToPages() {
+
+	node := db.PagesPerAllocUnitID.GetHeadNode()
+	for node != nil {
+		for idx := range node.Pages {
+			record, ok := db.LogRecordsMap[node.Pages[idx].Header.LSN]
+			if ok {
+				node.Pages[idx].LDFRecord = record
+				break
+			}
+		}
+		node = node.Next
+	}
+
 }
