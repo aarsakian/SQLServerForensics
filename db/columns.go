@@ -1,6 +1,7 @@
 package db
 
 import (
+	"MSSQLParser/data"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
@@ -158,13 +159,30 @@ func (c Column) ParseTime(data []byte) string {
 	return utils.ParseTime(data, int(c.Precision))
 }
 
-func (c *Column) addContent(datarow page.DataRow,
+func (c *Column) addContent(datarow data.DataRow,
 	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64, nofNullCols int) ([]byte, error) {
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
-		return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.isStatic(),
-			c.VarLenOrder-uint16(nofNullCols), lobPages, textLOBPages)
+
+		if !c.isStatic() && datarow.HasBlobInfo(c.VarLenOrder-uint16(nofNullCols)) {
+			rowIds, textTimestamp := datarow.GetBloBInfo(c.VarLenOrder - uint16(nofNullCols))
+			if !lobPages.IsEmpty() && len(rowIds) != 0 { //only when there are lobpages proceed
+				var content []byte
+				for _, rowId := range rowIds {
+					lobPage := lobPages.GetFirstPage(rowId.PageId)
+					content = append(content,
+						lobPage.GetLobData(lobPages, textLOBPages,
+							uint(rowId.SlotNumber), uint(textTimestamp))...)
+				}
+				return content, nil
+			} else {
+				return nil, fmt.Errorf("lob data not found for col %s", c.Name)
+			}
+		} else {
+			return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.isStatic(),
+				c.VarLenOrder-uint16(nofNullCols))
+		}
 	}
 
 }
