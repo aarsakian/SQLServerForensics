@@ -32,16 +32,17 @@ type Reporter struct {
 	Raw                 bool
 	ShowColNames        []string
 	SortByLSN           string
+	WalkLSN             string
 }
 
-func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32) {
+func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32, loptype string) {
 	node := database.PagesPerAllocUnitID.GetHeadNode()
 
 	if rp.SortByLSN == "all" {
 		allPages := database.PagesPerAllocUnitID.GetAllPages()
 		sort.Sort(pages.SortedPagesByLSN(allPages))
 		for _, page := range allPages {
-			rp.ShowPage(page, selectedPages)
+			rp.ShowPage(page, selectedPages, loptype)
 		}
 	} else {
 		for node != nil {
@@ -49,7 +50,7 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32) {
 				sort.Sort(pages.SortedPagesByLSN(node.Pages))
 			}
 			for _, page := range node.Pages {
-				rp.ShowPage(page, selectedPages)
+				rp.ShowPage(page, selectedPages, loptype)
 			}
 			node = node.Next
 
@@ -59,7 +60,7 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32) {
 
 }
 
-func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32) {
+func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32, loptype string) {
 	allocMap := page.GetAllocationMaps()
 
 	if rp.ShowPFS && page.GetType() == "PFS" ||
@@ -71,6 +72,13 @@ func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32) {
 	}
 	if rp.ShowHeader {
 		page.PrintHeader(rp.ShowSlots)
+		if page.LDFRecord != nil {
+			fmt.Printf("LOP INFO \t")
+			page.LDFRecord.ShowLOPInfo(loptype)
+			if rp.WalkLSN != "" {
+				page.LDFRecord.WalkInfo(rp.WalkLSN, loptype)
+			}
+		}
 	}
 	if rp.ShowDataCols {
 		page.ShowRowData()
