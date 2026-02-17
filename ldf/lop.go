@@ -1,8 +1,8 @@
 package LDF
 
 import (
+	datac "MSSQLParser/data"
 	mslogger "MSSQLParser/logger"
-	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"errors"
 	"fmt"
@@ -55,7 +55,7 @@ type LOP_INSERT_DELETE struct {
 	RowFlags             [2]byte     //36-38
 	NumElements          uint16      //38-40 num of varlen cols
 	RowLogContentOffsets []uint16
-	DataRow              *page.DataRow
+	DataRow              *datac.DataRow
 	RowLogContents       [][]byte // other rowlog contents except DataRow
 }
 
@@ -70,7 +70,7 @@ type LOP_MODIFY struct {
 	RowFlags             [2]byte     //36-38
 	NumElements          uint16      //38-40 num of varlen cols
 	RowLogContentOffsets []uint16
-	DataRow              *page.DataRow
+	DataRow              *datac.DataRow
 	RowLogContentBefore  []byte // other rowlog contents except DataRow
 	RowLogContentAfter   []byte
 }
@@ -145,7 +145,7 @@ func (Lop_Insert_Delete *LOP_INSERT_DELETE) ProcessRowContents(bs []byte) {
 					bsoffset, len(bs)))
 				return
 			}
-			datarow := new(page.DataRow)
+			datarow := new(datac.DataRow)
 			datarow.Parse(bs[bsoffset:int(bsoffset)+int(rowlogcontentoffset)], int(bsoffset)+int(rowlogcontentoffset), 0)
 
 			Lop_Insert_Delete.DataRow = datarow
