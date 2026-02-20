@@ -3,6 +3,7 @@ package page
 import (
 	datac "MSSQLParser/data"
 	"MSSQLParser/utils"
+	"encoding/binary"
 	"errors"
 	"reflect"
 )
@@ -21,6 +22,7 @@ type FileHeader struct {
 	BackupLSN                   utils.LSN
 	FirstUpdateLSN              utils.LSN
 	OldestRestoreLSN            utils.LSN
+	FirstNonloggedUpdateLsn     utils.LSN
 	MinSize                     uint32
 	Status                      uint32
 	UserShrinkSize              uint32 //d4
@@ -41,7 +43,7 @@ type FileHeader struct {
 	RestoreDifferentialBaseLsn  utils.LSN
 	RestoreDifferentialBaseGuid [16]byte
 
-	FileGroupID uint32 //
+	/*FileGroupID uint32 //
 
 	LogGroupGUID [16]byte // 0x0078 (rarely used)
 	FileGUID     [16]byte // 0x0088
@@ -64,7 +66,7 @@ type FileHeader struct {
 	TDEThumbprint [16]byte // 0x04B0
 
 	DropLSN    uint64 // 0x04C8
-	BackupLSN2 uint64 // 0x04D0
+	BackupLSN2 uint64 // 0x04D0*/
 
 }
 
@@ -78,13 +80,37 @@ func (fileHeader *FileHeader) Parse(datarow datac.DataRow) error {
 	}
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
 		field := structValPtr.Elem().Field(i) //StructField type
-		field.Set(reflect.ValueOf((*datarow.VarLenCols)[i].Content))
+		val := (*datarow.VarLenCols)[i].Content
+
+		switch field.Kind() {
+		case reflect.Uint16:
+			field.SetUint(uint64(binary.LittleEndian.Uint16(val)))
+		case reflect.Uint32:
+			field.SetUint(uint64(binary.LittleEndian.Uint32(val)))
+		case reflect.Uint64:
+			field.SetUint(uint64(binary.LittleEndian.Uint64(val)))
+		case reflect.Struct:
+			lsn := new(utils.LSN)
+
+			utils.Unmarshal(val, lsn)
+			field.Set(reflect.ValueOf(*lsn))
+		case reflect.Array:
+
+			arrT := reflect.ArrayOf(field.Len(), reflect.TypeFor[byte]()) //create array type to hold the slice
+			arr := reflect.New(arrT).Elem()                               //initialize and access array
+			n := field.Len()
+
+			dst := arr.Slice(0, n).Bytes()
+			copy(dst, val)
+			field.Set(arr)
+
+		}
 	}
 	return nil
 }
 
 func (fileHeader FileHeader) GetFileName() string {
-
-	return utils.CleanUTF16LE(utils.DecodeUTF16(fileHeader.FileNameRaw[:]))
+	return ""
+	//return utils.CleanUTF16LE(utils.DecodeUTF16(fileHeader.FileNameRaw[:]))
 
 }
