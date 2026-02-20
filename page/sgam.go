@@ -10,37 +10,35 @@ import (
 type SGAMExtents []SGAMExtent
 
 type SGAMExtent struct {
-	extent    int
-	allocated bool
+	extent int
+	mixed  bool
 }
 
 func (sgamExtents SGAMExtents) ShowAllocations() {
 
-	prevAllocated := true
 	startPageId := 0
-	endPageId := 0
-	lastPageId := 0
+	prevSgamAllocated := sgamExtents[0]
 
 	fmt.Printf("SGAM allocation map \n")
-	for _, sgamextent := range sgamExtents {
-		if sgamextent.allocated != prevAllocated {
-			endPageId = sgamextent.extent
-			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
-				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+	for _, sgamextent := range sgamExtents[1:] {
+		if sgamextent.mixed != prevSgamAllocated.mixed {
+
+			fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevSgamAllocated.extent*8,
+				(map[bool]string{false: "ALLOCATED", true: "NOT ALLOCATED"})[prevSgamAllocated.mixed])
 
 			startPageId = sgamextent.extent
 		}
-		lastPageId = sgamextent.extent
-		prevAllocated = sgamextent.allocated
+
+		prevSgamAllocated = sgamextent
 	}
 
-	fmt.Printf("(%d:%d) = %s \n", startPageId*8, lastPageId*8,
-		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+	fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevSgamAllocated.extent*8,
+		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevSgamAllocated.mixed])
 }
 
 func (sgamExtents SGAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
 	return SGAMExtents(utils.Filter(sgamExtents, func(sgam SGAMExtent) bool {
-		return sgam.allocated == status
+		return sgam.mixed == status
 	}))
 
 }

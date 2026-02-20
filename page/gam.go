@@ -16,27 +16,23 @@ type GAMExtent struct {
 
 func (gamExtents GAMExtents) ShowAllocations() {
 
-	prevAllocated := true
 	startPageId := 0
-	endPageId := 0
-	lastPageId := 0
 
+	prevGamExtent := gamExtents[0]
 	fmt.Printf("GAM allocation map \n")
 
-	for _, gamextent := range gamExtents {
-		if gamextent.allocated != prevAllocated {
-			endPageId = gamextent.extent
-			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
-				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+	for _, gamextent := range gamExtents[1:] {
+		if gamextent.allocated != prevGamExtent.allocated {
+
+			fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevGamExtent.extent*8,
+				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevGamExtent.allocated])
 
 			startPageId = gamextent.extent
 		}
-		lastPageId = gamextent.extent
-		prevAllocated = gamextent.allocated
+
+		prevGamExtent = gamextent
 	}
 
-	fmt.Printf("(%d:%d) = %s \n", startPageId*8, lastPageId*8,
-		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
 }
 
 func (gamExtents GAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
