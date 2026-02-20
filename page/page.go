@@ -4,7 +4,7 @@ import (
 	datac "MSSQLParser/data"
 	LDF "MSSQLParser/ldf"
 	"MSSQLParser/logger"
-	mslogger "MSSQLParser/logger"
+
 	"MSSQLParser/utils"
 	"bytes"
 	"fmt"
@@ -30,7 +30,7 @@ func (e ZeroPageHeader) Error() string { return string(e) }
 var PageTypes = map[uint8]string{
 	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 6: "Work File", 7: "Sort", 8: "GAM", 9: "SGAM",
 	10: "IAM", 11: "PFS", 13: "Boot", 14: "Server Configuration", 15: "File Header",
-	16: "Differential Changed Map", 17: "Buck Change Map",
+	16: "Differential Changed Map", 17: "Bulk Change Map",
 }
 
 var SystemTablesFlags = map[string]uint32{
@@ -147,21 +147,23 @@ func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
 }
 
 type Page struct {
-	Header             Header
-	Slots              Slots
-	DataRows           datac.DataRows
-	ForwardingPointers datac.ForwardingPointers
-	LOBS               LOBS
-	PFSPage            *PFSPage
-	GAMExtents         *GAMExtents
-	SGAMExtents        *SGAMExtents
-	IAMExtents         *IAMExtents
-	PrevPage           *Page
-	NextPage           *Page
-	IndexRows          IndexRows
-	Boot               *Boot
-	FileHeader         *FileHeader
-	LDFRecord          *LDF.Record
+	Header               Header
+	Slots                Slots
+	DataRows             datac.DataRows
+	ForwardingPointers   datac.ForwardingPointers
+	LOBS                 LOBS
+	PFSPage              *PFSPage
+	GAMExtents           *GAMExtents
+	BulkChangeMapExtents *BulkChangeMapExtents
+	SGAMExtents          *SGAMExtents
+	DiffMapExtents       *DiffMapExtents
+	IAM                  *IAM
+	PrevPage             *Page
+	NextPage             *Page
+	IndexRows            IndexRows
+	Boot                 *Boot
+	FileHeader           *FileHeader
+	LDFRecord            *LDF.Record
 }
 
 type AllocationMaps interface {
@@ -177,7 +179,7 @@ func (header Header) getIndexType() string {
 		return "Heap"
 	} else {
 		msg := fmt.Sprintf("index %d reserved from sql number", header.IndexId)
-		mslogger.Mslogger.Warning(msg)
+		logger.Mslogger.Warning(msg)
 		return msg
 	}
 
@@ -379,10 +381,14 @@ func (page Page) GetAllocationMaps() AllocationMaps {
 		allocMap = *page.GAMExtents
 	} else if page.SGAMExtents != nil {
 		allocMap = *page.SGAMExtents
-	} else if page.IAMExtents != nil {
-		allocMap = *page.IAMExtents
+	} else if page.IAM != nil {
+		allocMap = *page.IAM
 	} else if page.PFSPage != nil {
 		allocMap = *page.PFSPage
+	} else if page.DiffMapExtents != nil {
+		allocMap = *page.DiffMapExtents
+	} else if page.BulkChangeMapExtents != nil {
+		allocMap = *page.BulkChangeMapExtents
 	}
 	return allocMap
 }
@@ -391,7 +397,7 @@ func (page *Page) parseLOB(data []byte) {
 	var lobs []LOB
 	for _, slot := range page.Slots {
 		if slot.Offset+14 > PAGELEN {
-			mslogger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB slot.Offset exceeds page size by %d\n",
+			logger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB slot.Offset exceeds page size by %d\n",
 				slot.Offset+14-PAGELEN))
 			continue
 		}
@@ -400,7 +406,7 @@ func (page *Page) parseLOB(data []byte) {
 		utils.Unmarshal(data[slot.Offset:slot.Offset+14], lob) // 14 byte lob header
 
 		if slot.Offset+lob.Length > PAGELEN {
-			mslogger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB LOB length too large it exceeds page  %d\n",
+			logger.Mslogger.Info(fmt.Sprintf("Cannot parse LOB LOB length too large it exceeds page  %d\n",
 				lob.Length))
 			continue
 		}
@@ -432,12 +438,12 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		dataRow := &datac.DataRow{Carved: false}
 
 		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
-		mslogger.Mslogger.Info(msg)
+		logger.Mslogger.Info(msg)
 
 		//heuristics
 		if slot.Offset == 0 {
 			msg := "slot.Offset is zero  potential deleted datarow"
-			mslogger.Mslogger.Info(msg)
+			logger.Mslogger.Info(msg)
 			page.Slots[slotnum].Deleted = true
 			if slotnum > 0 {
 				page.Slots[slotnum].Offset = page.Slots[slotnum-1].Offset + page.Slots[slotnum-1].AllocatedDataRowSize
@@ -451,13 +457,13 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 			continue
 		} else if slot.Offset < HEADERLEN { //offset starts from 96
 			msg := fmt.Sprintf("slot.Offset %d cannot be less than the header size (96B)", slot.Offset)
-			mslogger.Mslogger.Info(msg)
+			logger.Mslogger.Info(msg)
 			continue
 		}
 
 		if page.Header.FreeData < uint16(slot.Offset) {
 			msg := fmt.Sprintf(" slot offset %d exceeds free area  %d ", slot.Offset, page.Header.FreeData)
-			mslogger.Mslogger.Warning(msg)
+			logger.Mslogger.Warning(msg)
 			break
 		}
 
@@ -485,7 +491,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 		if actualDataRowSize != allocatedDataRowSize {
 			msg := fmt.Sprintf(" actual row size %d is less than allocated %d", actualDataRowSize, allocatedDataRowSize)
-			mslogger.Mslogger.Warning(msg)
+			logger.Mslogger.Warning(msg)
 		}
 
 	}
@@ -567,12 +573,35 @@ func (page *Page) CarveData(data []byte, offset int) {
 
 }
 
+func (page *Page) parseBulkMap(data []byte) {
+	var bcmExtents BulkChangeMapExtents
+	bcmLen := 4
+	for idx, entry := range data[int(page.Slots[1].Offset)+bcmLen : page.Header.FreeData] {
+		for i := range 8 {
+			bcmExtents = append(bcmExtents, BulkChangeMap{i + idx*8, entry>>i&1 == 0})
+		}
+	}
+	page.BulkChangeMapExtents = &bcmExtents
+}
+
+func (page *Page) parseDiffMAP(data []byte) {
+	var diffmapExtents DiffMapExtents
+	diffMapLen := 4
+
+	for idx, entry := range data[int(page.Slots[1].Offset)+diffMapLen : page.Header.FreeData] {
+		for i := range 8 {
+			diffmapExtents = append(diffmapExtents, DiffMap{i + idx*8, entry>>i&1 == 0})
+		}
+	}
+	page.DiffMapExtents = &diffmapExtents
+}
+
 func (page *Page) parseSGAM(data []byte) {
 	var sgamExtents SGAMExtents
 	SGAMLen := 4
 	for idx, entry := range data[int(page.Slots[1].Offset)+SGAMLen : page.Header.FreeData] {
 
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 
 			sgamExtents = append(sgamExtents, SGAMExtent{i + idx*8, entry>>i&1 == 0})
 
@@ -584,8 +613,9 @@ func (page *Page) parseSGAM(data []byte) {
 
 func (page *Page) parsePFS(data []byte) {
 	var pfsPage PFSPage
-	for idx, entry := range data[page.Slots[0].Offset:page.Header.FreeData] {
-		pfsPage = append(pfsPage, PFS{uint32(idx), PFSStatus[uint8(entry)]})
+	//4 bytes possible signature
+	for idx, entry := range data[page.Slots[0].Offset+4 : page.Header.FreeData] {
+		pfsPage = append(pfsPage, PFS{page.Header.PageId + uint32(idx), entry})
 	}
 
 	page.PFSPage = &pfsPage
@@ -645,14 +675,24 @@ func (page Page) ShowSlotInfo() {
 }
 
 func (page *Page) parseIAM(data []byte) {
+	iam := new(IAM)
+
+	iam.Header = new(IAMHeader)
+	iam.Header.Parse(data[page.Slots[0].Offset:page.Slots[1].Offset])
+
 	var iams IAMExtents
-	for idx, entry := range data[page.Slots[1].Offset:page.Header.FreeData] {
-		for i := 0; i < 8; i++ {
+	for idx, entry := range data[page.Slots[1].Offset+4 : page.Header.FreeData] {
+		for i := range 8 {
+			if entry>>i&1 == 1 {
+				fmt.Printf("%d  %d \n", i+idx*8, entry>>i&1)
+			}
+
 			iams = append(iams, IAMExtent{i + idx*8, entry>>i&1 == 0})
 		}
 	}
 
-	page.IAMExtents = &iams
+	iam.Extents = iams
+	page.IAM = iam
 }
 
 func (page *Page) parseIndex(data []byte, offset int) {
@@ -660,11 +700,11 @@ func (page *Page) parseIndex(data []byte, offset int) {
 
 	for slotnum, slot := range page.Slots {
 		msg := fmt.Sprintf("%d index row at %d", slotnum, offset+int(slot.Offset))
-		mslogger.Mslogger.Info(msg)
+		logger.Mslogger.Info(msg)
 
 		if slot.Offset < 96 { //offset starts from 96
 			msg := fmt.Sprintf("slot.Offset %d less than header size \n", slot.Offset)
-			mslogger.Mslogger.Info(msg)
+			logger.Mslogger.Info(msg)
 			continue
 		}
 
@@ -674,7 +714,7 @@ func (page *Page) parseIndex(data []byte, offset int) {
 			indexRowLen = page.Slots[slotnum+1].Offset - slot.Offset //find legnth
 		} else if page.Header.FreeData < uint16(slot.Offset) {
 			msg := fmt.Sprintf("skipping free area starts before slot offset %d %d ", page.Header.FreeData, slot.Offset)
-			mslogger.Mslogger.Warning(msg)
+			logger.Mslogger.Warning(msg)
 			continue
 		} else { //last slot
 			indexRowLen = page.Header.FreeData - slot.Offset
@@ -682,7 +722,7 @@ func (page *Page) parseIndex(data []byte, offset int) {
 
 		if int(indexRowLen+slot.Offset) >= len(data) {
 			msg := fmt.Sprintf("exceeded buffer length %d by %d", len(data), len(data)-int(indexRowLen+slot.Offset))
-			mslogger.Mslogger.Warning(msg)
+			logger.Mslogger.Warning(msg)
 			break
 		}
 
@@ -738,13 +778,13 @@ func (page *Page) Process(data []byte, offset int, carve bool) error {
 	}
 
 	page.Header = header
-	mslogger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
+	logger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
 		header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
 
 	page.PopulateSlots(data[PAGELEN-2*header.SlotCnt:])
 
 	if len(page.Slots) != int(header.SlotCnt) {
-		mslogger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d",
+		logger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d",
 			header.SlotCnt, len(page.Slots)))
 	}
 
@@ -755,6 +795,8 @@ func (page *Page) Process(data []byte, offset int, carve bool) error {
 		page.parseGAM(data)
 	case "SGAM":
 		page.parseSGAM(data)
+	case "Differential Changed Map":
+		page.parseDiffMAP(data)
 	case "DATA":
 		page.parseDATA(data, offset, carve)
 	case "LOB":
@@ -769,6 +811,8 @@ func (page *Page) Process(data []byte, offset int, carve bool) error {
 		page.parseFileHeader(data)
 	case "Boot":
 		page.parseBoot(data)
+	case "Bulk Change Map":
+		page.parseBulkMap(data)
 	}
 	return nil
 }
