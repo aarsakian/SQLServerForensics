@@ -75,18 +75,18 @@ type SystemTable interface {
 
 type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 	// min len 9 bytes
-	StatusA               uint8  //1-2
-	StatusB               uint8  //2-3
-	NofColsOffset         uint16 //3-5
-	FixedLenCols          []byte //0-
-	NumberOfCols          uint16 //5-6
-	NullBitmap            []byte //6-7
-	NumberOfVarLengthCols uint16 //0-
-	VarLengthColOffsets   []int16
-	VersioningInfo        *TagVersion
-	VarLenCols            *DataCols
-	Carved                bool
-	SystemTable           SystemTable
+	StatusA                uint8  //1-2
+	StatusB                uint8  //2-3
+	NofColsOffset          uint16 //3-5
+	FixedLenCols           []byte //0-
+	NumberOfCols           uint16 //5-6
+	NullBitmap             []byte //6-7
+	NumberOfVarLengthCols  uint16 //0-
+	VarLengthColEndOffsets []int16
+	VersioningInfo         *TagVersion
+	VarLenCols             *DataCols
+	Carved                 bool
+	SystemTable            SystemTable
 }
 
 func GetRowType(statusA byte) string {
@@ -187,7 +187,7 @@ func (dataRow DataRow) GetVarCalOffset() int16 { // start offset for var col len
 	return int16(dataRow.NofColsOffset) + int16(unsafe.Sizeof(dataRow.NumberOfCols)) +
 		int16(reflect.ValueOf(dataRow.NullBitmap).Len()) +
 		int16(unsafe.Sizeof(dataRow.NumberOfVarLengthCols)) +
-		int16(reflect.ValueOf(dataRow.VarLengthColOffsets).Len()*2)
+		int16(reflect.ValueOf(dataRow.VarLengthColEndOffsets).Len()*2)
 }
 
 func (dataRow DataRow) ShowData() {
@@ -218,7 +218,7 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 	startVarColOffset := dataRow.GetVarCalOffset()
 	negativeOffset := false
 
-	for idx, endVarColOffset := range dataRow.VarLengthColOffsets {
+	for idx, endVarColOffset := range dataRow.VarLengthColEndOffsets {
 		msg := fmt.Sprintf("%d var col at %d", idx, offset+int(startVarColOffset))
 		mslogger.Mslogger.Info(msg)
 
@@ -231,8 +231,8 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 
 		}
 
-		if len(dataRow.VarLengthColOffsets)*2 >= 8192 {
-			msg := fmt.Sprintf("number of val len col offsets %d exceeds page size", len(dataRow.VarLengthColOffsets))
+		if len(dataRow.VarLengthColEndOffsets)*2 >= 8192 {
+			msg := fmt.Sprintf("number of val len col offsets %d exceeds page size", len(dataRow.VarLengthColEndOffsets))
 			mslogger.Mslogger.Warning(msg)
 
 			break
@@ -244,8 +244,8 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 			break
 		} else if int(endVarColOffset) > len(data) || endVarColOffset < 0 {
 			endVarColOffset = int16(len(data))
-		} else if int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColOffsets) { //8192 - 2 for each slot
-			endVarColOffset = int16(8192 - 2*len(dataRow.VarLengthColOffsets))
+		} else if int(endVarColOffset) > 8192-2*len(dataRow.VarLengthColEndOffsets) { //8192 - 2 for each slot
+			endVarColOffset = int16(8192 - 2*len(dataRow.VarLengthColEndOffsets))
 		}
 
 		cpy := make([]byte, endVarColOffset-startVarColOffset) // var col length
@@ -267,11 +267,11 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 	}
 	dataRow.VarLenCols = &datacols
 
-	if dataRow.NumberOfVarLengthCols > 0 && int(dataRow.NumberOfVarLengthCols) != len(dataRow.VarLengthColOffsets) { // last varlencol
+	if dataRow.NumberOfVarLengthCols > 0 && int(dataRow.NumberOfVarLengthCols) != len(dataRow.VarLengthColEndOffsets) { // last varlencol
 		mslogger.Mslogger.Warning("Mismatch in var len col parsing real differs with declared number of cols.")
-		return int(dataRow.VarLengthColOffsets[int(dataRow.NumberOfVarLengthCols)-len(dataRow.VarLengthColOffsets)])
+		return int(dataRow.VarLengthColEndOffsets[int(dataRow.NumberOfVarLengthCols)-len(dataRow.VarLengthColEndOffsets)])
 	} else {
-		return int(dataRow.VarLengthColOffsets[dataRow.NumberOfVarLengthCols-1])
+		return int(dataRow.VarLengthColEndOffsets[dataRow.NumberOfVarLengthCols-1])
 	}
 
 }
@@ -345,7 +345,7 @@ func (dataRow *DataRow) Parse(data []byte, offset int, pageType uint32) int {
 		dataRow.VersioningInfo = new(TagVersion)
 		utils.Unmarshal(data[len(data)-14:], dataRow.VersioningInfo)
 	}
-	if dataRow.HasVarLenCols() && len(dataRow.VarLengthColOffsets) != 0 {
+	if dataRow.HasVarLenCols() && len(dataRow.VarLengthColEndOffsets) != 0 {
 		return dataRow.ProcessVaryingCols(data, offset)
 
 	} else {
