@@ -63,6 +63,11 @@ type Image struct {
 	Id      int
 }
 
+type PageSlot struct {
+	PageId uint32
+	FileId uint16
+}
+
 type Images []Image
 
 func (image Image) GetFilename() string {
@@ -952,6 +957,11 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 				var transID TransactionID
 				Unmarshal(data[idx:], &transID)
 				field.Set(reflect.ValueOf(transID))
+				idx += 6
+			case "PageSlot":
+				var pageSlot PageSlot
+				Unmarshal(data[idx:], &pageSlot)
+				field.Set(reflect.ValueOf(pageSlot))
 				idx += 6
 			}
 
