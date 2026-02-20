@@ -32,7 +32,8 @@ type TableProcessorConfiguration struct {
 }
 
 func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, showIAMExtents bool,
-	showDataCols bool, showPFS bool, showHeader bool, showSlots bool, showTableSchema bool,
+	showDataCols bool, showPFS bool, showBCM bool,
+	showDiffMap bool, showHeader bool, showSlots bool, showTableSchema bool,
 	showTableContent bool, showTableAllocation string,
 	showTableIndex bool, showPageStats bool, showIndex bool, toTableRow int,
 	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
@@ -45,6 +46,8 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 		ShowIAMExtents:      showIAMExtents,
 		ShowDataCols:        showDataCols,
 		ShowPFS:             showPFS,
+		ShowBCMExtents:      showBCM,
+		ShowDiffMapExtents:  showDiffMap,
 		ShowHeader:          showHeader,
 		ShowSlots:           showSlots,
 		ShowTableSchema:     showTableSchema,
