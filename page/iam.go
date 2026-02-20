@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-const IAMHEADERSIZE = 24
-
 const NOFSLOTS = 8
 
 type IAM struct {
@@ -24,29 +22,27 @@ type IAMExtent struct {
 	allocated bool
 }
 
-type PageSlot struct {
-	FileId uint16
-	PageId uint32
-}
-
 type IAMHeader struct {
-	SequenceNumber uint32 //position in the IAM chain
+	SequenceNumber uint64 //
 	Status         uint32 //
-	ObjectId       uint32 //
+	ObjectId       uint32
 	IndexId        uint32 //
-	PageCount      uint32
-	StartPageId    PageSlot
-	SlotArray      []PageSlot
+	PageCount      uint32 //
+
+	NextPageId  utils.PageSlot //not used anymore
+	PrevPageId  utils.PageSlot //not used anymore
+	StartPageId utils.PageSlot //42-48
+	SlotArray   []utils.PageSlot
 }
 
 func (iamHeader *IAMHeader) Parse(data []byte) {
 	//start after 4 bytes
-	var pageSlot PageSlot
-	utils.Unmarshal(data[4:], iamHeader)
-	iamHeader.SlotArray = make([]PageSlot, 0, 8)
+	var pageSlot utils.PageSlot
+	readBytes, _ := utils.Unmarshal(data[4:], iamHeader)
+	iamHeader.SlotArray = make([]utils.PageSlot, 0, 8)
 	for idx := range NOFSLOTS {
 
-		utils.Unmarshal(data[4+IAMHEADERSIZE+idx*6:], &pageSlot)
+		utils.Unmarshal(data[4+readBytes+idx*6:], &pageSlot)
 		iamHeader.SlotArray = append(iamHeader.SlotArray, pageSlot)
 	}
 }
@@ -54,8 +50,8 @@ func (iamHeader *IAMHeader) Parse(data []byte) {
 func (iamHeader IAMHeader) ShowAllocation() {
 	fmt.Printf("sequencenumber =%d start_pg = (%d:%d)", iamHeader.SequenceNumber,
 		iamHeader.StartPageId.FileId, iamHeader.StartPageId.PageId)
-	for _, pageSlot := range iamHeader.SlotArray {
-		fmt.Printf("(%d:%d) \t", pageSlot.FileId, pageSlot.PageId)
+	for idx, pageSlot := range iamHeader.SlotArray {
+		fmt.Printf("Slot %d = (%d:%d) \t", idx, pageSlot.FileId, pageSlot.PageId)
 
 	}
 }
