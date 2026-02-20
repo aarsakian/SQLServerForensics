@@ -753,8 +753,12 @@ func (page *Page) parseBoot(data []byte) {
 
 func (page *Page) parseFileHeader(data []byte) {
 	//Svar fileHeader *FileHeader
+
+	datarow := new(datac.DataRow)
+	datarow.Parse(data[page.Slots[0].Offset:], 0, page.Header.ObjectId)
+
 	fileHeader := new(FileHeader)
-	utils.Unmarshal(data[page.Slots[0].Offset:], fileHeader)
+	fileHeader.Parse(*datarow)
 	page.FileHeader = fileHeader
 }
 
