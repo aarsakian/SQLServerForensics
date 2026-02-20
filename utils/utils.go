@@ -966,7 +966,7 @@ func Unmarshal(data []byte, v any) (int, error) {
 			}
 
 		case reflect.Array:
-			arrT := reflect.ArrayOf(field.Len(), reflect.TypeOf(data[0])) //create array type to hold the slice
+			arrT := reflect.ArrayOf(field.Len(), reflect.TypeFor[byte]()) //create array type to hold the slice
 			arr := reflect.New(arrT).Elem()                               //initialize and access array
 			n := field.Len()
 
