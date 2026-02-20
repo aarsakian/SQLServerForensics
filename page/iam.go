@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+const IAMHEADERSIZE = 24
+
+const NOFSLOTS = 8
+
+type IAM struct {
+	Extents IAMExtents
+	Header  *IAMHeader
+}
+
 type IAMExtents []IAMExtent
 
 type IAMExtent struct {
@@ -15,15 +24,47 @@ type IAMExtent struct {
 	allocated bool
 }
 
-/*type IAMHeader struct {
-	sequenceNumber //position in the IAM chain
-	status //
-	objectId //
-	indexId //
-	page_count
-	start_pg
-	//singlePageAllocation *singlePageAllocation
-}*/
+type PageSlot struct {
+	FileId uint16
+	PageId uint32
+}
+
+type IAMHeader struct {
+	SequenceNumber uint32 //position in the IAM chain
+	Status         uint32 //
+	ObjectId       uint32 //
+	IndexId        uint32 //
+	PageCount      uint32
+	StartPageId    PageSlot
+	SlotArray      []PageSlot
+}
+
+func (iamHeader *IAMHeader) Parse(data []byte) {
+	//start after 4 bytes
+	var pageSlot PageSlot
+	utils.Unmarshal(data[4:], iamHeader)
+	iamHeader.SlotArray = make([]PageSlot, 0, 8)
+	for idx := range NOFSLOTS {
+
+		utils.Unmarshal(data[4+IAMHEADERSIZE+idx*6:], &pageSlot)
+		iamHeader.SlotArray = append(iamHeader.SlotArray, pageSlot)
+	}
+}
+
+func (iamHeader IAMHeader) ShowAllocation() {
+	fmt.Printf("sequencenumber =%d start_pg = (%d:%d)", iamHeader.SequenceNumber,
+		iamHeader.StartPageId.FileId, iamHeader.StartPageId.PageId)
+	for _, pageSlot := range iamHeader.SlotArray {
+		fmt.Printf("(%d:%d) \t", pageSlot.FileId, pageSlot.PageId)
+
+	}
+}
+
+func (iam IAM) FilterByAllocationStatus(status bool) AllocationMaps {
+	return IAMExtents(utils.Filter(iam.Extents, func(iam IAMExtent) bool {
+		return iam.allocated == status
+	}))
+}
 
 func (iamExtents IAMExtents) FilterByAllocationStatus(status bool) AllocationMaps {
 	return IAMExtents(utils.Filter(iamExtents, func(iam IAMExtent) bool {
@@ -31,28 +72,38 @@ func (iamExtents IAMExtents) FilterByAllocationStatus(status bool) AllocationMap
 	}))
 }
 
+func (iam IAM) ShowAllocations() {
+	iam.Header.ShowAllocation()
+	iam.Extents.ShowAllocations()
+
+}
+
 func (iamExtents IAMExtents) ShowAllocations() {
-	prevAllocated := true
+	prevAllocatedIAM := iamExtents[0]
 	startPageId := 0
 	endPageId := 0
 	lastPageId := 0
 
-	fmt.Printf("IAM allocation map \n")
-	for _, iamextent := range iamExtents {
+	fmt.Printf("\nIAM allocation map \n")
+	for _, iamextent := range iamExtents[1:] {
 
-		if iamextent.allocated != prevAllocated {
+		if iamextent.allocated != prevAllocatedIAM.allocated {
 			endPageId = iamextent.extent
 			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
-				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+				(map[bool]string{true: "NOT ALLOCATED", false: "ALLOCATED"})[prevAllocatedIAM.allocated])
 
 			startPageId = iamextent.extent
 		}
 		lastPageId = iamextent.extent
-		prevAllocated = iamextent.allocated
+		prevAllocatedIAM = iamextent
 	}
 
 	fmt.Printf("(%d:%d) = %s \n", startPageId*8, lastPageId*8,
-		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevAllocated])
+		(map[bool]string{true: "NOT ALLOCATED", false: "ALLOCATED"})[prevAllocatedIAM.allocated])
+}
+
+func (iam IAM) GetAllocationStatus(pagesId []uint32) string {
+	return iam.Extents.GetAllocationStatus(pagesId)
 }
 
 func (iamExtents IAMExtents) GetAllocationStatus(pagesId []uint32) string {
