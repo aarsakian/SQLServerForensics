@@ -831,7 +831,7 @@ func checkBounds(name string, diffSize int) error {
 	}
 }
 
-func Unmarshal(data []byte, v interface{}) (int, error) {
+func Unmarshal(data []byte, v any) (int, error) {
 	idx := 0
 
 	lenData := len(data)
@@ -1026,7 +1026,7 @@ func Unmarshal(data []byte, v interface{}) (int, error) {
 
 				field.Set(reflect.ValueOf(byteArrayDst))
 				idx += bytesNeeded
-			case "VarLengthColOffsets":
+			case "VarLengthColEndOffsets":
 				var temp int16
 				var arr []int16
 				nofVarLenCols := structValPtr.Elem().FieldByName("NumberOfVarLengthCols").Uint()
