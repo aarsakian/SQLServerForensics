@@ -683,10 +683,6 @@ func (page *Page) parseIAM(data []byte) {
 	var iams IAMExtents
 	for idx, entry := range data[page.Slots[1].Offset+4 : page.Header.FreeData] {
 		for i := range 8 {
-			if entry>>i&1 == 1 {
-				fmt.Printf("%d  %d \n", i+idx*8, entry>>i&1)
-			}
-
 			iams = append(iams, IAMExtent{i + idx*8, entry>>i&1 == 0})
 		}
 	}
