@@ -88,12 +88,14 @@ func main() {
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
 	showGamExtents := flag.Bool("showgam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("showsgam", false, "show SGAM extents for each page")
+	showDiffMapExtents := flag.Bool("showdiffmap", false, "show differential map for each page")
 	showIAMExtents := flag.Bool("showiam", false, "show IAM extents for each page")
 	showDataCols := flag.Bool("showdatacols", false, "show data cols for each data row")
 	showSlots := flag.Bool("showslots", false, "show page slots")
 	showPFS := flag.Bool("showpfs", false, "show pfs page allocation")
 	showIndex := flag.Bool("showindex", false, "show index contents")
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
+	showBCM := flag.Bool("showbcm", false, "show bulk difference map")
 	showTableLDF := flag.Bool("showtableldf", false, "show table log record info (must be used with table)")
 	showTableAllocation := flag.String("showtableallocation", "",
 		"show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure")
@@ -287,7 +289,7 @@ func main() {
 	pm := manager.ProcessManager{}
 	//essential if we want reporting & exporting functionality
 	pm.Initialize(*showGamExtents, *showSGamExtents, *showIAMExtents,
-		*showDataCols, *showPFS, *showHeader, *showSlots, *showTableSchema,
+		*showDataCols, *showPFS, *showBCM, *showDiffMapExtents, *showHeader, *showSlots, *showTableSchema,
 		*showTableContent, *showTableAllocation,
 		*showTableIndex, *showPageStats, *showIndex, *toTableRows,
 		*skippedTableRows, selectedTableRowsInt,

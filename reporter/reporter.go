@@ -12,6 +12,8 @@ type Reporter struct {
 	ShowGamExtents      bool
 	ShowSGamExtents     bool
 	ShowIAMExtents      bool
+	ShowBCMExtents      bool
+	ShowDiffMapExtents  bool
 	ShowDataCols        bool
 	ShowPFS             bool
 	ShowHeader          bool
@@ -66,7 +68,9 @@ func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32, loptype str
 	if rp.ShowPFS && page.GetType() == "PFS" ||
 		rp.ShowIAMExtents && page.GetType() == "IAM" ||
 		rp.ShowGamExtents && page.GetType() == "GAM" ||
-		rp.ShowSGamExtents && page.GetType() == "SGAM" {
+		rp.ShowSGamExtents && page.GetType() == "SGAM" ||
+		rp.ShowDiffMapExtents && page.GetType() == "Differential Changed Map" ||
+		rp.ShowBCMExtents && page.GetType() == "Bulk Change Map" {
 
 		allocMap.ShowAllocations()
 	}
