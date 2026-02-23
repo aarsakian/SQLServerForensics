@@ -167,7 +167,7 @@ func NumericToStr(data []byte) string {
 func StringsToIntArray(stringwithcomma string) []int {
 
 	strs := strings.Split(stringwithcomma, ",")
-	ints := make([]int, len(strs))
+	var ints []int
 
 	for idx := range strs {
 		if strs[idx] == "" {
@@ -177,7 +177,7 @@ func StringsToIntArray(stringwithcomma string) []int {
 		if e != nil {
 			fmt.Println("ERROR", e)
 		}
-		ints[idx] = int(val)
+		ints = append(ints, int(val))
 	}
 	return ints
 }
@@ -329,7 +329,7 @@ func fillPrefixWithZeros(bitval string, targetLen int) string {
 func Bytereverse(barray []byte) []byte { //work with indexes
 	//  fmt.Println("before",barray)
 	reversedArray := make([]byte, len(barray))
-	for i := 0; i < len(barray); i++ {
+	for i := range barray {
 
 		reversedArray[i] = barray[len(barray)-i-1]
 
@@ -1131,4 +1131,10 @@ func IsZeroed(data []byte) bool {
 		}
 	}
 	return true
+}
+
+func StringifyGUID(barray []byte) string {
+	return fmt.Sprintf("%x-%x-%x-%x-%x", Bytereverse(barray[0:4]),
+		Bytereverse(barray[4:6]), Bytereverse(barray[6:8]),
+		barray[8:10], barray[10:])
 }
