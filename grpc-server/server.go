@@ -36,7 +36,8 @@ func (mssqlparser_commsServer *Server) SetConfig(ctx context.Context, config *ms
 	*mssqlparser_comms.Message, error) {
 	mssqlparser_commsServer.pm = manager.ProcessManager{}
 
-	mssqlparser_commsServer.pm.Initialize(false, false, false, false, false, false,
+	mssqlparser_commsServer.pm.Initialize(false,
+		false, false, false, false, false, false,
 		false, false, false, false, false,
 		"", false, false, false, 0, -1, []int{}, config.Carve, false, false, "", false, []string{},
 		"CSV", false, config.ExporPath, "", "")
