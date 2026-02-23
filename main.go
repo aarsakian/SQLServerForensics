@@ -83,6 +83,7 @@ func main() {
 	tablepages := flag.String("tablepages", "", "filter rows by pages (use comma)")
 	processTables := flag.Bool("processtables", false, "process tables")
 
+	showDBInfo := flag.Bool("showdbinfo", false, "show database information parsed from fileheader (0 page)")
 	showTableContent := flag.Bool("showcontent", false, "show table contents")
 	showTableIndex := flag.Bool("showtableindex", false, "show table index contents")
 	showTableSchema := flag.Bool("showschema", false, "show table schema")
@@ -288,7 +289,7 @@ func main() {
 
 	pm := manager.ProcessManager{}
 	//essential if we want reporting & exporting functionality
-	pm.Initialize(*showGamExtents, *showSGamExtents, *showIAMExtents,
+	pm.Initialize(*showDBInfo, *showGamExtents, *showSGamExtents, *showIAMExtents,
 		*showDataCols, *showPFS, *showBCM, *showDiffMapExtents, *showHeader, *showSlots, *showTableSchema,
 		*showTableContent, *showTableAllocation,
 		*showTableIndex, *showPageStats, *showIndex, *toTableRows,
