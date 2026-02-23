@@ -31,7 +31,8 @@ type TableProcessorConfiguration struct {
 	SelectedType    string
 }
 
-func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, showIAMExtents bool,
+func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showSGamExtents bool,
+	showIAMExtents bool,
 	showDataCols bool, showPFS bool, showBCM bool,
 	showDiffMap bool, showHeader bool, showSlots bool, showTableSchema bool,
 	showTableContent bool, showTableAllocation string,
@@ -41,7 +42,9 @@ func (PM *ProcessManager) Initialize(showGamExtents bool, showSGamExtents bool, 
 	exportFormat string, exportImage bool, exportPath string, sortByLSN string,
 	walkLSN string) {
 
-	PM.reporter = reporter.Reporter{ShowGamExtents: showGamExtents,
+	PM.reporter = reporter.Reporter{
+		ShowDBInfo:          showDBInfo,
+		ShowGamExtents:      showGamExtents,
 		ShowSGamExtents:     showSGamExtents,
 		ShowIAMExtents:      showIAMExtents,
 		ShowDataCols:        showDataCols,
@@ -146,7 +149,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, userTable string) {
 	for dbidx := range PM.Databases {
 		if pageType != "" {
-			PM.Databases[dbidx].FilterPagesByType(pageType) //mutable
+			PM.Databases[dbidx].FilterPagesByTypeMutable(pageType) //mutable
 
 		}
 
@@ -211,7 +214,7 @@ func (PM ProcessManager) GetDatabaseNames() []string {
 
 func (PM ProcessManager) ShowInfo(selectedPages []uint32, filterlop string) {
 	for _, database := range PM.Databases {
-		PM.reporter.ShowPageInfo(database, selectedPages, filterlop)
+		PM.reporter.ShowPageInfo(database, filterlop)
 		PM.reporter.ShowLDFInfo(database, selectedPages, filterlop)
 
 	}
