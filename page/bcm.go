@@ -41,16 +41,16 @@ func (bcmextents BulkChangeMapExtents) FilterByAllocationStatus(changed bool) Al
 
 }
 
-func (bcmextents BulkChangeMapExtents) GetAllocationStatus(pageId []uint32) string {
+func (bcmextents BulkChangeMapExtents) GetAllocationStatus(pageId uint32) string {
 	var status strings.Builder
-	for _, pageId := range pageId {
-		for _, bcm := range bcmextents {
-			if pageId < uint32(bcm.extent*8) || pageId > uint32(bcm.extent*8+8) {
-				status.WriteString(fmt.Sprintf("%d NOT MIN LOGGED\n", pageId))
-			} else {
-				status.WriteString(fmt.Sprintf("%d MIN LOGGED \n", pageId))
-			}
+
+	for _, bcm := range bcmextents {
+		if pageId < uint32(bcm.extent*8) || pageId > uint32(bcm.extent*8+8) {
+			status.WriteString(fmt.Sprintf("%d NOT MIN LOGGED\n", pageId))
+		} else {
+			status.WriteString(fmt.Sprintf("%d MIN LOGGED \n", pageId))
 		}
 	}
+
 	return status.String()
 }

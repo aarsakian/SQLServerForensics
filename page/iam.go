@@ -98,22 +98,21 @@ func (iamExtents IAMExtents) ShowAllocations() {
 		(map[bool]string{true: "NOT ALLOCATED", false: "ALLOCATED"})[prevAllocatedIAM.allocated])
 }
 
-func (iam IAM) GetAllocationStatus(pagesId []uint32) string {
-	return iam.Extents.GetAllocationStatus(pagesId)
+func (iam IAM) GetAllocationStatus(pageId uint32) string {
+	return iam.Extents.GetAllocationStatus(pageId)
 }
 
-func (iamExtents IAMExtents) GetAllocationStatus(pagesId []uint32) string {
+func (iamExtents IAMExtents) GetAllocationStatus(pageId uint32) string {
 	var status strings.Builder
 
-	for _, pageId := range pagesId {
-		for _, iam := range iamExtents {
-			if pageId < uint32(iam.extent*8) || pageId > uint32(iam.extent*8+8) {
-				status.WriteString(fmt.Sprintf("%d NOT ALLOCATED\n", pageId))
-			} else {
-				status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
-			}
-
+	for _, iam := range iamExtents {
+		if pageId < uint32(iam.extent*8) || pageId > uint32(iam.extent*8+8) {
+			status.WriteString(fmt.Sprintf("%d NOT ALLOCATED\n", pageId))
+		} else {
+			status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
 		}
+
 	}
+
 	return status.String()
 }

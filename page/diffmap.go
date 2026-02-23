@@ -41,16 +41,16 @@ func (diffmapextents DiffMapExtents) FilterByAllocationStatus(changed bool) Allo
 
 }
 
-func (diffmapExtents DiffMapExtents) GetAllocationStatus(pageId []uint32) string {
+func (diffmapExtents DiffMapExtents) GetAllocationStatus(pageId uint32) string {
 	var status strings.Builder
-	for _, pageId := range pageId {
-		for _, diffmap := range diffmapExtents {
-			if pageId < uint32(diffmap.extent*8) || pageId > uint32(diffmap.extent*8+8) {
-				status.WriteString(fmt.Sprintf("%d NOT CHANGED\n", pageId))
-			} else {
-				status.WriteString(fmt.Sprintf("%d CHANGED \n", pageId))
-			}
+
+	for _, diffmap := range diffmapExtents {
+		if pageId < uint32(diffmap.extent*8) || pageId > uint32(diffmap.extent*8+8) {
+			status.WriteString(fmt.Sprintf("%d NOT CHANGED\n", pageId))
+		} else {
+			status.WriteString(fmt.Sprintf("%d CHANGED \n", pageId))
 		}
 	}
+
 	return status.String()
 }

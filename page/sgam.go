@@ -43,17 +43,15 @@ func (sgamExtents SGAMExtents) FilterByAllocationStatus(status bool) AllocationM
 
 }
 
-func (sgamExtents SGAMExtents) GetAllocationStatus(pagesId []uint32) string {
+func (sgamExtents SGAMExtents) GetAllocationStatus(pageId uint32) string {
 	var status strings.Builder
 	status.WriteString("NOT ALLOCATED\n")
 
-	for _, pageId := range pagesId {
-		for _, sgam := range sgamExtents {
-			if pageId < uint32(sgam.extent*8) || pageId > uint32(sgam.extent*8+8) {
-				continue
-			}
-			status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
+	for _, sgam := range sgamExtents {
+		if pageId < uint32(sgam.extent*8) || pageId > uint32(sgam.extent*8+8) {
+			continue
 		}
+		status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
 	}
 
 	return status.String()
