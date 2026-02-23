@@ -72,16 +72,16 @@ func (pfsPage PFSPage) FilterByAllocationStatus(status bool) AllocationMaps {
 
 }
 
-func (pfsPage PFSPage) GetAllocationStatus(pagesId []uint32) string {
+func (pfsPage PFSPage) GetAllocationStatus(pageId uint32) string {
 	var status strings.Builder
-	for _, pageId := range pagesId {
-		for _, pfs := range pfsPage {
-			if pfs.pageID != pageId {
-				continue
-			}
-			fmt.Fprintf(&status, "%d %s \n", pfs.pageID, pfs.decodeStatus())
+
+	for _, pfs := range pfsPage {
+		if pfs.pageID != pageId {
+			continue
 		}
+		fmt.Fprintf(&status, "%d %s \n", pfs.pageID, pfs.decodeStatus())
 	}
+
 	return status.String()
 }
 
