@@ -9,6 +9,7 @@ import (
 )
 
 type Reporter struct {
+	ShowDBInfo          bool
 	ShowGamExtents      bool
 	ShowSGamExtents     bool
 	ShowIAMExtents      bool
@@ -37,22 +38,37 @@ type Reporter struct {
 	WalkLSN             string
 }
 
-func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32, loptype string) {
-	node := database.PagesPerAllocUnitID.GetHeadNode()
+func (rp Reporter) ShowPageInfo(database db.Database, loptype string) {
+
+	if rp.ShowPageStats {
+
+		database.ShowStats(database.FilterPagesByType("PFS"))
+		database.ShowStats(database.FilterPagesByType("GAM"))
+		database.ShowStats(database.FilterPagesByType("SGAM"))
+		database.ShowStats(database.FilterPagesByType("IAM"))
+
+		/*gamstatus := allocMap.GetAllocationStatus(selectedPages)
+		fmt.Printf("GAM %s ", gamstatus)
+
+		sgamstatus := allocMap.GetAllocationStatus(selectedPages)
+		fmt.Printf("SGAM %s ", sgamstatus)*/
+
+	}
 
 	if rp.SortByLSN == "all" {
 		allPages := database.PagesPerAllocUnitID.GetAllPages()
 		sort.Sort(pages.SortedPagesByLSN(allPages))
 		for _, page := range allPages {
-			rp.ShowPage(page, selectedPages, loptype)
+			rp.ShowPage(page, loptype)
 		}
 	} else {
+		node := database.PagesPerAllocUnitID.GetHeadNode()
 		for node != nil {
 			if rp.SortByLSN == "allocunit" {
 				sort.Sort(pages.SortedPagesByLSN(node.Pages))
 			}
 			for _, page := range node.Pages {
-				rp.ShowPage(page, selectedPages, loptype)
+				rp.ShowPage(page, loptype)
 			}
 			node = node.Next
 
@@ -62,8 +78,7 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32, lo
 
 }
 
-func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32, loptype string) {
-	allocMap := page.GetAllocationMaps()
+func (rp Reporter) ShowPage(page pages.Page, loptype string) {
 
 	if rp.ShowPFS && page.GetType() == "PFS" ||
 		rp.ShowIAMExtents && page.GetType() == "IAM" ||
@@ -71,7 +86,7 @@ func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32, loptype str
 		rp.ShowSGamExtents && page.GetType() == "SGAM" ||
 		rp.ShowDiffMapExtents && page.GetType() == "Differential Changed Map" ||
 		rp.ShowBCMExtents && page.GetType() == "Bulk Change Map" {
-
+		allocMap := page.GetAllocationMaps()
 		allocMap.ShowAllocations()
 	}
 	if rp.ShowHeader {
@@ -84,6 +99,11 @@ func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32, loptype str
 			}
 		}
 	}
+
+	if rp.ShowDBInfo && page.FileHeader != nil {
+		page.FileHeader.ShowInfo()
+	}
+
 	if rp.ShowDataCols {
 		page.ShowRowData()
 	}
@@ -92,20 +112,6 @@ func (rp Reporter) ShowPage(page pages.Page, selectedPages []uint32, loptype str
 		page.ShowSlotInfo()
 	}
 
-	if rp.ShowPageStats {
-		if page.GetType() == "PFS" {
-			pfsstatus := allocMap.GetAllocationStatus(selectedPages)
-			fmt.Printf("PFS %s ", pfsstatus)
-		} else if page.GetType() == "GAM" {
-			gamstatus := allocMap.GetAllocationStatus(selectedPages)
-			fmt.Printf("GAM %s ", gamstatus)
-		} else if page.GetType() == "SGAM" {
-			sgamstatus := allocMap.GetAllocationStatus(selectedPages)
-			fmt.Printf("SGAM %s ", sgamstatus)
-		} else {
-			fmt.Printf("PFS, GAM, SGAM, DATA page type not found")
-		}
-	}
 	if rp.ShowIndex {
 		page.ShowIndexRows()
 	}
