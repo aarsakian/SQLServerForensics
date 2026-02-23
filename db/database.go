@@ -22,6 +22,7 @@ type Database struct {
 	Fname               string // path to mdf file
 	Lname               string // path to ldf file
 	Name                string
+	NofPages            int
 	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables              []Table
 	LogPage             page.Page
@@ -148,6 +149,10 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 	totalProcessedPages := 0
 	//offsets that might contain log records and other useful info
 	var suspisiousOffsets []int
+	selectedPagesMap := make(map[int]bool)
+	for _, selectedPage := range selectedPages {
+		selectedPagesMap[selectedPage] = true
+	}
 
 	fsize, err := file.Stat() //file descriptor
 	if err != nil {
@@ -169,10 +174,10 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 			return 0, suspisiousOffsets, err
 		}
 
-		/*if selectedPages != -1 && (offset/PAGELEN < selectedPage ||
-			offset/PAGELEN > selectedPage) {
+		if len(selectedPages) > 0 && !selectedPagesMap[offset/PAGELEN] {
+
 			continue
-		}*/
+		}
 
 		if (offset / PAGELEN) < fromPage {
 			continue
@@ -188,6 +193,10 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 		switch err.(type) {
 		case page.InvalidPageTypeError:
 			suspisiousOffsets = append(suspisiousOffsets, offset)
+		}
+
+		if page_.FileHeader != nil {
+			db.NofPages = int(page_.FileHeader.Size)
 		}
 
 		if db.Name == "" && page_.Boot != nil {
@@ -252,8 +261,12 @@ func (db *Database) FilterBySystemTables(systemTables string) {
 	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterBySystemTables(systemTables)
 }
 
-func (db *Database) FilterPagesByType(pageType string) {
+func (db *Database) FilterPagesByTypeMutable(pageType string) {
 	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterByType(pageType) //mutable
+}
+
+func (db *Database) FilterPagesByType(pageType string) page.PagesPerId[uint64] {
+	return db.PagesPerAllocUnitID.FilterByType(pageType)
 }
 
 func (db *Database) FilterPagesBySystemTables(systemTable string) {
@@ -418,7 +431,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 	sort.Sort(table_alloc_pages)
 	dataPages := table_alloc_pages.FilterByTypeToMap("DATA") // pageId -> Page
-	if tablePages[0] != 0 {
+	if len(tablePages) > 0 {
 		dataPages = dataPages.FilterByID(tablePages)
 	}
 
@@ -514,4 +527,21 @@ func (db Database) CorrelateLDFToPages() {
 		node = node.Next
 	}
 
+}
+
+func (database Database) ShowStats(allocMaps page.PagesPerId[uint64]) {
+
+	for _, pfsPage := range allocMaps.GetHeadNode().Pages {
+		allocMap := pfsPage.GetAllocationMaps()
+		node := database.PagesPerAllocUnitID.GetHeadNode()
+		for node != nil {
+			for _, page := range node.Pages {
+
+				fmt.Printf("PFS %s ", allocMap.GetAllocationStatus(page.Header.PageId))
+
+			}
+			node = node.Next
+		}
+
+	}
 }
