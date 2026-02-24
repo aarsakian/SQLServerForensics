@@ -2,7 +2,8 @@ package page
 
 import (
 	datac "MSSQLParser/data"
-	mslogger "MSSQLParser/logger"
+	"MSSQLParser/logger"
+
 	"MSSQLParser/utils"
 	"fmt"
 	"math"
@@ -73,7 +74,7 @@ func (indexRow *IndexRow) Parse(data []byte, offset int, fixedColsLen uint16) {
 
 	indexRow.StatusA = data[0]
 	if !indexRow.IsIndexRecord() {
-		mslogger.Mslogger.Warning(fmt.Sprintf("Not an index record at offset %d", offset))
+		logger.Mslogger.Warning(fmt.Sprintf("Not an index record at offset %d", offset))
 		return
 	}
 
@@ -108,6 +109,9 @@ func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 
 		//varlencoloffset is the offset to the end of the varying length column,
 		// so we need to calculate the length of the column by subtracting the base offset from the varlencoloffset
+		if varLenColOffset <= int16(baseOffset) {
+			logger.Mslogger.Warning("var len column offset is after the base offset")
+		}
 		dst := make([]byte, int(varLenColOffset)-baseOffset) //buffer for varying le cols
 		copy(dst, data[baseOffset:int(varLenColOffset)-offset])
 		datacols = append(datacols,
