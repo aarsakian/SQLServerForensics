@@ -73,8 +73,10 @@ func main() {
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
+
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("showheader", false, "show page header")
+	showPages := flag.String("showpages", "", "select specific pages to show info")
 	showPageStats := flag.Bool("showpagestats", false,
 		"show page statistics sgam, gam, pfs iam for pages")
 
@@ -329,6 +331,6 @@ func main() {
 		fmt.Printf("Finished in %f secs", time.Since(start).Seconds())
 	}
 
-	pm.ShowInfo(utils.StringsToUint32Array(*selectedPages), *filterlop)
+	pm.ShowInfo(utils.StringsToUint32Array(*showPages), *filterlop)
 
 }

@@ -38,7 +38,8 @@ type Reporter struct {
 	WalkLSN             string
 }
 
-func (rp Reporter) ShowPageInfo(database db.Database, loptype string) {
+func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32,
+	loptype string) {
 
 	if rp.ShowPageStats {
 
@@ -55,7 +56,15 @@ func (rp Reporter) ShowPageInfo(database db.Database, loptype string) {
 		allPages := database.PagesPerAllocUnitID.GetAllPages()
 		sort.Sort(pages.SortedPagesByLSN(allPages))
 		for _, page := range allPages {
-			rp.ShowPage(page, loptype)
+			for _, selectedPage := range selectedPages {
+				if page.Header.PageId == selectedPage {
+					rp.ShowPage(page, loptype)
+				}
+			}
+			if len(selectedPages) == 0 {
+				rp.ShowPage(page, loptype)
+			}
+
 		}
 	} else {
 		node := database.PagesPerAllocUnitID.GetHeadNode()
@@ -64,7 +73,14 @@ func (rp Reporter) ShowPageInfo(database db.Database, loptype string) {
 				sort.Sort(pages.SortedPagesByLSN(node.Pages))
 			}
 			for _, page := range node.Pages {
-				rp.ShowPage(page, loptype)
+				for _, selectedPage := range selectedPages {
+					if page.Header.PageId == selectedPage {
+						rp.ShowPage(page, loptype)
+					}
+				}
+				if len(selectedPages) == 0 {
+					rp.ShowPage(page, loptype)
+				}
 			}
 			node = node.Next
 

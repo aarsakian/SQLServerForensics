@@ -214,7 +214,7 @@ func (PM ProcessManager) GetDatabaseNames() []string {
 
 func (PM ProcessManager) ShowInfo(selectedPages []uint32, filterlop string) {
 	for _, database := range PM.Databases {
-		PM.reporter.ShowPageInfo(database, filterlop)
+		PM.reporter.ShowPageInfo(database, selectedPages, filterlop)
 		PM.reporter.ShowLDFInfo(database, selectedPages, filterlop)
 
 	}
