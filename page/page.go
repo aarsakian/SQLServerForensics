@@ -835,3 +835,15 @@ func (page Page) FollowForwardingPointers() []uint32 {
 	}
 	return pagesIds
 }
+
+func (page Page) ShowStats(allocMaps PagesPerId[uint64]) {
+	for _, allocPage := range allocMaps.GetHeadNode().Pages {
+		allocMap := allocPage.GetAllocationMaps()
+
+		statusStr := allocMap.GetAllocationStatus(page.Header.PageId)
+		if len(statusStr) != 0 {
+			fmt.Printf(" %s ", statusStr)
+		}
+
+	}
+}

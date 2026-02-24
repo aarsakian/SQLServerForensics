@@ -529,19 +529,16 @@ func (db Database) CorrelateLDFToPages() {
 
 }
 
-func (database Database) ShowStats(allocMaps page.PagesPerId[uint64]) {
+func (database Database) ShowStats() {
+
 	pages := database.PagesPerAllocUnitID.GetAllPages()
 	sort.Sort(pages)
-
-	for _, allocPage := range allocMaps.GetHeadNode().Pages {
-		allocMap := allocPage.GetAllocationMaps()
-		for _, page := range pages {
-			statusStr := allocMap.GetAllocationStatus(page.Header.PageId)
-			if len(statusStr) != 0 {
-				fmt.Printf(" %s ", statusStr)
-			}
-
-		}
+	for _, page := range pages {
+		fmt.Printf("\npage stats Id %d\n", page.Header.PageId)
+		page.ShowStats(database.FilterPagesByType("PFS"))
+		page.ShowStats(database.FilterPagesByType("GAM"))
+		page.ShowStats(database.FilterPagesByType("SGAM"))
+		page.ShowStats(database.FilterPagesByType("IAM"))
 
 	}
 }
