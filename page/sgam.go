@@ -4,13 +4,12 @@ import (
 	"MSSQLParser/utils"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 type SGAMExtents []SGAMExtent
 
 type SGAMExtent struct {
-	extent int
+	pageid int
 	mixed  bool
 }
 
@@ -23,16 +22,16 @@ func (sgamExtents SGAMExtents) ShowAllocations() {
 	for _, sgamextent := range sgamExtents[1:] {
 		if sgamextent.mixed != prevSgamAllocated.mixed {
 
-			fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevSgamAllocated.extent*8,
+			fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevSgamAllocated.pageid*8,
 				(map[bool]string{false: "ALLOCATED", true: "NOT ALLOCATED"})[prevSgamAllocated.mixed])
 
-			startPageId = sgamextent.extent
+			startPageId = sgamextent.pageid
 		}
 
 		prevSgamAllocated = sgamextent
 	}
 
-	fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevSgamAllocated.extent*8,
+	fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevSgamAllocated.pageid*8,
 		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevSgamAllocated.mixed])
 }
 
@@ -44,17 +43,19 @@ func (sgamExtents SGAMExtents) FilterByAllocationStatus(status bool) AllocationM
 }
 
 func (sgamExtents SGAMExtents) GetAllocationStatus(pageId uint32) string {
-	var status strings.Builder
-	status.WriteString("NOT ALLOCATED\n")
 
 	for _, sgam := range sgamExtents {
-		if pageId < uint32(sgam.extent*8) || pageId > uint32(sgam.extent*8+8) {
-			continue
+		if pageId == uint32(sgam.pageid*8) {
+			if sgam.mixed {
+				return fmt.Sprintf("%d SGAM Mixed \n", pageId)
+			} else {
+				return fmt.Sprintf("%d SGAM Not Mixed\n", pageId)
+			}
+
 		}
-		status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
 	}
 
-	return status.String()
+	return ""
 }
 
 func (sgamExtents SGAMExtents) GetStats() (int, int) {
