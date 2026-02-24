@@ -144,7 +144,7 @@ Usage instructions have been grouped so as to help the user.
         show pfs page allocation
 
    -showpagestats
-        show page statistics parses sgam gam and pfm pages
+        show page statistics sgam, gam, pfs iam for selected pages
 
   -showslots
         show page slots
