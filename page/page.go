@@ -56,7 +56,6 @@ func (p SortedPagesByLSN) Swap(i, j int) {
 
 func (p Pages) Len() int {
 	return len(p)
-
 }
 
 func (p Pages) Less(i, j int) bool {
@@ -364,10 +363,10 @@ func (page *Page) parseGAM(data []byte) {
 	GAMLen := 4
 	for idx, entry := range data[int(page.Slots[1].Offset)+GAMLen : page.Header.FreeData] {
 
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 
-			gamExtents = append(gamExtents, GAMExtent{extent: i + idx*8,
-				allocated: entry>>i&1 == 0})
+			gamExtents = append(gamExtents, GAMExtent{pageid: i + idx*8,
+				allocated: entry>>i&1 == 0}) //0==allocated
 
 		}
 
@@ -603,7 +602,7 @@ func (page *Page) parseSGAM(data []byte) {
 
 		for i := range 8 {
 
-			sgamExtents = append(sgamExtents, SGAMExtent{i + idx*8, entry>>i&1 == 0})
+			sgamExtents = append(sgamExtents, SGAMExtent{pageid: i + idx*8, mixed: entry>>i&1 == 0})
 
 		}
 
