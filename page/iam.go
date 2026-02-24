@@ -5,7 +5,6 @@ package page
 import (
 	"MSSQLParser/utils"
 	"fmt"
-	"strings"
 )
 
 const NOFSLOTS = 8
@@ -18,7 +17,7 @@ type IAM struct {
 type IAMExtents []IAMExtent
 
 type IAMExtent struct {
-	extent    int
+	pageid    int
 	allocated bool
 }
 
@@ -84,13 +83,13 @@ func (iamExtents IAMExtents) ShowAllocations() {
 	for _, iamextent := range iamExtents[1:] {
 
 		if iamextent.allocated != prevAllocatedIAM.allocated {
-			endPageId = iamextent.extent
+			endPageId = iamextent.pageid
 			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
 				(map[bool]string{true: "NOT ALLOCATED", false: "ALLOCATED"})[prevAllocatedIAM.allocated])
 
-			startPageId = iamextent.extent
+			startPageId = iamextent.pageid
 		}
-		lastPageId = iamextent.extent
+		lastPageId = iamextent.pageid
 		prevAllocatedIAM = iamextent
 	}
 
@@ -103,16 +102,18 @@ func (iam IAM) GetAllocationStatus(pageId uint32) string {
 }
 
 func (iamExtents IAMExtents) GetAllocationStatus(pageId uint32) string {
-	var status strings.Builder
 
 	for _, iam := range iamExtents {
-		if pageId < uint32(iam.extent*8) || pageId > uint32(iam.extent*8+8) {
-			status.WriteString(fmt.Sprintf("%d NOT ALLOCATED\n", pageId))
-		} else {
-			status.WriteString(fmt.Sprintf("%d ALLOCATED\n", pageId))
+		if pageId == uint32(iam.pageid) {
+			if iam.allocated {
+				return fmt.Sprintf("%d IAM ALLOCATED\n", pageId)
+			} else {
+				return fmt.Sprintf("%d IAM NOT ALLOCATED\n", pageId)
+			}
+
 		}
 
 	}
 
-	return status.String()
+	return ""
 }
