@@ -63,6 +63,9 @@ func (fileHeader *FileHeader) Parse(datarow datac.DataRow) error {
 	}
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
 		field := structValPtr.Elem().Field(i) //StructField type
+		if i >= len(*datarow.VarLenCols) {
+			return fmt.Errorf("exceed available number of var len cols at Field %s idx %d ", field, i)
+		}
 		val := (*datarow.VarLenCols)[i].Content
 
 		switch field.Kind() {
