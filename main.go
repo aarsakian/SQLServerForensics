@@ -75,7 +75,7 @@ func main() {
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("showheader", false, "show page header")
-	showPageStats := flag.Bool("showpagestats", false, "show page statistics parses sgam gam and pfm pages")
+	showPageStats := flag.Bool("showpagestats", false, "show page statistics sgam, gam, pfm iam for selected pages")
 
 	filenames := flag.String("filenames", "", "select mdf files to filter use comma for each file (to be used with evidence)")
 
