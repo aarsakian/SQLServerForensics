@@ -79,7 +79,7 @@ func (pfsPage PFSPage) GetAllocationStatus(pageId uint32) string {
 		if pfs.pageID != pageId {
 			continue
 		}
-		fmt.Fprintf(&status, "%d %s \n", pfs.pageID, pfs.decodeStatus())
+		fmt.Fprintf(&status, "%s ", pfs.decodeStatus())
 	}
 
 	return status.String()

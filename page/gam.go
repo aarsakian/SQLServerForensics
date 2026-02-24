@@ -54,9 +54,9 @@ func (gamExtents GAMExtents) GetAllocationStatus(pageId uint32) string {
 	for _, gam := range gamExtents {
 		if pageId == uint32(gam.pageid) {
 			if gam.allocated { //
-				return fmt.Sprintf("%d GAM ALLOCATED\n", pageId)
+				return " GAM ALLOCATED "
 			} else {
-				return fmt.Sprintf("%d GAM ΝΟΤ ALLOCATED\n", pageId)
+				return " GAM ΝΟΤ ALLOCATED "
 			}
 
 		}

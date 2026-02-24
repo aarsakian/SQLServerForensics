@@ -106,9 +106,9 @@ func (iamExtents IAMExtents) GetAllocationStatus(pageId uint32) string {
 	for _, iam := range iamExtents {
 		if pageId == uint32(iam.pageid) {
 			if iam.allocated {
-				return fmt.Sprintf("%d IAM ALLOCATED\n", pageId)
+				return " IAM ALLOCATED "
 			} else {
-				return fmt.Sprintf("%d IAM NOT ALLOCATED\n", pageId)
+				return " IAM NOT ALLOCATED "
 			}
 
 		}

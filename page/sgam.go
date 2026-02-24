@@ -47,9 +47,9 @@ func (sgamExtents SGAMExtents) GetAllocationStatus(pageId uint32) string {
 	for _, sgam := range sgamExtents {
 		if pageId == uint32(sgam.pageid*8) {
 			if sgam.mixed {
-				return fmt.Sprintf("%d SGAM Mixed \n", pageId)
+				return " SGAM Mixed "
 			} else {
-				return fmt.Sprintf("%d SGAM Not Mixed\n", pageId)
+				return " SGAM Not Mixed "
 			}
 
 		}
