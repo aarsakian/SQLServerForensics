@@ -530,17 +530,17 @@ func (db Database) CorrelateLDFToPages() {
 }
 
 func (database Database) ShowStats(allocMaps page.PagesPerId[uint64]) {
+	pages := database.PagesPerAllocUnitID.GetAllPages()
+	sort.Sort(pages)
 
-	for _, pfsPage := range allocMaps.GetHeadNode().Pages {
-		allocMap := pfsPage.GetAllocationMaps()
-		node := database.PagesPerAllocUnitID.GetHeadNode()
-		for node != nil {
-			for _, page := range node.Pages {
-
-				fmt.Printf("PFS %s ", allocMap.GetAllocationStatus(page.Header.PageId))
-
+	for _, allocPage := range allocMaps.GetHeadNode().Pages {
+		allocMap := allocPage.GetAllocationMaps()
+		for _, page := range pages {
+			statusStr := allocMap.GetAllocationStatus(page.Header.PageId)
+			if len(statusStr) != 0 {
+				fmt.Printf(" %s ", statusStr)
 			}
-			node = node.Next
+
 		}
 
 	}
