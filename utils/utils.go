@@ -8,9 +8,8 @@ import (
 	"regexp"
 	"time"
 
-	"golang.org/x/text/encoding/charmap"
-
 	"bytes"
+	"embed"
 	"encoding/binary"
 	"encoding/csv"
 	"encoding/hex"
@@ -21,7 +20,12 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+
+	"golang.org/x/text/encoding/charmap"
 )
+
+//go:embed collations.csv
+var collationsFS embed.FS
 
 var LeapYear = []int{0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
 
@@ -1095,15 +1099,13 @@ func Decode(data []byte, cmap *charmap.Charmap, codepage string) string {
 }
 
 func LocateEncoding(collationId string) (string, string, error) {
-	file, err := os.Open("collations.csv")
+	b, err := collationsFS.ReadFile("collations.csv")
 
 	if err != nil {
 		log.Fatal("Error while reaading the file", err)
 	}
 
-	defer file.Close()
-
-	reader := csv.NewReader(file)
+	reader := csv.NewReader(bytes.NewReader(b))
 	reader.Comma = ';'
 
 	collations, err := reader.ReadAll()
