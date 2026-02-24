@@ -42,11 +42,7 @@ func (rp Reporter) ShowPageInfo(database db.Database, loptype string) {
 
 	if rp.ShowPageStats {
 
-		database.ShowStats(database.FilterPagesByType("PFS"))
-		database.ShowStats(database.FilterPagesByType("GAM"))
-		database.ShowStats(database.FilterPagesByType("SGAM"))
-		database.ShowStats(database.FilterPagesByType("IAM"))
-
+		database.ShowStats()
 		/*gamstatus := allocMap.GetAllocationStatus(selectedPages)
 		fmt.Printf("GAM %s ", gamstatus)
 
