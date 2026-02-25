@@ -9,13 +9,13 @@ import (
 type GAMExtents []GAMExtent
 
 type GAMExtent struct {
-	pageid    int
+	extent    int
 	allocated bool
 }
 
 func (gamExtents GAMExtents) ShowAllocations() {
 
-	startPageId := 0
+	startextent := 0
 
 	prevGamExtent := gamExtents[0]
 	fmt.Printf("GAM allocation map \n")
@@ -23,14 +23,16 @@ func (gamExtents GAMExtents) ShowAllocations() {
 	for _, gamextent := range gamExtents[1:] {
 		if gamextent.allocated != prevGamExtent.allocated {
 
-			fmt.Printf("(%d:%d) = %s \n", startPageId*8, prevGamExtent.pageid*8,
+			fmt.Printf("(%d:%d) = %s \n", startextent*8, prevGamExtent.extent*8,
 				(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevGamExtent.allocated])
 
-			startPageId = gamextent.pageid
+			startextent = gamextent.extent
 		}
 
 		prevGamExtent = gamextent
 	}
+	fmt.Printf("(%d:%d) = %s \n", startextent*8, prevGamExtent.extent*8,
+		(map[bool]string{true: "ALLOCATED", false: "NOT ALLOCATED"})[prevGamExtent.allocated])
 
 }
 
@@ -50,9 +52,9 @@ func (gamExtents GAMExtents) GetStats() (int, int) {
 }
 
 func (gamExtents GAMExtents) GetAllocationStatus(pageId uint32) string {
-
-	for _, gam := range gamExtents {
-		if pageId == uint32(gam.pageid) {
+	prevGAM := gamExtents[0]
+	for _, gam := range gamExtents[1:] {
+		if pageId >= uint32(prevGAM.extent)*8 && pageId < uint32(gam.extent)*8 {
 			if gam.allocated { //
 				return " GAM ALLOCATED "
 			} else {

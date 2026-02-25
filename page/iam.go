@@ -17,7 +17,7 @@ type IAM struct {
 type IAMExtents []IAMExtent
 
 type IAMExtent struct {
-	pageid    int
+	extent    int
 	allocated bool
 }
 
@@ -83,13 +83,13 @@ func (iamExtents IAMExtents) ShowAllocations() {
 	for _, iamextent := range iamExtents[1:] {
 
 		if iamextent.allocated != prevAllocatedIAM.allocated {
-			endPageId = iamextent.pageid
+			endPageId = iamextent.extent
 			fmt.Printf("(%d:%d) = %s \n", startPageId*8, endPageId*8,
 				(map[bool]string{true: "NOT ALLOCATED", false: "ALLOCATED"})[prevAllocatedIAM.allocated])
 
-			startPageId = iamextent.pageid
+			startPageId = iamextent.extent
 		}
-		lastPageId = iamextent.pageid
+		lastPageId = iamextent.extent
 		prevAllocatedIAM = iamextent
 	}
 
@@ -102,9 +102,9 @@ func (iam IAM) GetAllocationStatus(pageId uint32) string {
 }
 
 func (iamExtents IAMExtents) GetAllocationStatus(pageId uint32) string {
-
-	for _, iam := range iamExtents {
-		if pageId == uint32(iam.pageid) {
+	prevIAMExtent := iamExtents[0]
+	for _, iam := range iamExtents[1:] {
+		if pageId >= uint32(prevIAMExtent.extent)*8 && pageId < uint32(iam.extent)*8 {
 			if iam.allocated {
 				return " IAM ALLOCATED "
 			} else {
