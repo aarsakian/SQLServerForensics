@@ -358,19 +358,24 @@ func (page Page) ShowGAMStats() {
 	fmt.Printf("GAM allocated %d unallocated %d \n", allocatedPages, unallocatedPages)
 }
 
-func (page *Page) parseGAM(data []byte) {
-	var gamExtents GAMExtents
+func (page *Page) parseGAM(data []byte, nofpages int) {
+	gamExtents := make(GAMExtents, nofpages/8)
 	GAMLen := 4
-	for idx, entry := range data[int(page.Slots[1].Offset)+GAMLen : page.Header.FreeData] {
+	pos := 0
+outer:
+	for _, entry := range data[int(page.Slots[1].Offset)+GAMLen : page.Header.FreeData] {
 
 		for i := range 8 {
-
-			gamExtents = append(gamExtents, GAMExtent{pageid: i + idx*8,
-				allocated: entry>>i&1 == 0}) //0==allocated
+			if pos == nofpages/8 {
+				break outer
+			}
+			gamExtents[pos] = GAMExtent{extent: pos, allocated: entry>>i&1 == 0}
+			pos++
 
 		}
 
 	}
+
 	page.GAMExtents = &gamExtents
 }
 
@@ -583,27 +588,37 @@ func (page *Page) parseBulkMap(data []byte) {
 	page.BulkChangeMapExtents = &bcmExtents
 }
 
-func (page *Page) parseDiffMAP(data []byte) {
-	var diffmapExtents DiffMapExtents
+func (page *Page) parseDiffMAP(data []byte, nofpages int) {
+	diffmapExtents := make(DiffMapExtents, nofpages/8)
 	diffMapLen := 4
 
-	for idx, entry := range data[int(page.Slots[1].Offset)+diffMapLen : page.Header.FreeData] {
+	pos := 0
+outer:
+	for _, entry := range data[int(page.Slots[1].Offset)+diffMapLen : page.Header.FreeData] {
 		for i := range 8 {
-			diffmapExtents = append(diffmapExtents, DiffMap{i + idx*8, entry>>i&1 == 0})
+			if pos == nofpages/8 {
+				break outer
+			}
+			diffmapExtents[pos] = DiffMap{pos, entry>>i&1 == 0}
+			pos++
 		}
 	}
 	page.DiffMapExtents = &diffmapExtents
 }
 
-func (page *Page) parseSGAM(data []byte) {
-	var sgamExtents SGAMExtents
+func (page *Page) parseSGAM(data []byte, nofpages int) {
+	sgamExtents := make(SGAMExtents, nofpages/8)
 	SGAMLen := 4
-	for idx, entry := range data[int(page.Slots[1].Offset)+SGAMLen : page.Header.FreeData] {
+	pos := 0
+outer:
+	for _, entry := range data[int(page.Slots[1].Offset)+SGAMLen : page.Header.FreeData] {
 
 		for i := range 8 {
-
-			sgamExtents = append(sgamExtents, SGAMExtent{pageid: i + idx*8, mixed: entry>>i&1 == 0})
-
+			if pos == nofpages/8 {
+				break outer
+			}
+			sgamExtents[pos] = SGAMExtent{extent: pos, mixed: entry>>i&1 == 1}
+			pos++
 		}
 
 	}
@@ -673,16 +688,24 @@ func (page Page) ShowSlotInfo() {
 	}
 }
 
-func (page *Page) parseIAM(data []byte) {
+func (page *Page) parseIAM(data []byte, nofpages int) {
 	iam := new(IAM)
 
 	iam.Header = new(IAMHeader)
 	iam.Header.Parse(data[page.Slots[0].Offset:page.Slots[1].Offset])
 
-	var iams IAMExtents
-	for idx, entry := range data[page.Slots[1].Offset+4 : page.Header.FreeData] {
+	pos := 0
+
+	iams := make(IAMExtents, nofpages/8)
+
+outer:
+	for _, entry := range data[page.Slots[1].Offset+4 : page.Header.FreeData] {
 		for i := range 8 {
-			iams = append(iams, IAMExtent{i + idx*8, entry>>i&1 == 0})
+			if pos == nofpages/8 {
+				break outer
+			}
+			iams[pos] = IAMExtent{pos, entry>>i&1 == 0}
+			pos++
 		}
 	}
 
@@ -761,7 +784,7 @@ func (page *Page) parseFileHeader(data []byte) {
 	page.FileHeader = fileHeader
 }
 
-func (page *Page) Process(data []byte, offset int, carve bool) error {
+func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) error {
 	HEADERLEN := 96
 
 	var header Header
@@ -791,11 +814,11 @@ func (page *Page) Process(data []byte, offset int, carve bool) error {
 	case "PFS":
 		page.parsePFS(data)
 	case "GAM":
-		page.parseGAM(data)
+		page.parseGAM(data, nofpages)
 	case "SGAM":
-		page.parseSGAM(data)
+		page.parseSGAM(data, nofpages)
 	case "Differential Changed Map":
-		page.parseDiffMAP(data)
+		page.parseDiffMAP(data, nofpages)
 	case "DATA":
 		page.parseDATA(data, offset, carve)
 	case "LOB":
@@ -805,7 +828,7 @@ func (page *Page) Process(data []byte, offset int, carve bool) error {
 	case "Index":
 		page.parseIndex(data, offset)
 	case "IAM":
-		page.parseIAM(data)
+		page.parseIAM(data, nofpages)
 	case "File Header":
 		page.parseFileHeader(data)
 	case "Boot":
