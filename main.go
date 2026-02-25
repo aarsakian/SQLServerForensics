@@ -172,7 +172,7 @@ func main() {
 
 	}
 
-	exp := FSExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id"}
+	exp := FSExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id", RecreatePath: true}
 
 	flm := filtermanager.FilterManager{}
 
@@ -242,8 +242,9 @@ func main() {
 
 			for _, record := range records {
 
-				fullpath := filepath.Join(exp.Location, fmt.Sprintf("[%d]%s",
-					record.GetID(), record.GetFname()))
+				fullpath := filepath.Join(exp.Location, record.GetPath(partitionId),
+					fmt.Sprintf("[%d]%s",
+						record.GetID(), record.GetFname()))
 				extension := path.Ext(fullpath)
 				switch strings.ToLower(extension) {
 				case ".mdf":
