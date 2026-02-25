@@ -65,8 +65,9 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32,
 		allPages := database.PagesPerAllocUnitID.GetAllPages()
 		sort.Sort(pages.SortedPagesByLSN(allPages))
 		for _, page := range allPages {
-			fmt.Printf("\n")
+
 			if selectedPagesMap[page.Header.PageId] || len(selectedPages) == 0 {
+
 				rp.ShowPage(page, loptype,
 					pfsPages, gamPages, sgamPages, iamPages, diffMapPages)
 			}
@@ -79,8 +80,9 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32,
 				sort.Sort(pages.SortedPagesByLSN(node.Pages))
 			}
 			for _, page := range node.Pages {
-				fmt.Printf("\n Id %d", page.Header.PageId)
+
 				if selectedPagesMap[page.Header.PageId] || len(selectedPages) == 0 {
+
 					rp.ShowPage(page, loptype,
 						pfsPages, gamPages, sgamPages, iamPages, diffMapPages)
 				}
@@ -120,7 +122,7 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string,
 	}
 
 	if rp.ShowPageStats {
-
+		fmt.Printf("\n Id %d", page.Header.PageId)
 		page.ShowStats(pfsPages)
 		page.ShowStats(gamPages)
 		page.ShowStats(sgamPages)
