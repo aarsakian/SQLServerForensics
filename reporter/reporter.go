@@ -41,28 +41,34 @@ type Reporter struct {
 func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32,
 	loptype string) {
 
+	var pfsPages,
+		gamPages,
+		sgamPages,
+		iamPages,
+		diffMapPages pages.PagesPerId[uint64]
+
+	selectedPagesMap := make(map[uint32]bool, len(selectedPages))
+
+	for _, selectedPage := range selectedPages {
+		selectedPagesMap[selectedPage] = true
+	}
+
 	if rp.ShowPageStats {
-
-		database.ShowStats()
-		/*gamstatus := allocMap.GetAllocationStatus(selectedPages)
-		fmt.Printf("GAM %s ", gamstatus)
-
-		sgamstatus := allocMap.GetAllocationStatus(selectedPages)
-		fmt.Printf("SGAM %s ", sgamstatus)*/
-
+		pfsPages = database.FilterPagesByType("PFS")
+		gamPages = database.FilterPagesByType("GAM")
+		sgamPages = database.FilterPagesByType("SGAM")
+		iamPages = database.FilterPagesByType("IAM")
+		diffMapPages = database.FilterPagesByType("Differential Changed Map")
 	}
 
 	if rp.SortByLSN == "all" {
 		allPages := database.PagesPerAllocUnitID.GetAllPages()
 		sort.Sort(pages.SortedPagesByLSN(allPages))
 		for _, page := range allPages {
-			for _, selectedPage := range selectedPages {
-				if page.Header.PageId == selectedPage {
-					rp.ShowPage(page, loptype)
-				}
-			}
-			if len(selectedPages) == 0 {
-				rp.ShowPage(page, loptype)
+			fmt.Printf("\n")
+			if selectedPagesMap[page.Header.PageId] || len(selectedPages) == 0 {
+				rp.ShowPage(page, loptype,
+					pfsPages, gamPages, sgamPages, iamPages, diffMapPages)
 			}
 
 		}
@@ -73,13 +79,10 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32,
 				sort.Sort(pages.SortedPagesByLSN(node.Pages))
 			}
 			for _, page := range node.Pages {
-				for _, selectedPage := range selectedPages {
-					if page.Header.PageId == selectedPage {
-						rp.ShowPage(page, loptype)
-					}
-				}
-				if len(selectedPages) == 0 {
-					rp.ShowPage(page, loptype)
+				fmt.Printf("\n Id %d", page.Header.PageId)
+				if selectedPagesMap[page.Header.PageId] || len(selectedPages) == 0 {
+					rp.ShowPage(page, loptype,
+						pfsPages, gamPages, sgamPages, iamPages, diffMapPages)
 				}
 			}
 			node = node.Next
@@ -90,7 +93,10 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32,
 
 }
 
-func (rp Reporter) ShowPage(page pages.Page, loptype string) {
+func (rp Reporter) ShowPage(page pages.Page, loptype string,
+	pfsPages pages.PagesPerId[uint64], gamPages pages.PagesPerId[uint64],
+	sgamPages pages.PagesPerId[uint64], iamPages pages.PagesPerId[uint64],
+	diffMapChanges pages.PagesPerId[uint64]) {
 
 	if rp.ShowPFS && page.GetType() == "PFS" ||
 		rp.ShowIAMExtents && page.GetType() == "IAM" ||
@@ -101,6 +107,7 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string) {
 		allocMap := page.GetAllocationMaps()
 		allocMap.ShowAllocations()
 	}
+
 	if rp.ShowHeader {
 		page.PrintHeader(rp.ShowSlots)
 		if page.LDFRecord != nil {
@@ -110,6 +117,16 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string) {
 				page.LDFRecord.WalkInfo(rp.WalkLSN, loptype)
 			}
 		}
+	}
+
+	if rp.ShowPageStats {
+
+		page.ShowStats(pfsPages)
+		page.ShowStats(gamPages)
+		page.ShowStats(sgamPages)
+		page.ShowStats(iamPages)
+		page.ShowStats(diffMapChanges)
+
 	}
 
 	if rp.ShowDBInfo && page.FileHeader != nil {
