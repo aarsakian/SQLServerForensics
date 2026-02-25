@@ -188,7 +188,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 		}
 		msg := fmt.Sprintf("Processing page at %d", offset)
 		mslogger.Mslogger.Info(msg)
-		page_, err := db.ProcessPage(bs, offset, carve)
+		page_, err := db.ProcessPage(bs, offset, carve, db.NofPages)
 
 		switch err.(type) {
 		case page.InvalidPageTypeError:
@@ -242,7 +242,7 @@ func (db *Database) ProcessLDF(carve bool) (int, error) {
 		return 0, err
 	}
 
-	db.LogPage, _ = db.ProcessPage(bs, offset, carve)
+	db.LogPage, _ = db.ProcessPage(bs, offset, carve, db.NofPages)
 	db.VLFs = new(LDF.VLFs)
 	recordsProcessed := db.VLFs.Process(*file, carve, db.minLSN)
 	fmt.Printf("LDF processing completed %d log records processed\n", recordsProcessed)
@@ -250,9 +250,9 @@ func (db *Database) ProcessLDF(carve bool) (int, error) {
 	return recordsProcessed, nil
 }
 
-func (db Database) ProcessPage(bs []byte, offset int, carve bool) (page.Page, error) {
+func (db Database) ProcessPage(bs []byte, offset int, carve bool, nofpages int) (page.Page, error) {
 	page := new(page.Page)
-	err := page.Process(bs, offset, carve)
+	err := page.Process(bs, offset, carve, nofpages)
 
 	return *page, err
 }
@@ -527,18 +527,4 @@ func (db Database) CorrelateLDFToPages() {
 		node = node.Next
 	}
 
-}
-
-func (database Database) ShowStats() {
-
-	pages := database.PagesPerAllocUnitID.GetAllPages()
-	sort.Sort(pages)
-	for _, page := range pages {
-		fmt.Printf("\npage stats Id %d\n", page.Header.PageId)
-		page.ShowStats(database.FilterPagesByType("PFS"))
-		page.ShowStats(database.FilterPagesByType("GAM"))
-		page.ShowStats(database.FilterPagesByType("SGAM"))
-		page.ShowStats(database.FilterPagesByType("IAM"))
-
-	}
 }
