@@ -189,8 +189,7 @@ func StringsToIntArray(stringwithcomma string) []int {
 func StringsToUint32Array(stringwithcomma string) []uint32 {
 
 	strs := strings.Split(stringwithcomma, ",")
-	ints := make([]uint32, len(strs))
-
+	var ints []uint32
 	for idx := range strs {
 		if strs[idx] == "" {
 			continue
@@ -199,7 +198,7 @@ func StringsToUint32Array(stringwithcomma string) []uint32 {
 		if e != nil {
 			fmt.Println("ERROR", e)
 		}
-		ints[idx] = uint32(val)
+		ints = append(ints, uint32(val))
 	}
 	return ints
 }
