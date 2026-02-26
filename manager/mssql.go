@@ -6,12 +6,14 @@ import (
 	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
-	"MSSQLParser/utils"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"sync"
+
+	"github.com/aarsakian/FileSystemForensics/utils"
 )
 
 var CHANNEL_SIZE = 100000
@@ -19,7 +21,7 @@ var CHANNEL_SIZE = 100000
 type ProcessManager struct {
 	reporter           reporter.Reporter
 	exporter           exporter.Exporter
-	Databases          []db.Database
+	Databases          map[string]db.Database
 	TableConfiguration TableProcessorConfiguration
 	BroadcastService   channels.BroadcastServer
 }
@@ -96,7 +98,7 @@ func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
 		}
 		totalProcessedPages += processedPages
 		database.ProcessSystemTables()
-		PM.Databases = append(PM.Databases, database)
+		PM.Databases[utils.StringifyGUID(database.BindingID[:])] = database
 	}
 	return totalProcessedPages
 
@@ -105,19 +107,12 @@ func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 	selectedPages []int, fromPage int, toPage int, carve bool) int {
 
-	var database db.Database
-
 	processedPages := 0
 	// ensure one to one match
-	slices.SortFunc(mdffiles, utils.RemoveID)
-	slices.SortFunc(ldffiles, utils.RemoveID)
+	PM.Databases = make(map[string]db.Database)
+	for _, inputFile := range mdffiles {
 
-	for idx, inputFile := range mdffiles {
-		if len(ldffiles) > 0 {
-			database = db.Database{Fname: inputFile, Lname: ldffiles[idx]}
-		} else {
-			database = db.Database{Fname: inputFile}
-		}
+		database := db.Database{Fname: inputFile}
 
 		/*processing pages stage */
 		totalProcessedPages, err := database.ProcessMDF(selectedPages, fromPage, toPage, carve)
@@ -132,35 +127,73 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		database.ProcessSystemTables()
 
-		ldfRecordsProcessed, err := database.ProcessLDF(carve)
+		processedPages += totalProcessedPages
+		requestedDB, ok := PM.Databases[database.GetBindingID()]
+		if ok {
+			logdb := requestedDB.LogDB
+			database.LogDB = logdb
 
-		if err == nil && ldfRecordsProcessed > 0 {
-			database.AddLogRecords(carve)
-			database.CorrelateLDFToPages()
+		}
+		dir, _ := filepath.Split(inputFile)
+		sum := md5.Sum([]byte(dir))
+
+		key := fmt.Sprintf("%s_%s", database.GetBindingID(), hex.EncodeToString(sum[:]))
+
+		PM.Databases[key] = database
+	}
+
+	for _, inputFile := range ldffiles {
+		dir, _ := filepath.Split(inputFile)
+
+		logdb := new(db.LogDB)
+		ldfRecordsProcessed, err := logdb.ProcessLDF(inputFile, carve)
+		fmt.Printf("processed %d log records from ldf file %s \n", ldfRecordsProcessed, inputFile)
+		if err == nil {
+			sum := md5.Sum([]byte(dir))
+
+			key := fmt.Sprintf("%s_%s", logdb.GetBindingID(), hex.EncodeToString(sum[:]))
+			requestedDB, ok := PM.Databases[key]
+			if ok {
+				requestedDB.LogDB = logdb
+				requestedDB.Lname = inputFile
+				PM.Databases[key] = requestedDB
+			} else {
+				database := db.Database{Lname: inputFile, LogDB: logdb}
+				PM.Databases[key] = database
+			}
+		}
+	}
+	for key, database := range PM.Databases {
+		if database.LogDB == nil {
+			continue
 		}
 
-		processedPages += totalProcessedPages
-		PM.Databases = append(PM.Databases, database)
+		database.AddLogRecords(carve)
+		database.CorrelateLDFToPages()
+		database.UpdateLogRecordStatus()
+		PM.Databases[key] = database
 	}
+
 	return processedPages
 
 }
 
 func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, userTable string) {
-	for dbidx := range PM.Databases {
+	for guid, database := range PM.Databases {
 		if pageType != "" {
-			PM.Databases[dbidx].FilterPagesByTypeMutable(pageType) //mutable
+			database.FilterPagesByTypeMutable(pageType) //mutable
 
 		}
 
 		if systemTables != "" {
-			PM.Databases[dbidx].FilterPagesBySystemTables(systemTables)
+			database.FilterPagesBySystemTables(systemTables)
 
 		}
 
 		if userTable != "" {
-			PM.Databases[dbidx].FilterPagesBySystemTables("sysschobjs")
+			database.FilterPagesBySystemTables("sysschobjs")
 		}
+		PM.Databases[guid] = database
 	}
 
 }
