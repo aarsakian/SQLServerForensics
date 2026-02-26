@@ -121,7 +121,7 @@ func (logBlock LogBlock) GetSize() int64 {
 	return nofBlocks * int64(LOGBLOCKMINSIZE)
 }
 
-func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
+func (vlfs *VLFs) Process(file os.File, carve bool) int {
 	recordsProcessed := 0
 
 	offset := int64(8192)
@@ -151,7 +151,7 @@ func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 
 		logBlockoffset := int64(8192)
 		// 22 to take into account log block header
-		recordsProcessed += vlf.Process(file, offset+logBlockoffset, carve, minLSN)
+		recordsProcessed += vlf.Process(file, offset+logBlockoffset, carve)
 
 		*vlfs = append(*vlfs, *vlf)
 
@@ -166,7 +166,7 @@ func (vlfs *VLFs) Process(file os.File, carve bool, minLSN utils.LSN) int {
 
 }
 
-func (vlf *VLF) Process(file os.File, offset int64, carve bool, minLSN utils.LSN) int {
+func (vlf *VLF) Process(file os.File, offset int64, carve bool) int {
 
 	recordsProcessed := 0
 	logBlockoffset := int64(0)
@@ -208,7 +208,7 @@ func (vlf *VLF) Process(file os.File, offset int64, carve bool, minLSN utils.LSN
 			return recordsProcessed
 		}
 
-		recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset, carve, minLSN)
+		recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset, carve)
 
 		vlf.Blocks = append(vlf.Blocks, *logBlock)
 
@@ -224,7 +224,7 @@ func (vlf *VLF) Process(file os.File, offset int64, carve bool, minLSN utils.LSN
 // the only log record that contains the date and time when the transaction started,
 //user SID
 
-func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool, minLSN utils.LSN) int {
+func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool) int {
 	recordOffsets := make(RecordOffsets, logBlock.Header.NofSlots)
 
 	LSN_to_Record := make(map[utils.LSN]*Record)
@@ -255,11 +255,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 		//account for record prefix
 		utils.Unmarshal(bs[recordOffset+4:], record)
 		LSN_to_Record[currentLSN] = record
-		if currentLSN.IsGreaterEqual(minLSN) {
-			record.Carved = false
-		} else {
-			record.Carved = true
-		}
+
 		record.CurrentLSN = currentLSN
 
 		prevRecord := LSN_to_Record[record.PreviousLSN]
