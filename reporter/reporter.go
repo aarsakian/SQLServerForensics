@@ -168,8 +168,8 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
 func (rp Reporter) ShowLDFInfo(database db.Database, pagesId []uint32,
 	filterlop string) {
 	if rp.ShowLDF {
-		database.ShowLDF(filterlop)
-		database.ShowPagesLDF(pagesId)
+		database.LogDB.ShowLDF(filterlop)
+		database.LogDB.ShowPagesLDF(pagesId)
 
 	}
 }
