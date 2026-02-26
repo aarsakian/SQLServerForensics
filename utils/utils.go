@@ -75,7 +75,7 @@ type PageSlot struct {
 type Images []Image
 
 func (image Image) GetFilename() string {
-	return fmt.Sprintf("%s_%d.img", image.Name, image.Id)
+	return fmt.Sprintf("%s_%d.blob", image.Name, image.Id)
 }
 
 func (a LSN) IsGreaterEqual(b LSN) bool {
