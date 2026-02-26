@@ -69,14 +69,14 @@ func main() {
 		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export MDF/LDF files")
 	carve := flag.Bool("carve", false, "Carve data records and try to interpret")
-	selectedPages := flag.String("pages", "", "select pages to parse (use comma for each page id)")
+	selectedPages := flag.String("pages", "", "select pages to parse (use comma for each page id, other pages will be ignored)")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
 	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
 
 	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
 	showHeader := flag.Bool("showheader", false, "show page header")
-	showPages := flag.String("showpages", "", "select specific pages to show info")
+	showPages := flag.String("showpages", "", "select specific pages to show info (use comma for each page id)")
 	showPageStats := flag.Bool("showpagestats", false,
 		"show page statistics sgam, gam, pfs iam for pages")
 
