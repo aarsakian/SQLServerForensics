@@ -87,7 +87,7 @@ func (mssqlparser_commsServer *Server) Process(
 	mssqlparser_commsServer.pm.ProcessDBFiles([]string{fileDetails.Mdffile}, []string{fileDetails.Ldffile},
 		[]int{}, 0, math.MaxUint32, fileDetails.Carve)
 
-	for dbidx, database := range mssqlparser_commsServer.pm.Databases {
+	for guid, database := range mssqlparser_commsServer.pm.Databases {
 		srcCH := make(chan db.Table, 100000)
 		broadcaster := channels.NewBroadcastServer(ctx, srcCH)
 
@@ -115,8 +115,9 @@ func (mssqlparser_commsServer *Server) Process(
 			defer wgs.Done()
 			for table := range listener2 {
 
-				mssqlparser_commsServer.pm.Databases[dbidx].Tables = append(
-					mssqlparser_commsServer.pm.Databases[dbidx].Tables, table)
+				database.Tables = append(
+					database.Tables, table)
+				mssqlparser_commsServer.pm.Databases[guid] = database
 			}
 		}(wg)
 
@@ -325,7 +326,7 @@ func (mssqlparser_commsServer *Server) ProcessBak(bakfile *mssqlparser_comms.MTF
 	mssqlparser_commsServer.pm.ProcessDBFiles(mdffiles, []string{}, []int{},
 		0, math.MaxUint32, false)
 
-	for dbidx, database := range mssqlparser_commsServer.pm.Databases {
+	for guid, database := range mssqlparser_commsServer.pm.Databases {
 		srcCH := make(chan db.Table, 100000)
 		broadcaster := channels.NewBroadcastServer(ctx, srcCH)
 
@@ -353,8 +354,8 @@ func (mssqlparser_commsServer *Server) ProcessBak(bakfile *mssqlparser_comms.MTF
 			defer wgs.Done()
 			for table := range listener2 {
 
-				mssqlparser_commsServer.pm.Databases[dbidx].Tables = append(
-					mssqlparser_commsServer.pm.Databases[dbidx].Tables, table)
+				database.Tables = append(database.Tables, table)
+				mssqlparser_commsServer.pm.Databases[guid] = database
 			}
 		}(wg)
 
