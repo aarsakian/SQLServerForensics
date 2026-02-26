@@ -113,7 +113,7 @@ Usage instructions have been grouped so as to help the user.
         the path to export MDF/LDF files (default "MDF")
 
 -pages string
-       select pages to parse (use comma for each page id)
+       select pages to parse (use comma for each page id, other pages will be ignored)
  
 -processtables
         process tables
@@ -145,6 +145,9 @@ Usage instructions have been grouped so as to help the user.
 
    -showpagestats
         show page statistics sgam, gam, pfs iam for selected pages
+
+  -showpages
+    select specific pages to show info (use comma for each page id)
 
   -showslots
         show page slots
@@ -302,11 +305,11 @@ Show page number and index names of table ***PersonPhone*** of database file ***
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableindex -tables PersonPhone
 
 Show page  information including ***header, slot offsets and possible slack space, data column offsets and contents*** of page 6432 of database file ***AdventureWorks2022.mdf*** 
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showheader -showslots -showdatacols -pages  6432
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showheader -showslots -showdatacols -showpages  6432
 
 
 Show page information including ***index structure FileID, PageID, Key, RowSize*** of index page 11854
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf   -showindex -pages  11854
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf   -showindex -showpages  11854
 
 
 Show page information inclding ***header, relevant log records of any lop type operation, follow log records both directions (previous and next)***
