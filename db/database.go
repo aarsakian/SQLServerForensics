@@ -18,16 +18,16 @@ import (
 var PAGELEN = 8192
 
 type Database struct {
-	BakName             string // path to bak payload file
-	Fname               string // path to mdf file
-	Lname               string // path to ldf file
+	BakName string // path to bak payload file
+	Fname   string // path to mdf file
+	Lname   string // path to ldf file
+
 	Name                string
 	NofPages            int
+	BindingID           [16]byte
 	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables              []Table
-	LogPage             page.Page
-	VLFs                *LDF.VLFs
-	LogRecordsMap       LDF.RecordsMap
+	LogDB               *LogDB
 	tablesInfo          TablesInfo
 	columnsinfo         ColumnsInfo
 	tablesPartitions    TablesPartitions
@@ -197,6 +197,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 
 		if page_.FileHeader != nil {
 			db.NofPages = int(page_.FileHeader.Size)
+			db.BindingID = page_.FileHeader.BindingID
 		}
 
 		if db.Name == "" && page_.Boot != nil {
@@ -223,33 +224,6 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 	return totalProcessedPages, suspisiousOffsets, nil
 }
 
-func (db *Database) ProcessLDF(carve bool) (int, error) {
-	fmt.Printf("about to process database log file %s \n", db.Lname)
-
-	file, err := os.Open(db.Lname)
-
-	if err != nil {
-		// handle the error here
-		fmt.Printf("err %s reading the ldf file. \n", err)
-	}
-	defer file.Close()
-	offset := 0
-
-	bs := make([]byte, PAGELEN) //byte array to hold one PAGE 8KB
-	_, err = file.ReadAt(bs, int64(offset))
-	if err != nil {
-		fmt.Printf("error reading log page at offset %d\n", offset)
-		return 0, err
-	}
-
-	db.LogPage, _ = db.ProcessPage(bs, offset, carve, db.NofPages)
-	db.VLFs = new(LDF.VLFs)
-	recordsProcessed := db.VLFs.Process(*file, carve, db.minLSN)
-	fmt.Printf("LDF processing completed %d log records processed\n", recordsProcessed)
-
-	return recordsProcessed, nil
-}
-
 func (db Database) ProcessPage(bs []byte, offset int, carve bool, nofpages int) (page.Page, error) {
 	page := new(page.Page)
 	err := page.Process(bs, offset, carve, nofpages)
@@ -271,28 +245,6 @@ func (db *Database) FilterPagesByType(pageType string) page.PagesPerId[uint64] {
 
 func (db *Database) FilterPagesBySystemTables(systemTable string) {
 	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterBySystemTables(systemTable)
-}
-
-func (db Database) ShowLDF(filterloptype string) {
-	for _, vlf := range *db.VLFs {
-		vlf.ShowInfo(filterloptype)
-	}
-}
-
-func (db Database) ShowPagesLDF(pagesId []uint32) {
-	for _, pageId := range pagesId {
-		fmt.Printf("PageID %d changes: \n", pageId)
-		for _, vlf := range *db.VLFs {
-			for _, block := range vlf.Blocks {
-
-				filteredRecords := block.Records.FilterByPageID(pageId)
-				for _, record := range filteredRecords {
-					record.ShowLOPInfo("any")
-				}
-			}
-		}
-
-	}
 }
 
 func (db Database) GetTablesInfo() TablesInfo {
@@ -320,7 +272,7 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 			}
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
-			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogRecordsMap)
+			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogDB.LogRecordsMap)
 
 			select {
 			case tablesCH <- table:
@@ -488,9 +440,9 @@ func (db Database) FindPageChanges() {
 
 func (db *Database) AddLogRecords(carve bool) {
 	var records LDF.Records
-	db.LogRecordsMap = make(LDF.RecordsMap)
+	db.LogDB.LogRecordsMap = make(LDF.RecordsMap)
 
-	for _, vlf := range *db.VLFs {
+	for _, vlf := range *db.LogDB.VLFs {
 
 		for _, block := range vlf.Blocks {
 			records = append(records, block.Records...)
@@ -504,7 +456,7 @@ func (db *Database) AddLogRecords(carve bool) {
 		records.UpdateCarveStatus(minLSN)
 	}
 	for _, record := range records {
-		db.LogRecordsMap[record.CurrentLSN] = &record
+		db.LogDB.LogRecordsMap[record.CurrentLSN] = &record
 	}
 
 }
@@ -518,7 +470,7 @@ func (db Database) CorrelateLDFToPages() {
 	node := db.PagesPerAllocUnitID.GetHeadNode()
 	for node != nil {
 		for idx := range node.Pages {
-			record, ok := db.LogRecordsMap[node.Pages[idx].Header.LSN]
+			record, ok := db.LogDB.LogRecordsMap[node.Pages[idx].Header.LSN]
 			if ok {
 				node.Pages[idx].LDFRecord = record
 				break
@@ -527,4 +479,18 @@ func (db Database) CorrelateLDFToPages() {
 		node = node.Next
 	}
 
+}
+
+func (db Database) GetBindingID() string {
+	return utils.StringifyGUID(db.BindingID[:])
+}
+
+func (db *Database) UpdateLogRecordStatus() {
+	for _, record := range db.LogDB.LogRecordsMap {
+		if record.CurrentLSN.IsGreaterEqual(db.minLSN) {
+			record.Carved = false
+		} else {
+			record.Carved = true
+		}
+	}
 }
