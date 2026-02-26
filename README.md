@@ -315,6 +315,10 @@ Show page information including ***index structure FileID, PageID, Key, RowSize*
 Show page information inclding ***header, relevant log records of any lop type operation, follow log records both directions (previous and next)***
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showheader -filterlop any -walklsn any -sortbylsn any
 
+
+Show page ***bit allocation maps (PFS, GAM, SGAM, IAM, DIFFMAP)*** for pages 423, 454 
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showpages 423,454 -showpagestats
+
 ### Transaction Log Internals Inspection 
 Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** such as ***Log Block Header Slots,  size of block, FirstLSN*** operations for log file ***AdventureWorks2022_log.ldf*** 
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showldf -ldf 1
