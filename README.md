@@ -234,7 +234,7 @@ Usage instructions have been grouped so as to help the user.
         export tables to selected path
 
   -exportimages
-        export blobs (will be exported to a folder images under the database name)
+        export blobs (export blobs will be exported to a folder images under the database name, file extension might not be correct)
 
 
   -format string
