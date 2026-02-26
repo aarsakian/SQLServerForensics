@@ -112,7 +112,7 @@ func main() {
 	logactive := flag.Bool("log", false, "log activity")
 	bakactive := flag.Bool("bak", false, "parse bak files found in images")
 	tabletype := flag.String("tabletype", "", "filter tables by type e.g. 'User Table' for user tables 'View' for views")
-	exportImage := flag.Bool("exportimages", false, "export blobs (will be exported to a folder images under the database name, file extension might not be correct)")
+	exportImage := flag.Bool("exportimages", false, "export blobs (will be exported to a folder images under the database name, file extension is blob)")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|begin_ckpt|end_ckpt|any")
