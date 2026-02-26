@@ -4,6 +4,7 @@ import (
 	datac "MSSQLParser/data"
 	LDF "MSSQLParser/ldf"
 	"MSSQLParser/logger"
+	"errors"
 
 	"MSSQLParser/utils"
 	"bytes"
@@ -773,20 +774,25 @@ func (page *Page) parseBoot(data []byte) {
 	page.Boot = boot
 }
 
-func (page *Page) parseFileHeader(data []byte) {
+func (page *Page) parseFileHeader(data []byte) error {
 	//Svar fileHeader *FileHeader
 
 	datarow := new(datac.DataRow)
 	datarow.Parse(data[page.Slots[0].Offset:], 0, page.Header.ObjectId)
-
+	if int(datarow.NofColsOffset) > len(data) {
+		msg := "datarow offset to nof cols exceeds available data length"
+		logger.Mslogger.Warning(msg)
+		return errors.New(msg)
+	}
 	fileHeader := new(FileHeader)
 	fileHeader.Parse(*datarow)
 	page.FileHeader = fileHeader
+	return nil
 }
 
 func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) error {
 	HEADERLEN := 96
-
+	var err error
 	var header Header
 	if utils.IsZeroed(data[:HEADERLEN]) {
 		return ZeroPageHeader("Zero page header")
@@ -830,13 +836,13 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 	case "IAM":
 		page.parseIAM(data, nofpages)
 	case "File Header":
-		page.parseFileHeader(data)
+		err = page.parseFileHeader(data)
 	case "Boot":
 		page.parseBoot(data)
 	case "Bulk Change Map":
 		page.parseBulkMap(data)
 	}
-	return nil
+	return err
 }
 
 func (page *Page) PopulateSlots(data []byte) {
