@@ -233,7 +233,7 @@ Usage instructions have been grouped so as to help the user.
  -export string
         export tables to selected path
 
-  -exporimages
+  -exportimages
         export blobs (will be exported to a folder images under the database name)
 
 
@@ -299,6 +299,7 @@ Show table contents of table ***PersonPhone*** of database file ***AdventureWork
 Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** ,  ***carve*** records, correlate with log file entries ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** including carved records. 
 When a record is found in the transaction log relevant timestamps are shown. 
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -ldf 1 -showtableldf -carve -showcontent
+
 ###  Page Internals Inspection 
 
 Show page number and index names of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***
