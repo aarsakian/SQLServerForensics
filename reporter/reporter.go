@@ -156,7 +156,7 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
 	defer wg.Done()
 
 	for table := range tables {
-		fmt.Printf("Table %s\n", table.Name)
+
 		table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation, rp.ShowTableIndex,
 			rp.TableType, rp.ToTableRow, rp.SkippedTableRows,
 			rp.SelectedTableRows, rp.ShowCarved, rp.ShowTableLDF,
