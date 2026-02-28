@@ -270,9 +270,12 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 				mslogger.Mslogger.Info(msg)
 				continue
 			}
+			fmt.Printf("Processing Table %s\n", tname)
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
-			table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogDB.LogRecordsMap)
+			if db.LogDB != nil {
+				table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogDB.LogRecordsMap)
+			}
 
 			select {
 			case tablesCH <- table:
