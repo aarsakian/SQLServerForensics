@@ -283,7 +283,9 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 
 				} else {
 					if pages.Pages[0].IndexRows[idx].VarLenCols != nil {
-						//not all var len cols are part of the index key, only those defined as index key columns are, so we need to check the var len order of the column to know which varying length column in the index row corresponds to the column in the table schema
+						//not all var len cols are part of the index key, only those defined as index key columns are, so we need to check the
+						// var len order of the column to know which varying length column in the index row corresponds
+						// to the column in the table schema
 						cmap[c.Name] = ColData{Content: (*pages.Pages[0].IndexRows[idx].VarLenCols)[VarLenIndexColOrder].Content}
 						VarLenIndexColOrder++
 					}
@@ -620,6 +622,9 @@ func (table Table) Show(showSchema bool, showContent bool,
 	showAllocation string, showIndex bool, tabletype string, showtorow int, skiprows int,
 	showrows []int, showcarved bool, showtableldf bool, showcolnames []string, showrawdata bool) {
 
+	if showSchema || showContent || showtableldf || showAllocation != "" {
+		fmt.Printf("Table %s\n", table.Name)
+	}
 	if showSchema {
 		table.printSchema()
 	}
