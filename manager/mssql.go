@@ -4,6 +4,7 @@ import (
 	"MSSQLParser/channels"
 	"MSSQLParser/db"
 	"MSSQLParser/exporter"
+	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
 	"context"
@@ -152,26 +153,28 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 			sum := md5.Sum([]byte(dir))
 
 			key := fmt.Sprintf("%s_%s", logdb.GetBindingID(), hex.EncodeToString(sum[:]))
-			requestedDB, ok := PM.Databases[key]
-			if ok {
-				requestedDB.LogDB = logdb
-				requestedDB.Lname = inputFile
-				PM.Databases[key] = requestedDB
-			} else {
-				database := db.Database{Lname: inputFile, LogDB: logdb}
-				PM.Databases[key] = database
-			}
-		}
-	}
-	for key, database := range PM.Databases {
-		if database.LogDB == nil {
-			continue
-		}
+			database, ok := PM.Databases[key]
 
-		database.AddLogRecords(carve)
-		database.CorrelateLDFToPages()
-		database.UpdateLogRecordStatus()
-		PM.Databases[key] = database
+			if ok {
+				database.LogDB = logdb
+				database.Lname = inputFile
+
+			} else {
+				database = db.Database{Lname: inputFile, LogDB: logdb}
+
+			}
+
+			if database.NofPages == 0 {
+				logger.Mslogger.Warning(fmt.Sprintf("no database for log file %s", database.Lname))
+				continue
+			}
+			fmt.Printf("Updating log records - Correlating log records with database.\n")
+			database.AddLogRecords(carve)
+			database.UpdateLogRecordStatus()
+			database.CorrelateLDFToPages()
+
+			PM.Databases[key] = database
+		}
 	}
 
 	return processedPages
