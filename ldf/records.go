@@ -13,7 +13,7 @@ import (
 
 type OriginalParityBytes []uint8
 
-type Records []Record
+type Records []*Record
 
 type RecordsMap map[utils.LSN]*Record
 
@@ -48,7 +48,7 @@ type Record struct {
 	CurrentLSN        utils.LSN //this value will be set by context
 }
 
-type ByIncreasingLSN []Record
+type ByIncreasingLSN []*Record
 
 func (b ByIncreasingLSN) Less(i, j int) bool {
 
@@ -135,12 +135,12 @@ func (record Record) GetEndCommitDate() string {
 
 func (record Record) ShowLOPInfo(filterloptype string) {
 	if filterloptype == "any" {
-		fmt.Printf("Current LSN %s Previous LSN %s TransID %s Flag Bits %d %s %s \n",
+		fmt.Printf("Current LSN %s Previous LSN %s TransID %s Flag Bits %d %s %s Active %t\n",
 			record.CurrentLSN.ToStr(),
 			record.PreviousLSN.ToStr(), record.TransactionID.ToStr(),
 			record.Flag,
 			OperationType[record.Operation],
-			record.GetContextType())
+			record.GetContextType(), record.IsActive)
 	}
 
 	if record.Lop_Insert_Delete != nil &&
@@ -204,37 +204,37 @@ func (record Record) HasPageID(pageID uint32) bool {
 }
 
 func (records Records) FilterByOperation(operationType string) Records {
-	return utils.Filter(records, func(record Record) bool {
+	return utils.Filter(records, func(record *Record) bool {
 		return record.GetOperationType() == operationType
 	})
 }
 
 func (records Records) FilterByGreaterLSN(lsn utils.LSN) Records {
-	return utils.Filter(records, func(record Record) bool {
+	return utils.Filter(records, func(record *Record) bool {
 		return record.HasGreaterEqualLSN(lsn)
 	})
 }
 
 func (records Records) FilterByLessLSN(lsn utils.LSN) Records {
-	return utils.Filter(records, func(record Record) bool {
+	return utils.Filter(records, func(record *Record) bool {
 		return record.HasLessEqualLSN(lsn)
 	})
 }
 
 func (records Records) FilterByOperations(operationtypes []string) Records {
-	return utils.Filter(records, func(record Record) bool {
+	return utils.Filter(records, func(record *Record) bool {
 		return record.HasOperationType(operationtypes)
 	})
 }
 
 func (records RecordsMap) FilterOutNullOperations() Records {
-	return utils.FilterMapToList(records, func(record Record) bool {
+	return utils.FilterMapToList(records, func(record *Record) bool {
 		return record.Operation != 0
 	})
 }
 
 func (records Records) FilterByPageID(pageID uint32) Records {
-	return utils.Filter(records, func(record Record) bool {
+	return utils.Filter(records, func(record *Record) bool {
 		return record.HasPageID(pageID)
 	})
 
