@@ -43,6 +43,7 @@ type Record struct {
 	PreviousRecord    *Record
 	NextRecord        *Record
 	Carved            bool
+	IsActive          bool
 	Prefix            *RecordPrefix
 	CurrentLSN        utils.LSN //this value will be set by context
 }
@@ -168,9 +169,9 @@ func (record Record) WalkInfo(direction string, loptype string) {
 
 	switch direction {
 
-	case "prev":
+	case "backward":
 		record.WalkInfoBackwards(loptype)
-	case "next":
+	case "forward":
 		record.WalkInfoForward(loptype)
 	case "any":
 		record.WalkInfoBackwards(loptype)
@@ -274,9 +275,9 @@ func (records Records) DetermineMinLSN() utils.LSN {
 func (records Records) UpdateCarveStatus(minLSN utils.LSN) {
 	for idx := range records {
 		if records[idx].HasGreaterEqualLSN(minLSN) {
-			records[idx].Carved = false
+			records[idx].IsActive = true
 		} else { // only when asked for carve
-			records[idx].Carved = true
+			records[idx].IsActive = true
 		}
 
 	}
