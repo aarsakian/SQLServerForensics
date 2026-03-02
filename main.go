@@ -27,6 +27,7 @@ import (
 	"MSSQLParser/manager"
 	"MSSQLParser/servicer"
 	"MSSQLParser/utils"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -61,6 +62,7 @@ func main() {
 	ldbfile := flag.String("ldb", "", "absolute path to the LDF file")
 	mtffile := flag.String("mtf", "", "path to bak file (TAPE format)")
 
+	sourcedir := flag.String("sourcedir", "", "process all mdf and ldf files found in source directory")
 	physicalDrive := flag.Int("physicaldrive", -1,
 		"select the physical disk number to look for MDF file (requires admin rights!)")
 	evidencefile := flag.String("evidence", "", "path to image file")
@@ -119,12 +121,35 @@ func main() {
 	colnames := flag.String("colnames", "", "the columns to display use comma for each column name")
 	raw := flag.Bool("showraw", false, "show row data for each column in a table")
 	rpc := flag.Uint("rpc", 0, "use grpc to communicate select port from 1024 and upwards")
-	walkLSN := flag.String("walklsn", "", "follow lsn allowed values are prev|next")
+	walkLSN := flag.String("walklsn", "", `follow log records lsn (allowed values
+			 are any|backward|forward)`)
+	walkpageLSN := flag.String("walkpagelsn", "", `follow log records associated with page
+					(allowed values are any|backward|forward`)
 	sortByLSN := flag.String("sortbylsn", "", "sort pages  all|allocunit (sort all pages or sort per allocation unit basis)")
 
 	profile := flag.Bool("profile", false, "profile memory usage")
 
 	flag.Parse()
+
+	if *filterlop != "" && *filterlop != "any" && *filterlop != "insert" && *filterlop != "begin" && *filterlop != "commit" && *filterlop != "begin_ckpt" && *filterlop != "end_ckpt" {
+		log.Fatalf("invalid lop type filter %s allowed values are insert|begin|commit|begin_ckpt|end_ckpt|any", *filterlop)
+	}
+
+	if *walkLSN != "" && *walkLSN != "any" && *walkLSN != "backward" && *walkLSN != "forward" {
+		log.Fatalf("invalid walk lsn value %s allowed values are any|backward|forward", *walkLSN)
+	}
+
+	if *walkpageLSN != "" && *walkpageLSN != "any" && *walkpageLSN != "backward" && *walkpageLSN != "forward" {
+		log.Fatalf("invalid walk page lsn value %s allowed values are any|backward|forward", *walkpageLSN)
+	}
+
+	if *sortByLSN != "" && *sortByLSN != "all" && *sortByLSN != "allocunit" {
+		log.Fatalf("invalid sort by lsn value %s allowed values are all|allocunit", *sortByLSN)
+	}
+
+	if *exportFormat != "csv" {
+		log.Fatalf("invalid export format %s currently only csv is supported", *exportFormat)
+	}
 
 	now := time.Now()
 	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
@@ -281,6 +306,28 @@ func main() {
 
 	}
 
+	if *sourcedir != "" {
+		err := filepath.WalkDir(*sourcedir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if !d.IsDir() {
+				if strings.ToLower(filepath.Ext(path)) == ".mdf" {
+					mdffiles = append(mdffiles, path)
+				} else if strings.ToLower(filepath.Ext(path)) == ".ldf" {
+					ldffiles = append(ldffiles, path)
+				}
+
+			}
+
+			return nil
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	var selectedTableRowsInt []int
 	for _, val := range strings.Split(*selectedTableRows, ",") {
 		val, e := strconv.ParseInt(val, 10, 0)
@@ -300,7 +347,7 @@ func main() {
 		*skippedTableRows, selectedTableRowsInt,
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
-		*exportFormat, *exportImage, *exportPath, *sortByLSN, *walkLSN)
+		*exportFormat, *exportImage, *exportPath, *sortByLSN, *walkpageLSN, *walkLSN)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
