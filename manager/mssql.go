@@ -171,7 +171,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 			}
 			fmt.Printf("Updating log records - Correlating log records with database.\n")
 			database.AddLogRecords(carve)
-			database.UpdateLogRecordStatus()
+
 			database.CorrelateLDFToPages()
 
 			PM.Databases[key] = database
