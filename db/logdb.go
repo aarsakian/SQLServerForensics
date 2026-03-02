@@ -50,6 +50,12 @@ func (logdb LogDB) ShowLDF(filterloptype string) {
 	}
 }
 
+func (logdb LogDB) WalkLSN(filterloptype string, direction string) {
+	for _, vlf := range *logdb.VLFs {
+		vlf.WalkLSN(direction, filterloptype)
+	}
+}
+
 func (logdb LogDB) ShowPagesLDF(pagesId []uint32) {
 	for _, pageId := range pagesId {
 		fmt.Printf("PageID %d changes: \n", pageId)
