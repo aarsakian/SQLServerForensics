@@ -145,22 +145,29 @@ func (vlfs *VLFs) Process(file os.File, carve bool) int {
 		}
 		vlfheader := new(VLFHeader)
 		vlfheader.Process(bs)
-		vlf.Header = vlfheader
 
-		mslogger.Mslogger.Info(fmt.Sprintf("Located VLF at %d", offset))
-
-		logBlockoffset := int64(8192)
-		// 22 to take into account log block header
-		recordsProcessed += vlf.Process(file, offset+logBlockoffset, carve)
-
-		*vlfs = append(*vlfs, *vlf)
-
-		if int64(vlf.Header.FileSize) == 0 {
+		if int64(vlfheader.FileSize) == 0 {
 			msg := fmt.Sprintf("VLF header size is zero exiting processing vlfs at offset %d", offset)
 			mslogger.Mslogger.Warning(msg)
 			break
 		}
-		offset += int64(vlf.Header.FileSize) //needs check
+
+		if vlfheader.FSeqNo > 0 {
+			vlf.Header = vlfheader
+
+			mslogger.Mslogger.Info(fmt.Sprintf("Located VLF at %d", offset))
+
+			logBlockoffset := int64(8192)
+			// 22 to take into account log block header
+			recordsProcessed += vlf.Process(file, offset+logBlockoffset, carve)
+
+			*vlfs = append(*vlfs, *vlf)
+		} else {
+			msg := fmt.Sprintf("invalid VLF header at offset %d continuing search", offset)
+			mslogger.Mslogger.Warning(msg)
+		}
+
+		offset += int64(vlfheader.FileSize) //needs check
 	}
 	return recordsProcessed
 
@@ -210,7 +217,13 @@ func (vlf *VLF) Process(file os.File, offset int64, carve bool) int {
 
 		recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset, carve)
 
-		vlf.Blocks = append(vlf.Blocks, *logBlock)
+		if logBlock.Header.NofSlots < 500 {
+			vlf.Blocks = append(vlf.Blocks, *logBlock)
+		} else {
+			msg := fmt.Sprintf("number of log records %d exceeds expected at offset %d continuing",
+				logBlock.Header.NofSlots, offset+logBlockoffset)
+			mslogger.Mslogger.Warning(msg)
+		}
 
 		logBlockoffset += int64(logBlock.GetSize())
 
@@ -370,5 +383,13 @@ func (vlf VLF) ShowInfo(filterloptype string) {
 		vlf.Header.FileSize, vlf.Header.FSeqNo, vlf.Header.Parity, vlf.Header.CreateToStr())
 	for _, logblock := range vlf.Blocks {
 		logblock.ShowInfo(filterloptype)
+	}
+}
+
+func (vlf VLF) WalkLSN(direction string, filterloptype string) {
+	for _, logblock := range vlf.Blocks {
+		for _, record := range logblock.Records {
+			record.WalkInfo(direction, filterloptype)
+		}
 	}
 }
