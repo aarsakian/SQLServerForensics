@@ -151,6 +151,32 @@ func main() {
 		log.Fatalf("invalid export format %s currently only csv is supported", *exportFormat)
 	}
 
+	if *walkLSN != "" && *filterlop == "" {
+		log.Fatalf("walk lsn flag requires filterlop to be set")
+	}
+
+	if *walkpageLSN != "" && *filterlop == "" {
+		log.Fatalf("walk page lsn flag requires filterlop to be set")
+	}
+
+	if *showTableLDF && *tablenames == "" {
+		log.Fatalf("showtableldf flag requires tables to be set")
+	}
+
+	if *showTableAllocation != "" && *tablenames == "" {
+		log.Fatalf("showtableallocation flag requires tables to be set")
+	} else if *showTableAllocation != "" && *showTableAllocation != "simple" && *showTableAllocation != "sorted" && *showTableAllocation != "links" {
+		log.Fatalf("invalid show table allocation value %s allowed values are simple|sorted|links", *showTableAllocation)
+	}
+
+	if *showLDF && (*ldbfile == "" || *dbfile == "") {
+		log.Fatalf("showldf flag requires db and ldb files to be set")
+	}
+
+	if *showTableLDF && (*ldbfile == "" || *dbfile == "") {
+		log.Fatalf("showtableldf flag requires db and ldb files to be set")
+	}
+
 	now := time.Now()
 	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
 	mslogger.InitializeLogger(*logactive, logfilename)
