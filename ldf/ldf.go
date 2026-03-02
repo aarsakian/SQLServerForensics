@@ -274,8 +274,9 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 		prevRecord := LSN_to_Record[record.PreviousLSN]
 		//currentLSN must differ
 		if prevRecord != nil && prevRecord.CurrentLSN != record.CurrentLSN {
-			record.PreviousRecord = prevRecord
 			prevRecord.NextRecord = record
+			record.PreviousRecord = prevRecord
+
 		}
 
 		currentLSN.Increment()
@@ -334,7 +335,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 			record.Generic_LOP = lop_exp_row
 		}
 
-		logBlock.Records = append(logBlock.Records, *record)
+		logBlock.Records = append(logBlock.Records, record)
 
 		mslogger.Mslogger.Info(fmt.Sprintf("Record %s at %d", record.GetOperationType(),
 			int64(recordOffset)+baseOffset))
