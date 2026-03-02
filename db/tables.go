@@ -3,6 +3,7 @@ package db
 import (
 	"MSSQLParser/data"
 	LDF "MSSQLParser/ldf"
+	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
@@ -482,13 +483,13 @@ func (table *Table) addLogChanges(records LDF.Records) {
 		for idx, record := range slotRecordsPerGroup {
 
 			if record.GetOperationType() == "LOP_DELETE_ROW" && !slotRecordsPerGroup.HasExpungeOperation(idx) {
-				table.MarkRowDeleted(record, record.Carved)
+				table.MarkRowDeleted(*record, record.Carved)
 			} else if record.GetOperationType() == "LOP_DELETE_ROW" && slotRecordsPerGroup.HasExpungeOperation(idx) {
-				table.AddPurgedRow(record, record.Carved)
+				table.AddPurgedRow(*record, record.Carved)
 			} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
-				table.MarkRowModified(record, record.Carved)
+				table.MarkRowModified(*record, record.Carved)
 			} else if record.GetOperationType() == "LOP_INSERT_ROW" {
-				table.AddRow(record, record.Carved)
+				table.AddRow(*record, record.Carved)
 			}
 
 		}
@@ -1004,8 +1005,12 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 	rownum := 0
 	if table.PageIDsPerType["IndexedDATA"] != nil {
 		for _, pageId := range table.PageIDsPerType["IndexedDATA"] {
-
-			page := dataPages.Lookup[pageId].Pages[0]
+			pagesPerIDNode := dataPages.Lookup[pageId]
+			if pagesPerIDNode == nil {
+				logger.Mslogger.Warning(fmt.Sprintf("page Id not found in data pages %d", pageId))
+				continue
+			}
+			page := pagesPerIDNode.Pages[0]
 
 			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages, rownum)
 		}
