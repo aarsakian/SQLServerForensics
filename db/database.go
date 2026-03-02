@@ -459,7 +459,7 @@ func (db *Database) AddLogRecords(carve bool) {
 		records.UpdateCarveStatus(minLSN)
 	}
 	for _, record := range records {
-		db.LogDB.LogRecordsMap[record.CurrentLSN] = &record
+		db.LogDB.LogRecordsMap[record.CurrentLSN] = record
 	}
 
 }
@@ -486,14 +486,4 @@ func (db Database) CorrelateLDFToPages() {
 
 func (db Database) GetBindingID() string {
 	return utils.StringifyGUID(db.BindingID[:])
-}
-
-func (db *Database) UpdateLogRecordStatus() {
-	for _, record := range db.LogDB.LogRecordsMap {
-		if record.CurrentLSN.IsGreaterEqual(db.minLSN) {
-			record.Carved = false
-		} else {
-			record.Carved = true
-		}
-	}
 }
