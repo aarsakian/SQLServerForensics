@@ -35,6 +35,7 @@ type Reporter struct {
 	Raw                 bool
 	ShowColNames        []string
 	SortByLSN           string
+	WalkPageLSN         string
 	WalkLSN             string
 }
 
@@ -115,8 +116,8 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string,
 		if page.LDFRecord != nil {
 			fmt.Printf("LOP INFO \t")
 			page.LDFRecord.ShowLOPInfo(loptype)
-			if rp.WalkLSN != "" {
-				page.LDFRecord.WalkInfo(rp.WalkLSN, loptype)
+			if rp.WalkPageLSN != "" {
+				page.LDFRecord.WalkInfo(rp.WalkPageLSN, loptype)
 			}
 		}
 	}
@@ -170,6 +171,9 @@ func (rp Reporter) ShowLDFInfo(database db.Database, pagesId []uint32,
 	if rp.ShowLDF {
 		database.LogDB.ShowLDF(filterlop)
 		database.LogDB.ShowPagesLDF(pagesId)
+
+		direction := rp.WalkLSN
+		database.LogDB.WalkLSN(filterlop, direction)
 
 	}
 }
