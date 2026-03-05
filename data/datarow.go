@@ -53,6 +53,7 @@ type DataCol struct {
 	Offset       uint16
 	Content      []byte
 	InlineBlob24 *InlineBLob24
+	TextBlob     *TextBlob
 }
 
 type DataRows []DataRow
@@ -87,6 +88,7 @@ type DataRow struct { // max size is 8060 bytes  min record header 7 bytes
 	VarLenCols             *DataCols
 	Carved                 bool
 	SystemTable            SystemTable
+	SlotIdx                int
 }
 
 func GetRowType(statusA byte) string {
@@ -156,6 +158,10 @@ func (dataCol DataCol) hasBlob24() bool {
 
 }
 
+func (dataCol DataCol) hasTextBlob() bool {
+	return dataCol.TextBlob != nil
+}
+
 func (dataCol DataCol) GetLOBPage() ([]utils.RowId, uint32) {
 	var rowsid []utils.RowId
 	if dataCol.hasBlob24() {
@@ -164,6 +170,9 @@ func (dataCol DataCol) GetLOBPage() ([]utils.RowId, uint32) {
 			rowsid = append(rowsid, inlineBLob16.RowId)
 		}
 		return rowsid, dataCol.InlineBlob24.Timestamp // needs check for more rowids
+	} else if dataCol.hasTextBlob() {
+		rowsid = append(rowsid, dataCol.TextBlob.RowId)
+		return rowsid, dataCol.TextBlob.Timestamp
 	}
 	return []utils.RowId{}, 0
 }
@@ -176,6 +185,16 @@ func (dataRow DataRow) HasBlobInfo(colNum uint16) bool {
 		return false
 	}
 	return (*dataRow.VarLenCols)[colNum].hasBlob24()
+}
+
+func (dataRow DataRow) HasTextBlobInfo(colNum uint16) bool {
+	if dataRow.VarLenCols == nil {
+		return false
+	}
+	if int(colNum) >= len(*dataRow.VarLenCols) {
+		return false
+	}
+	return (*dataRow.VarLenCols)[colNum].hasTextBlob()
 }
 
 func (dataRow DataRow) GetBloBInfo(colNum uint16) ([]utils.RowId, uint32) {
@@ -258,6 +277,13 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 			datacols = append(datacols,
 				DataCol{Id: idx, Content: cpy, Offset: uint16(startVarColOffset),
 					InlineBlob24: inlineBlob24})
+
+		} else if negativeOffset && len(cpy) == 16 {
+			textBlob := new(TextBlob)
+			textBlob.Process(cpy)
+			datacols = append(datacols,
+				DataCol{Id: idx, Content: cpy, Offset: uint16(startVarColOffset),
+					TextBlob: textBlob})
 
 		} else {
 			datacols = append(datacols,
