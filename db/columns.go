@@ -5,7 +5,6 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
-	b64 "encoding/base64"
 	"fmt"
 
 	"golang.org/x/text/encoding/charmap"
@@ -81,7 +80,7 @@ func (c Column) isStatic() bool {
 func (c Column) toString(data []byte) string {
 	if len(data) == 0 {
 		//mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
-		return ""
+		return "NULL"
 	}
 	//always defines number of bytes n never defines number of characters stored
 	//<2019 sql server versions save in cp codepages
@@ -104,7 +103,7 @@ func (c Column) toString(data []byte) string {
 	case "bigint":
 		return fmt.Sprintf("%d", utils.ToInt64(data))
 	case "varbinary":
-		return fmt.Sprintf("%x", data)
+		return fmt.Sprintf("0x%x", data)
 	case "decimal", "numeric": //synonyms
 		return c.parseDecimal(data)
 	case "sql_variant":
@@ -115,7 +114,7 @@ func (c Column) toString(data []byte) string {
 		}
 		return sqlvariant.GetData()
 	case "image":
-		return b64.StdEncoding.EncodeToString(data)
+		return fmt.Sprintf("0x%x", data) //b64.StdEncoding.EncodeToString(data)
 	case "bit":
 		return utils.BitToString(data, 1) // less than 8 cols one byte required > 2 two bytes
 	case "uniqueidentifier":
@@ -165,7 +164,8 @@ func (c *Column) addContent(datarow data.DataRow,
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
 
-		if !c.isStatic() && datarow.HasBlobInfo(c.VarLenOrder-uint16(nofNullCols)) {
+		if !c.isStatic() && datarow.HasBlobInfo(c.VarLenOrder-uint16(nofNullCols)) ||
+			!c.isStatic() && datarow.HasTextBlobInfo(c.VarLenOrder-uint16(nofNullCols)) {
 			rowIds, textTimestamp := datarow.GetBloBInfo(c.VarLenOrder - uint16(nofNullCols))
 			if !lobPages.IsEmpty() && len(rowIds) != 0 { //only when there are lobpages proceed
 				var content []byte
