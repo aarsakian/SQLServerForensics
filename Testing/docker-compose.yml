@@ -1,0 +1,35 @@
+services:
+  sql1:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql1
+    env_file:
+      - .secrets.env
+    depends_on:
+      fixperms:
+        condition: service_completed_successfully
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql/data
+      - ${DB_FILES}:/var/opt/mssql/userdbs
+      - ${WIN_HOME}/table_exports:/table_exports
+      - ./healthcheck.sh:/healthcheck.sh
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "bash", "/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  fixperms:
+    image: ubuntu:22.04
+    container_name: fixperms
+    command: ["/bin/bash", "-c", "chown -R 10001:0 /var/opt/mssql/data && chmod -R 770 /var/opt/mssql/data"]
+    volumes:
+      - mssql_data:/var/opt/mssql/data
+    restart: "no"
+
+volumes:
+  mssql_data:
