@@ -2,6 +2,12 @@ package data
 
 import "MSSQLParser/utils"
 
+type TextBlob struct {
+	Timestamp uint32 //internal version stamp for concurrency
+	TextId    uint32 //Lob chain identifier
+	RowId     utils.RowId
+}
+
 type InlineBLob24 struct {
 	Type       uint8
 	IndexLevel uint16
@@ -34,4 +40,8 @@ func (inlineBlob24 *InlineBLob24) Process(data []byte) {
 		inlineOffset += 12
 		inlineBlob24.Inlines = append(inlineBlob24.Inlines, *inlineBlob16)
 	}
+}
+
+func (textBlob *TextBlob) Process(data []byte) {
+	utils.Unmarshal(data, textBlob)
 }
