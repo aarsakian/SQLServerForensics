@@ -108,6 +108,16 @@ func (header Header) sanityCheck() bool {
 		mslogger.Mslogger.Warning(fmt.Sprintf("Issue with header version %d \n", header.Version))
 		return false
 	}
+	if header.LSN.IsZeroed() {
+		mslogger.Mslogger.Warning("LSN is zero")
+		return false
+	}
+
+	if header.IndexId > 255 {
+		mslogger.Mslogger.Warning("Index Id > 255")
+		return false
+	}
+
 	if header.SlotCnt > 4048 { //8192-96/2
 		mslogger.Mslogger.Warning(fmt.Sprintf("number of slots exceeded maximum allowed number %d.", header.SlotCnt))
 		return false
