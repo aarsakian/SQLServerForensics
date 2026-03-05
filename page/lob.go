@@ -11,14 +11,15 @@ type LOBS []LOB
 
 // large objects storage
 type LOB struct { //generic structure
-	StatusA  uint8
-	StatusB  uint8
-	Length   uint16
-	Id       uint64
-	Type     uint16
-	Root     *LOBRoot
-	Internal *LOBInternal
-	Data     []byte //14-
+	StatusA   uint8
+	StatusB   uint8
+	Length    uint16
+	Id        uint64
+	Type      uint16
+	Root      *LOBRoot
+	Internal  *LOBInternal
+	SmallRoot *LOBSmallRoot
+	Data      []byte //14-
 }
 
 type LOBRoot struct { // Text lob type 5
@@ -27,6 +28,11 @@ type LOBRoot struct { // Text lob type 5
 	Level            uint16
 	Unused           [4]byte
 	InternalPointers []LOBRootBody
+}
+
+type LOBSmallRoot struct {
+	Length uint16
+	Uknown uint16
 }
 
 type LOBRootBody struct {
@@ -57,7 +63,9 @@ type LOBInternalBody struct {
 func (lob *LOB) ParseRoot(data []byte) {
 	var root *LOBRoot = new(LOBRoot)
 	var internalPointers []LOBRootBody
+
 	utils.Unmarshal(data[:10], root)
+
 	for curLink := uint16(0); curLink < root.CurLinks; curLink++ {
 		var internalBodyPointer *LOBRootBody = new(LOBRootBody)
 		utils.Unmarshal(data[10+12*curLink:10+12*(curLink+1)], internalBodyPointer)
@@ -65,6 +73,17 @@ func (lob *LOB) ParseRoot(data []byte) {
 	}
 	root.InternalPointers = internalPointers
 	lob.Root = root
+}
+
+func (lob *LOB) ParseSmallRoot(data []byte) {
+	var smallroot *LOBSmallRoot = new(LOBSmallRoot)
+	utils.Unmarshal(data, smallroot)
+
+	lob.SmallRoot = smallroot
+
+	lob.Data = make([]byte, lob.SmallRoot.Length)
+	copy(lob.Data, data[4:4+lob.SmallRoot.Length])
+
 }
 
 func (lob *LOB) ParseInternal(data []byte) {
@@ -94,26 +113,29 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 			}
 		}
 
-	} else if lob.Type == 3 && lob.Id == uint64(textTimestamp) {
+	} else if lob.Type == 3 && lob.Id == uint64(textTimestamp) || lob.Type == 0 && lob.Id == uint64(textTimestamp) {
 		dataParts = append(dataParts, lob.Data)
 	} else if lob.Type == 5 { // type 5
+		var lobPage Page
+		var internalLobPages Pages
 		for _, internalLob := range lob.Root.InternalPointers { //internal lob type 2 or type 3
 
 			if parentPageId == internalLob.PageId { //cyclic reference protection
 				continue
 			}
 
-			var lobPage Page
-
-			internalLobPages := lobPages.GetPages(internalLob.PageId)
+			internalLobPages = lobPages.GetPages(internalLob.PageId)
 			if len(internalLobPages) == 0 {
-				msg := "Lob does not have pages."
-				mslogger.Mslogger.Warning(msg)
-				continue
-			} else {
-				lobPage = internalLobPages[0]
+				internalLobPages = textLobPages.GetPages(internalLob.PageId)
+
 			}
 
+			if len(internalLobPages) == 0 {
+				msg := "Lob or Text does not have pages."
+				mslogger.Mslogger.Warning(msg)
+				continue
+			}
+			lobPage = internalLobPages[0]
 			if lobPage.Header.PageId == 0 { // lob Pages does not contains thiss page id
 				lobPage = textLobPages.GetFirstPage(internalLob.PageId)
 			}
