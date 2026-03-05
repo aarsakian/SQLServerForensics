@@ -5,6 +5,7 @@ import (
 	LDF "MSSQLParser/ldf"
 	"MSSQLParser/logger"
 	"errors"
+	"slices"
 
 	"MSSQLParser/utils"
 	"bytes"
@@ -424,6 +425,12 @@ func (page *Page) parseLOB(data []byte) {
 			lob.ParseRoot(data[slot.Offset+14 : slot.Offset+lob.Length])
 		case 2: //internal
 			lob.ParseInternal(data[slot.Offset+14 : slot.Offset+lob.Length])
+		case 0: //small root
+			if lob.Length > 0 {
+				lob.ParseSmallRoot(data[slot.Offset+14 : slot.Offset+lob.Length])
+
+			}
+
 		}
 		lobs = append(lobs, *lob)
 	}
@@ -486,7 +493,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		case "Primary Record":
 			actualDataRowSize = uint16(dataRow.Parse(data[slot.Offset:slot.Offset+allocatedDataRowSize],
 				int(slot.Offset)+offset, page.Header.ObjectId))
-
+			dataRow.SlotIdx = slotnum
 			page.DataRows = append(page.DataRows, *dataRow)
 
 			page.Slots[slotnum].ActualDataRowSize = actualDataRowSize
@@ -504,6 +511,13 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 	if carve {
 		page.CarveData(data, offset)
 	}
+
+	slices.SortFunc(page.DataRows, func(datarow1, datarow2 datac.DataRow) int {
+		return page.Slots[datarow1.SlotIdx].Order - page.Slots[datarow2.SlotIdx].Order
+	})
+	slices.SortFunc(page.Slots, func(slot1, slot2 Slot) int {
+		return slot1.Order - slot2.Order
+	})
 }
 
 func (pagesPerID PagesPerId[K]) GetAllPages() Pages {
