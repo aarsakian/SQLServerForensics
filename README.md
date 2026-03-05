@@ -94,6 +94,9 @@ Usage instructions have been grouped so as to help the user.
  -filenames string
         select mdf files to filter use comma for each file (to be used with evidence)
 
+ -sourcedir string 
+      process all mdf and ldf files found in source directory
+      
 ### Processing options 
  
  
