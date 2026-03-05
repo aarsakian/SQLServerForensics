@@ -78,6 +78,10 @@ func (image Image) GetFilename() string {
 	return fmt.Sprintf("%s_%d.blob", image.Name, image.Id)
 }
 
+func (lsn LSN) IsZeroed() bool {
+	return lsn.P1 == 0 && lsn.P2 == 0 && lsn.P3 == 0
+}
+
 func (a LSN) IsGreaterEqual(b LSN) bool {
 	if a.P1 != b.P1 {
 		return a.P1 > b.P1
