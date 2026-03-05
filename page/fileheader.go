@@ -61,6 +61,10 @@ func (fileHeader *FileHeader) Parse(datarow datac.DataRow) error {
 	if structType.Elem().Kind() != reflect.Struct {
 		return errors.New("must be a struct")
 	}
+
+	if datarow.VarLenCols == nil {
+		return errors.New("no var length cols found")
+	}
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
 		field := structValPtr.Elem().Field(i) //StructField type
 		if i >= len(*datarow.VarLenCols) {
