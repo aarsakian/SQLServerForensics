@@ -4,6 +4,7 @@ import (
 	LDF "MSSQLParser/ldf"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -44,6 +45,17 @@ func (logdb *LogDB) ProcessLDF(lname string, carve bool) (int, error) {
 	return recordsProcessed, nil
 }
 
+func (logdb LogDB) GetRecords() LDF.Records {
+	var records LDF.Records
+	for _, vlf := range *logdb.VLFs {
+
+		for _, block := range vlf.Blocks {
+			records = append(records, block.Records...)
+		}
+	}
+	return records
+}
+
 func (logdb LogDB) ShowLDF(filterloptype string) {
 	for _, vlf := range *logdb.VLFs {
 		vlf.ShowInfo(filterloptype)
@@ -74,4 +86,14 @@ func (logdb LogDB) ShowPagesLDF(pagesId []uint32) {
 
 func (logdb LogDB) GetBindingID() string {
 	return utils.StringifyGUID(logdb.LogPage.FileHeader.BindingID[:])
+}
+
+func (logdb LogDB) GetMinLSN() (utils.LSN, error) {
+	records := logdb.GetRecords()
+	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
+	if lop_end_records == nil {
+		return utils.LSN{}, errors.New("no LOP_END_CKPT found")
+	} else {
+		return lop_end_records[len(lop_end_records)-1].Lop_End_CKPT.MinLSN, nil
+	}
 }
