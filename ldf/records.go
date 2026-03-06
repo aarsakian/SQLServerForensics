@@ -188,6 +188,14 @@ func (record Record) WalkInfoBackwards(loptype string) {
 	}
 }
 
+func (record *Record) UpdateCarveStatus(minLSN utils.LSN) {
+	if record.HasGreaterEqualLSN(minLSN) {
+		record.IsActive = true
+	} else { // only when asked for carve
+		record.IsActive = true
+	}
+}
+
 func (record Record) WalkInfoForward(loptype string) {
 	for record.NextRecord != nil {
 		fmt.Printf(" ->  \t")
@@ -274,11 +282,7 @@ func (records Records) DetermineMinLSN() utils.LSN {
 
 func (records Records) UpdateCarveStatus(minLSN utils.LSN) {
 	for idx := range records {
-		if records[idx].HasGreaterEqualLSN(minLSN) {
-			records[idx].IsActive = true
-		} else { // only when asked for carve
-			records[idx].IsActive = true
-		}
+		records[idx].UpdateCarveStatus(minLSN)
 
 	}
 }
