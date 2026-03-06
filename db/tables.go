@@ -532,7 +532,7 @@ func (table *Table) setMetadataBlobs(sysobjvalues []SysObjValues) {
 
 	for _, sysobjvalue := range sysobjvalues {
 		// metadata fragment
-		if sysobjvalue.Valclass == 2 {
+		if sysobjvalue.Valclass == 2 && int(sysobjvalue.Subobjid-1) < len(table.Schema) {
 
 			table.Schema[sysobjvalue.Subobjid-1].Computed =
 				&Computed{Definition: string(sysobjvalue.Imageval[:])}
