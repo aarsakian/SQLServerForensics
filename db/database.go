@@ -7,7 +7,6 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -37,7 +36,7 @@ type Database struct {
 	metadataBlobs       MetadataBlobs
 	indexesInfo         IndexesInfo
 	sysfiles            SysFiles //info about files of db mdf, ldf
-	minLSN              utils.LSN
+	MinLSN              utils.LSN
 }
 
 type SystemTable interface {
@@ -141,6 +140,7 @@ func (db *Database) ProcessMDF(selectedPages []int, fromPage int, toPage int, ca
 		return 0, err
 	}
 	defer file.Close()
+	fmt.Printf("Processing mdf file %s\n", db.Fname)
 	processesPages, _, err = db.ProcessPages(file, selectedPages, fromPage, toPage, carve)
 	return processesPages, err
 }
@@ -202,7 +202,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 
 		if db.Name == "" && page_.Boot != nil {
 			db.Name = page_.Boot.GetDBName()
-			db.minLSN = page_.Boot.Dbi_checkptLSN
+			db.MinLSN = page_.Boot.Dbi_checkptLSN
 		}
 
 		allocUnitID := page_.Header.GetMetadataAllocUnitId()
@@ -428,37 +428,35 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 }
 
-func (db Database) ConfirmMinLSN(records LDF.Records) (bool, error) {
-	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
-	if lop_end_records == nil {
-		return false, errors.New("no LOP_END_CKPT found")
-	} else {
-		return db.minLSN.Equals(lop_end_records[len(lop_end_records)-1].Lop_End_CKPT.MinLSN), nil
+func (db Database) GetLogRecords() LDF.Records {
+	return db.LogDB.GetRecords()
+}
+
+func (db Database) ConfirmMinLSN() (bool, error) {
+	minLSN, err := db.LogDB.GetMinLSN()
+	if err != nil {
+		return false, err
 	}
-
+	return db.MinLSN.Equals(minLSN), nil
 }
 
-func (db Database) FindPageChanges() {
+func (db Database) IsCheckPointLSNValid() bool {
+	ok, err := db.ConfirmMinLSN()
+	if err == nil {
+		return ok
+	} else {
+		return false
+	}
 }
 
-func (db *Database) AddLogRecords(carve bool) {
-	var records LDF.Records
+func (db *Database) AddLogRecords() {
+
 	db.LogDB.LogRecordsMap = make(LDF.RecordsMap)
 
-	for _, vlf := range *db.LogDB.VLFs {
-
-		for _, block := range vlf.Blocks {
-			records = append(records, block.Records...)
-		}
-	}
-
 	//cross validate with records
-	ok, err := db.ConfirmMinLSN(records)
-	if err == nil && ok {
-		minLSN := records.DetermineMinLSN()
-		records.UpdateCarveStatus(minLSN)
-	}
-	for _, record := range records {
+
+	for _, record := range db.LogDB.GetRecords() {
+		record.UpdateCarveStatus(db.MinLSN)
 		db.LogDB.LogRecordsMap[record.CurrentLSN] = record
 	}
 
