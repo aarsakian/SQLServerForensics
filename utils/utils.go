@@ -44,12 +44,6 @@ type RowId struct {
 	SlotNumber uint16
 }
 
-type LSN struct {
-	P1 uint32
-	P2 uint32
-	P3 uint16 // record id within log block
-}
-
 type TransactionID struct {
 	P1 uint16
 	P2 uint32
@@ -78,20 +72,6 @@ func (image Image) GetFilename() string {
 	return fmt.Sprintf("%s_%d.blob", image.Name, image.Id)
 }
 
-func (lsn LSN) IsZeroed() bool {
-	return lsn.P1 == 0 && lsn.P2 == 0 && lsn.P3 == 0
-}
-
-func (a LSN) IsGreaterEqual(b LSN) bool {
-	if a.P1 != b.P1 {
-		return a.P1 > b.P1
-	}
-	if a.P2 != b.P2 {
-		return a.P2 > b.P2
-	}
-	return a.P3 >= b.P3
-}
-
 func RemoveID(file1, file2 string) int {
 	re := regexp.MustCompile(`\[\d+\]`)
 	file1_NOID := re.ReplaceAllString(file1, "")
@@ -106,39 +86,11 @@ func RemoveID(file1, file2 string) int {
 
 }
 
-func (lsn LSN) IsLess(smallerLSN LSN) bool {
-	if lsn.P1 < smallerLSN.P1 {
-		return true
-	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 < smallerLSN.P2 {
-		return true
-	} else if lsn.P1 == smallerLSN.P1 && lsn.P2 == smallerLSN.P2 && lsn.P3 < smallerLSN.P3 {
-		return true
-	} else {
-		return false
-	}
-}
-
-func (lsn LSN) Equals(otherLSN LSN) bool {
-	return lsn.P1 == otherLSN.P1 && lsn.P2 == otherLSN.P2 && lsn.P3 == otherLSN.P3
-}
-
-func (lsn *LSN) Increment() {
-	lsn.P3 += 1
-}
-
 func (rowid RowId) ToStr() string {
 	fileID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.FileId), 10), 4)
 	pageID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.PageId), 10), 8)
 	slotID := fillPrefixWithZeros(strconv.FormatUint(uint64(rowid.SlotNumber), 10), 4)
 	return fmt.Sprintf("%v:%v:%v", fileID, pageID, slotID)
-}
-
-func (lsn LSN) ToStr() string {
-
-	p1 := fillPrefixWithZeros(strconv.FormatUint(uint64(lsn.P1), 16), 8)
-	p2 := fillPrefixWithZeros(strconv.FormatUint(uint64(lsn.P2), 16), 8)
-	p3 := fillPrefixWithZeros(strconv.FormatUint(uint64(lsn.P3), 16), 4)
-	return fmt.Sprintf("%v:%v:%v", p1, p2, p3)
 }
 
 func (transactionID TransactionID) ToStr() string {
