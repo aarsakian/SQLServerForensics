@@ -21,6 +21,22 @@ the data files until the corresponding log records are hardened in the transacti
 Current LSN in a VLF marks the end of transaction logfile
 MinLSN is the log sequence number of the oldest log record that is required for a successful database-wide rollback.
 SIMPLE recovery model, the active part of transaction log starts with VLF, which contains
+ MinLSN = the earliest LSN required for recovery, which may be:
+
+    the checkpoint begin LSN
+
+    OR the oldest active transaction LSN
+
+    OR replication/truncation markers
+
+MinLSN=min⁡(OldestActiveTransactionLSN, CheckpointBeginLSN)
+MinLSN == dbi_checkptLSN in the database boot page
+No active transactions
+
+Checkpoint completed
+dbi_checkptLSN > MinLSN (open transactions that started after the checkpoint began)
+dbi_checkptLSN < MinLSN (Crash)
+All dirty pages flushed
 the oldest LSN of the oldest active transaction or the last CHECKPOINT
 */
 

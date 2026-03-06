@@ -202,6 +202,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 
 		if db.Name == "" && page_.Boot != nil {
 			db.Name = page_.Boot.GetDBName()
+			//the LSN of the beginning of the last successful checkpoint
 			db.MinLSN = page_.Boot.Dbi_checkptLSN
 		}
 
