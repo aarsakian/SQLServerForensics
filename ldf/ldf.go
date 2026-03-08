@@ -35,7 +35,11 @@ No active transactions
 
 Checkpoint completed
 dbi_checkptLSN > MinLSN (open transactions that started after the checkpoint began)
-dbi_checkptLSN < MinLSN (Crash)
+The oldest active transaction began before the checkpoint.
+MinLSN = OldestActiveXactLSN
+→ this is earlier than Dbi_checkptLSN.
+
+
 All dirty pages flushed
 the oldest LSN of the oldest active transaction or the last CHECKPOINT
 */
