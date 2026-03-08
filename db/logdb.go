@@ -4,7 +4,6 @@ import (
 	LDF "MSSQLParser/ldf"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
-	"errors"
 	"fmt"
 	"os"
 )
@@ -88,12 +87,29 @@ func (logdb LogDB) GetBindingID() string {
 	return utils.StringifyGUID(logdb.LogPage.FileHeader.BindingID[:])
 }
 
-func (logdb LogDB) GetMinLSN() (utils.LSN, error) {
+func (logdb LogDB) GetDbiCheckptLSN() (utils.LSN, error) {
 	records := logdb.GetRecords()
-	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
-	if lop_end_records == nil {
-		return utils.LSN{}, errors.New("no LOP_END_CKPT found")
+	beginLSN, err2 := records.DetermineBeginLSNOfCheckpoint()
+	if err2 != nil {
+		return utils.LSN{}, err2
 	} else {
-		return lop_end_records[len(lop_end_records)-1].Lop_End_CKPT.MinLSN, nil
+		return beginLSN, nil
 	}
+
+}
+
+func (logdb LogDB) GetMinLSN(beginLSN utils.LSN) (utils.LSN, error) {
+	records := logdb.GetRecords()
+	oldestActiveLSN, err1 := records.DetermineLastActiveTransactionLSN()
+
+	if err1 != nil {
+		return beginLSN, err1
+	} else {
+		if oldestActiveLSN.IsGreaterEqual(beginLSN) {
+			return beginLSN, nil
+		} else {
+			return oldestActiveLSN, nil
+		}
+	}
+
 }
