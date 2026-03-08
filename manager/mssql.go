@@ -4,7 +4,6 @@ import (
 	"MSSQLParser/channels"
 	"MSSQLParser/db"
 	"MSSQLParser/exporter"
-	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
 	"context"
@@ -109,6 +108,8 @@ func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
 func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 	selectedPages []int, fromPage int, toPage int, carve bool) int {
 
+	var dbkey string
+
 	processedPages := 0
 	// ensure one to one match
 	PM.Databases = make(map[string]db.Database)
@@ -137,7 +138,9 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		}
 		dir, _ := filepath.Split(inputFile)
-		sum := md5.Sum([]byte(dir))
+
+		keyb := append([]byte(dir), database.DbiCheckptLSN.ToBytes()...)
+		sum := md5.Sum(keyb)
 
 		key := fmt.Sprintf("%s_%s", database.GetBindingID(), hex.EncodeToString(sum[:]))
 
@@ -149,33 +152,51 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		logdb := new(db.LogDB)
 		ldfRecordsProcessed, err := logdb.ProcessLDF(inputFile, carve)
-		fmt.Printf("processed %d log records from ldf file %s \n", ldfRecordsProcessed, inputFile)
-		if err == nil {
-			sum := md5.Sum([]byte(dir))
+		if err != nil {
+			fmt.Printf("skipping processing of ldf file %s due to error %s \n", inputFile, err)
+			continue
 
-			key := fmt.Sprintf("%s_%s", logdb.GetBindingID(), hex.EncodeToString(sum[:]))
-			database, ok := PM.Databases[key]
+		} else {
+			fmt.Printf("processed %d log records from ldf file %s \n", ldfRecordsProcessed, inputFile)
 
-			if ok {
-				database.LogDB = logdb
-				database.Lname = inputFile
+		}
 
-			} else {
-				database = db.Database{Lname: inputFile, LogDB: logdb}
+		calculatedDbiCheckptLsn, err2 := logdb.GetDbiCheckptLSN()
+		if err2 != nil {
+			fmt.Printf("skipping processing of ldf file %s due to error getting calculated DbiCheckpt LSN %s \n", inputFile, err2)
+			continue
+		}
 
-			}
+		minLsn, _ := logdb.GetMinLSN(calculatedDbiCheckptLsn)
 
-			if database.NofPages == 0 {
-				logger.Mslogger.Warning(fmt.Sprintf("no database for log file %s", database.Lname))
-				continue
-			}
-			fmt.Printf("Updating log records - Correlating log records with database.\n")
-			database.AddLogRecords(carve)
+		keyb := append([]byte(dir), calculatedDbiCheckptLsn.ToBytes()...)
+		sum := md5.Sum(keyb)
 
+		dbkey = fmt.Sprintf("%s_%s", logdb.GetBindingID(), hex.EncodeToString(sum[:]))
+
+		database, ok := PM.Databases[dbkey]
+
+		//located db sharing the same binding id and directory with the ldf file
+		if ok {
+
+			database.UpdateState(minLsn)
+
+			database.LogDB = logdb
+			database.Lname = inputFile
+
+			//need to confirm that the checkpoint LSN is valid before adding log records to database and correlating with pages
+
+			database.AddLogRecords()
 			database.CorrelateLDFToPages()
 
-			PM.Databases[key] = database
+			PM.Databases[dbkey] = database
+
+		} else {
+			fmt.Printf(`skipping processing of ldf LSN %s file %s 
+					due to no matching mdf LSN %s file with same binding id and directory \n`,
+				minLsn.ToStr(), inputFile, database.DbiCheckptLSN.ToStr())
 		}
+
 	}
 
 	return processedPages
