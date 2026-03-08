@@ -36,7 +36,9 @@ type Database struct {
 	metadataBlobs       MetadataBlobs
 	indexesInfo         IndexesInfo
 	sysfiles            SysFiles //info about files of db mdf, ldf
+	DbiCheckptLSN       utils.LSN
 	MinLSN              utils.LSN
+	State               string
 }
 
 type SystemTable interface {
@@ -203,7 +205,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 		if db.Name == "" && page_.Boot != nil {
 			db.Name = page_.Boot.GetDBName()
 			//the LSN of the beginning of the last successful checkpoint
-			db.MinLSN = page_.Boot.Dbi_checkptLSN
+			db.DbiCheckptLSN = page_.Boot.Dbi_checkptLSN
 		}
 
 		allocUnitID := page_.Header.GetMetadataAllocUnitId()
@@ -433,21 +435,20 @@ func (db Database) GetLogRecords() LDF.Records {
 	return db.LogDB.GetRecords()
 }
 
-func (db Database) ConfirmMinLSN() (bool, error) {
-	minLSN, err := db.LogDB.GetMinLSN()
-	if err != nil {
-		return false, err
-	}
-	return db.MinLSN.Equals(minLSN), nil
+func (db Database) GetMinLSN() (utils.LSN, error) {
+	return db.LogDB.GetMinLSN(db.DbiCheckptLSN)
 }
 
-func (db Database) IsCheckPointLSNValid() bool {
-	ok, err := db.ConfirmMinLSN()
-	if err == nil {
-		return ok
-	} else {
-		return false
+func (db *Database) UpdateState(minLsn utils.LSN) {
+	if minLsn.IsLess(db.DbiCheckptLSN) {
+		fmt.Printf(`Database has open transactions that
+				 started after the checkpoint began minLSN %s checkpoint begin LSN %s\n`,
+			minLsn.ToStr(), db.DbiCheckptLSN.ToStr())
+
+		db.State = "dirty"
+
 	}
+
 }
 
 func (db *Database) AddLogRecords() {
@@ -457,7 +458,7 @@ func (db *Database) AddLogRecords() {
 	//cross validate with records
 
 	for _, record := range db.LogDB.GetRecords() {
-		record.UpdateCarveStatus(db.MinLSN)
+		record.UpdateActiveStatus(db.MinLSN)
 		db.LogDB.LogRecordsMap[record.CurrentLSN] = record
 	}
 
