@@ -188,7 +188,7 @@ func (record Record) WalkInfoBackwards(loptype string) {
 	}
 }
 
-func (record *Record) UpdateCarveStatus(minLSN utils.LSN) {
+func (record *Record) UpdateActiveStatus(minLSN utils.LSN) {
 	if record.HasGreaterEqualLSN(minLSN) {
 		record.IsActive = true
 	} else { // only when asked for carve
@@ -280,9 +280,63 @@ func (records Records) DetermineMinLSN() utils.LSN {
 	return lop_end_records[recordId].Lop_End_CKPT.MinLSN
 }
 
-func (records Records) UpdateCarveStatus(minLSN utils.LSN) {
+func (records Records) DetermineLastActiveTransactionLSN() (utils.LSN, error) {
+	oldestActiveLSN := utils.LSN{}
+	activeRecords := make(map[string]utils.LSN)
+	lop_begin_records := records.FilterByOperation("LOP_BEGIN_XACT")
+	lop_commit_xact_records := records.FilterByOperation("LOP_COMMIT_XACT")
+	lop_abort_xact_records := records.FilterByOperation("LOP_ABORT_XACT")
+
+	for _, record := range lop_begin_records {
+		activeRecords[record.TransactionID.ToStr()] = record.CurrentLSN
+	}
+	for _, record := range lop_commit_xact_records {
+		delete(activeRecords, record.TransactionID.ToStr())
+	}
+	for _, record := range lop_abort_xact_records {
+		delete(activeRecords, record.TransactionID.ToStr())
+	}
+
+	if len(activeRecords) == 0 {
+		return oldestActiveLSN, fmt.Errorf("no active transactions found")
+	} else {
+		for _, lsn := range activeRecords {
+			oldestActiveLSN = lsn
+			break
+		}
+	}
+	return oldestActiveLSN, nil
+}
+
+func (records Records) UpdateActiveStatus(minLSN utils.LSN) {
 	for idx := range records {
-		records[idx].UpdateCarveStatus(minLSN)
+		records[idx].UpdateActiveStatus(minLSN)
 
 	}
+}
+
+func (records Records) LocateStoredMinLSN() (utils.LSN, error) {
+	lop_end_records := records.FilterByOperation("LOP_END_CKPT")
+	if lop_end_records == nil {
+		return utils.LSN{}, errors.New("no LOP_END_CKPT found")
+	} else {
+		return lop_end_records[len(lop_end_records)-1].Lop_End_CKPT.MinLSN, nil
+	}
+}
+
+func (records Records) DetermineBeginLSNOfCheckpoint() (utils.LSN, error) {
+	lop_begin_ckpt_records := records.FilterByOperation("LOP_BEGIN_CKPT")
+	if len(lop_begin_ckpt_records) == 0 {
+		return utils.LSN{}, errors.New("no LOP_BEGIN_CKPT found")
+	}
+
+	curentLSN := lop_begin_ckpt_records[0].CurrentLSN
+	for _, record := range lop_begin_ckpt_records[1:] {
+		if record.CurrentLSN.IsGreaterEqual(curentLSN) {
+
+			curentLSN = record.CurrentLSN
+		}
+	}
+
+	return curentLSN, nil
 }
