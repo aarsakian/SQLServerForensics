@@ -113,3 +113,10 @@ func (logdb LogDB) GetMinLSN(beginLSN utils.LSN) (utils.LSN, error) {
 	}
 
 }
+
+func (logdb LogDB) LocateDirtyPages(lastBeginLSN utils.LSN) map[uint32]utils.LSN {
+
+	records := logdb.GetRecords()
+	return records.LocateDirtyPages(lastBeginLSN)
+
+}
