@@ -330,13 +330,46 @@ func (records Records) DetermineBeginLSNOfCheckpoint() (utils.LSN, error) {
 		return utils.LSN{}, errors.New("no LOP_BEGIN_CKPT found")
 	}
 
-	curentLSN := lop_begin_ckpt_records[0].CurrentLSN
-	for _, record := range lop_begin_ckpt_records[1:] {
-		if record.CurrentLSN.IsGreaterEqual(curentLSN) {
+	currentLSN := lop_begin_ckpt_records[0].CurrentLSN
 
-			curentLSN = record.CurrentLSN
+	for _, record := range lop_begin_ckpt_records[1:] {
+		if record.CurrentLSN.IsGreaterEqual(currentLSN) {
+
+			currentLSN = record.CurrentLSN
 		}
 	}
 
-	return curentLSN, nil
+	return currentLSN, nil
+}
+
+func (records Records) LocateDirtyPages(lastBeginLSN utils.LSN) map[uint32]utils.LSN {
+	var dirtyPagesMap = make(map[uint32]utils.LSN)
+
+	for _, record := range records {
+		if record.CurrentLSN.IsGreaterEqual(lastBeginLSN) {
+
+			if record.Lop_Insert_Delete != nil {
+				lastLSN, ok := dirtyPagesMap[record.Lop_Insert_Delete.RowId.PageId]
+				if ok {
+					if record.CurrentLSN.IsLess(lastLSN) {
+						dirtyPagesMap[record.Lop_Insert_Delete.RowId.PageId] = record.CurrentLSN
+					}
+				} else {
+					dirtyPagesMap[record.Lop_Insert_Delete.RowId.PageId] = record.CurrentLSN
+				}
+
+			} else if record.Generic_LOP != nil {
+				lastLSN, ok := dirtyPagesMap[record.Generic_LOP.RowId.PageId]
+				if ok {
+					if record.CurrentLSN.IsLess(lastLSN) {
+						dirtyPagesMap[record.Generic_LOP.RowId.PageId] = record.CurrentLSN
+					}
+				} else {
+					dirtyPagesMap[record.Generic_LOP.RowId.PageId] = record.CurrentLSN
+				}
+			}
+
+		}
+	}
+	return dirtyPagesMap
 }
