@@ -131,12 +131,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		database.ProcessSystemTables()
 
 		processedPages += totalProcessedPages
-		requestedDB, ok := PM.Databases[database.GetBindingID()]
-		if ok {
-			logdb := requestedDB.LogDB
-			database.LogDB = logdb
 
-		}
 		dir, _ := filepath.Split(inputFile)
 
 		keyb := append([]byte(dir), database.DbiCheckptLSN.ToBytes()...)
@@ -192,9 +187,10 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 			PM.Databases[dbkey] = database
 
 		} else {
-			fmt.Printf(`skipping processing of ldf LSN %s file %s 
-					due to no matching mdf LSN %s file with same binding id and directory \n`,
-				minLsn.ToStr(), inputFile, database.DbiCheckptLSN.ToStr())
+			fmt.Printf(`skipping processing of ldf last Begin ckpt LSN %s file %s 
+					due to no matching mdf LSN file with same binding id and directory \n`,
+				calculatedDbiCheckptLsn.ToStr(), inputFile)
+
 		}
 
 	}
