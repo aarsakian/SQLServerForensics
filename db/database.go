@@ -38,6 +38,7 @@ type Database struct {
 	sysfiles            SysFiles //info about files of db mdf, ldf
 	DbiCheckptLSN       utils.LSN
 	MinLSN              utils.LSN
+	DirtyPages          map[uint32]utils.LSN
 	State               string
 }
 
@@ -431,12 +432,17 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 }
 
-func (db Database) GetLogRecords() LDF.Records {
+func (db *Database) GetLogRecords() LDF.Records {
 	return db.LogDB.GetRecords()
 }
 
-func (db Database) GetMinLSN() (utils.LSN, error) {
-	return db.LogDB.GetMinLSN(db.DbiCheckptLSN)
+func (db *Database) AddMinLSN() error {
+	minLSN, err := db.LogDB.GetMinLSN(db.DbiCheckptLSN)
+	if err != nil {
+		return err
+	}
+	db.MinLSN = minLSN
+	return nil
 }
 
 func (db *Database) UpdateState(minLsn utils.LSN) {
@@ -461,6 +467,11 @@ func (db *Database) AddLogRecords() {
 		record.UpdateActiveStatus(db.MinLSN)
 		db.LogDB.LogRecordsMap[record.CurrentLSN] = record
 	}
+
+}
+
+func (db *Database) LocateDirtyPages() {
+	db.DirtyPages = db.LogDB.LocateDirtyPages(db.DbiCheckptLSN)
 
 }
 
