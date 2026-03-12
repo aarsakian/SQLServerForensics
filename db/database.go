@@ -205,7 +205,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 
 		if db.Name == "" && page_.Boot != nil {
 			db.Name = page_.Boot.GetDBName()
-			//the LSN of the beginning of the last successful checkpoint
+			//the minimum LSN of flushed pages (dirty)
 			db.DbiCheckptLSN = page_.Boot.Dbi_checkptLSN
 		}
 
@@ -436,16 +436,8 @@ func (db *Database) GetLogRecords() LDF.Records {
 	return db.LogDB.GetRecords()
 }
 
-func (db *Database) AddMinLSN() error {
-	minLSN, err := db.LogDB.GetMinLSN(db.DbiCheckptLSN)
-	if err != nil {
-		return err
-	}
-	db.MinLSN = minLSN
-	return nil
-}
-
 func (db *Database) UpdateState(minLsn utils.LSN) {
+	db.MinLSN = minLsn
 	if minLsn.IsLess(db.DbiCheckptLSN) {
 		fmt.Printf(`Database has open transactions that
 				 started after the checkpoint began minLSN %s checkpoint begin LSN %s\n`,
@@ -480,7 +472,7 @@ func (db Database) GetLDFName() string {
 }
 
 func (db Database) CorrelateLDFToPages() {
-
+	//correlate using LSN
 	node := db.PagesPerAllocUnitID.GetHeadNode()
 	for node != nil {
 		for idx := range node.Pages {
