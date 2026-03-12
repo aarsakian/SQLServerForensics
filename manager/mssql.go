@@ -187,9 +187,20 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 			PM.Databases[dbkey] = database
 
 		} else {
-			fmt.Printf(`skipping processing of ldf last Begin ckpt LSN %s file %s 
-					due to no matching mdf LSN file with same binding id and directory \n`,
-				calculatedDbiCheckptLsn.ToStr(), inputFile)
+			for _, database := range PM.Databases {
+				//already matched skip
+				if database.Lname != "" {
+					continue
+				}
+				//same database
+				dbdir, _ := filepath.Split(database.Fname)
+				if database.GetBindingID() == logdb.GetBindingID() && dir == dbdir {
+					logdb.LocateDirtyPages(database.DbiCheckptLSN)
+					fmt.Printf(`cannot locate last completed checkpoint LSN %s in log file %s for database %s \n`,
+						database.DbiCheckptLSN.ToStr(), inputFile, database.Name)
+				}
+
+			}
 
 		}
 
