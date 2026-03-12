@@ -11,7 +11,8 @@ import (
 	"sync"
 )
 
-func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, folder string) {
+func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string,
+	folder string, headers []string) {
 	defer wg.Done()
 	fpath := filepath.Join(folder, fmt.Sprintf("%s.csv", filename))
 	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
@@ -25,6 +26,8 @@ func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string, 
 	msg := fmt.Sprintf("Exporting %d rows from %s", len(records), filename)
 	fmt.Printf(msg + " ")
 	mslogger.Mslogger.Info(msg)
+
+	w.Write(headers)
 
 	for record := range records {
 		w.Write(record.Vals)
