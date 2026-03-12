@@ -228,7 +228,8 @@ func (mssqlparser_commsServer *Server) ExportDatabase(askedDB *mssqlparser_comms
 			if err = stream.Send(&mssqlparser_comms.Message{Content: msg}); err != nil {
 				break
 			}
-			go exporter.WriteCSV(wg, records, table.Name, askedDB.ExportPath)
+			headers := table.GetHeader(colnames)
+			go exporter.WriteCSV(wg, records, table.Name, askedDB.ExportPath, headers)
 			wg.Wait()
 		}
 
@@ -262,7 +263,8 @@ func (mssqlparser_commsServer *Server) ExportTable(ctx context.Context, askedTab
 			//if err = stream.Send(&mssqlparser_comms.Message{Content: "exporting"}); err != nil {
 			//	break
 			//}
-			go exporter.WriteCSV(wg, records, table.Name, "")
+			headers := table.GetHeader(colnames)
+			go exporter.WriteCSV(wg, records, table.Name, "", headers)
 			wg.Wait()
 		}
 
