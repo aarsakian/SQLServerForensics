@@ -52,7 +52,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
 		records := make(chan utils.Record, 1000)
-
+		headers := table.GetHeader(colnames)
 		go table.GetRecords(wg, selectedTableRow, colnames, records)
 
 		if exp.Image {
@@ -64,9 +64,14 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 		}
 
-		if exp.Format == "csv" {
+		switch exp.Format {
+		case "csv":
 			wg.Add(1)
-			go WriteCSV(wg, records, table.Name, expPath)
+			go WriteCSV(wg, records, table.Name, expPath, headers)
+			wg.Wait()
+		case "html":
+			wg.Add(1)
+			go WriteHTML(wg, records, table.Name, expPath, headers)
 			wg.Wait()
 		}
 	}
