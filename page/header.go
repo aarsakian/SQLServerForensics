@@ -115,7 +115,7 @@ func (header Header) sanityCheck() bool {
 
 	if header.IndexId > 255 {
 		mslogger.Mslogger.Warning("Index Id > 255")
-		return false
+
 	}
 
 	if header.SlotCnt > 4048 { //8192-96/2
