@@ -439,8 +439,7 @@ func (db *Database) GetLogRecords() LDF.Records {
 func (db *Database) UpdateState(minLsn utils.LSN) {
 	db.MinLSN = minLsn
 	if minLsn.IsLess(db.DbiCheckptLSN) {
-		fmt.Printf(`Database has open transactions that
-				 started after the checkpoint began minLSN %s checkpoint begin LSN %s\n`,
+		fmt.Printf("Database has open transactions that started after the checkpoint began minLSN %s checkpoint begin LSN %s\n",
 			minLsn.ToStr(), db.DbiCheckptLSN.ToStr())
 
 		db.State = "dirty"
