@@ -497,15 +497,6 @@ func (table *Table) addLogChanges(records LDF.Records) {
 
 }
 
-func (table Table) getHeader() utils.Record {
-	var names []string
-	for _, c := range table.Schema {
-		names = append(names, c.Name)
-
-	}
-	return utils.Record{Vals: names}
-}
-
 func (table *Table) addColumn(column Column) {
 
 	table.Schema = append(table.Schema, column)
@@ -723,24 +714,27 @@ func (table Table) printAllocationSorted() {
 
 }
 
-func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames []string, records chan<- utils.Record) {
-	defer wg.Done()
+func (table Table) GetHeader(colnames []string) []string {
+	var names []string
+	for _, c := range table.Schema {
 
-	headers := table.getHeader()
-	if len(colnames) == 0 {
-		records <- headers
-	} else {
-		var filteredHeaders []string
-		for _, headername := range headers.Vals {
-			for _, colname := range colnames {
-				if colname != "" && colname != headername {
-					continue
-				}
-				filteredHeaders = append(filteredHeaders, headername)
+		for _, colname := range colnames {
+			if colname != "" && colname != c.Name {
+				continue
 			}
+			names = append(names, c.Name)
 		}
-		records <- utils.Record{Vals: filteredHeaders}
+		if len(colnames) == 0 {
+			names = append(names, c.Name)
+		}
 	}
+	return names
+
+}
+
+func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames []string,
+	records chan<- utils.Record) {
+	defer wg.Done()
 
 	locatedRow := true
 
