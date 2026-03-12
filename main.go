@@ -110,7 +110,7 @@ func main() {
 	selectedTableRows := flag.String("rows", "", "use comma to select rows")
 	userTable := flag.String("usertable", "", "get system table info about user table")
 	exportPath := flag.String("export", "", "export tables to selected path")
-	exportFormat := flag.String("format", "csv", "select format to export (csv)")
+	exportFormat := flag.String("format", "", "select format to export (csv|html)")
 	logactive := flag.Bool("log", false, "log activity")
 	bakactive := flag.Bool("bak", false, "parse bak files found in images")
 	tabletype := flag.String("tabletype", "", "filter tables by type e.g. 'User Table' for user tables 'View' for views")
@@ -147,8 +147,8 @@ func main() {
 		log.Fatalf("invalid sort by lsn value %s allowed values are all|allocunit", *sortByLSN)
 	}
 
-	if *exportFormat != "csv" {
-		log.Fatalf("invalid export format %s currently only csv is supported", *exportFormat)
+	if *exportPath != "" && *exportFormat != "csv" && *exportFormat != "html" {
+		log.Fatalf("invalid export format %s currently only csv and html are supported", *exportFormat)
 	}
 
 	if *walkLSN != "" && *filterlop == "" {
