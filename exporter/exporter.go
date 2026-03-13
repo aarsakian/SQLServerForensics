@@ -63,9 +63,14 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			log.Fatal(err)
 		}
 
-		if err := tmpl.ExecuteTemplate(indexFile, "header", nil); err != nil {
+		if err := tmpl.ExecuteTemplate(indexFile, "header", struct {
+			DatabaseName string
+		}{
+			DatabaseName: databaseName,
+		}); err != nil {
 			log.Fatal(err)
 		}
+
 	}
 
 	for table := range tables {
