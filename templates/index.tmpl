@@ -1,0 +1,55 @@
+{{define "header"}}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database Tables Index</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        h1 { color: #333; text-align: center; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; background-color: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #4CAF50; color: white; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f1f1f1; }
+        a { color: #4CAF50; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .page-numbers { font-family: monospace; font-size: 0.9em; min-width: 300px; }
+        iframe { width: 100%; height: 600px; border: 1px solid #ddd; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Database Tables Index</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Table Name</th>
+                <th>Type</th>
+                <th>Page Numbers</th>
+        <th>Table Link</th>
+        <th>Schema Link</th>
+    </tr>
+    </thead>
+    <tbody>
+{{end}}
+
+{{define "row"}}
+            <tr>
+                <td>{{.Name}}</td>
+                <td>{{.Type}}</td>
+                <td class="page-numbers">
+                    {{range $pageType, $pages := .PageIDsPerType}}
+                        <strong>{{$pageType}}:</strong> {{range $index, $page := $pages}}{{if $index}}, {{end}}{{$page}}{{end}}<br>
+                    {{end}}
+                </td>
+                <td><a href="{{.HTMLPath}}" target="_blank">{{.Name}}.html</a></td>
+                <td><a href="{{.SchemaPath}}" target="_blank">{{.Name}}_schema.html</a></td>
+            </tr>
+{{end}}
+
+{{define "footer"}}
+        </tbody>
+    </table>
+    <iframe name="table-frame" src="" title="Table Content"></iframe>
+</body>
+</html>
+{{end}}
