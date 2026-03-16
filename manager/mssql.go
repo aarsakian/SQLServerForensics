@@ -41,7 +41,8 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 	showTableIndex bool, showPageStats bool, showIndex bool, toTableRow int,
 	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
 	showLDF bool, tabletype string, raw bool, colnames []string,
-	exportFormat string, exportImage bool, exportPath string, sortByLSN string,
+	exportFormat string, exportBlob bool, exportPath string, exportIndex bool,
+	sortByLSN string,
 	walkpageLSN string, walkLSN string) {
 
 	PM.reporter = reporter.Reporter{
@@ -75,7 +76,8 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 		WalkLSN:             walkLSN,
 	}
 
-	PM.exporter = exporter.Exporter{Format: exportFormat, Image: exportImage, Path: exportPath}
+	PM.exporter = exporter.Exporter{Format: exportFormat,
+		Blobs: exportBlob, Path: exportPath, Index: exportIndex}
 
 }
 
