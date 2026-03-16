@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"MSSQLParser/db/tables"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"encoding/csv"
@@ -10,6 +11,59 @@ import (
 	"path/filepath"
 	"sync"
 )
+
+type CSVExporter struct {
+	Filename string
+	Path     string
+}
+
+func (c CSVExporter) writeHeader(headers []string) {
+	fpath := filepath.Join(c.Path, fmt.Sprintf("%s.csv", c.Filename))
+	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
+	}
+	defer file.Close()
+	w := csv.NewWriter(file)
+	w.Write(headers)
+	w.Flush()
+	if err := w.Error(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (c CSVExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
+	headers []string, filename string) {
+	c.writeHeader(headers)
+	defer wg.Done()
+	fpath := filepath.Join(c.Path, fmt.Sprintf("%s.csv", filename))
+	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+
+	if err != nil {
+		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
+	}
+	defer file.Close()
+	w := csv.NewWriter(file)
+
+	msg := fmt.Sprintf("Exporting %d rows from %s", len(records), filename)
+	fmt.Printf(msg + " ")
+	mslogger.Mslogger.Info(msg)
+
+	for record := range records {
+		w.Write(record.Vals)
+	}
+	// Write any buffered data to the underlying writer (standard output).
+	w.Flush()
+
+	if err := w.Error(); err != nil {
+		log.Fatal(err)
+	}
+	//len(records) - header
+	msg = fmt.Sprintf("to %s", fpath)
+	mslogger.Mslogger.Info(msg)
+	fmt.Printf(msg + "\n")
+
+}
 
 func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string,
 	folder string, headers []string) {
@@ -43,4 +97,12 @@ func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string,
 	mslogger.Mslogger.Info(msg)
 	fmt.Printf(msg + "\n")
 
+}
+
+func (c CSVExporter) WriteIndexRecords(wg *sync.WaitGroup, tableName string,
+	indexRecords <-chan utils.Record, index tables.Index) {
+
+}
+
+func (c CSVExporter) WriteSchema(schema []tables.Column, filename string) {
 }
