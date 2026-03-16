@@ -6,13 +6,28 @@
 body { font-family: sans-serif; margin: 20px; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-th { background-color: #f5f5f5; font-weight: bold; }
+th { background-color: #f5f5f5; font-weight: bold; cursor: pointer; user-select: none; }
+th .header-title { display: block; }
+th .header-filter {
+	width: 100%;
+	margin-top: 8px;
+	padding: 6px;
+	box-sizing: border-box;
+	border: 1px solid #bbb;
+	border-radius: 4px;
+	font-size: 12px;
+}
+th[data-sort-direction="asc"]::after { content: " ▲"; }
+th[data-sort-direction="desc"]::after { content: " ▼"; }
 tr:nth-child(even) { background-color: #fafafa; }
 </style>
 </head>
 <body>
 <table>
+<thead>
 <tr>{{ range .Headers }}<th>{{ . }}</th>{{ end }}</tr>
+</thead>
+<tbody>
 {{end}}
 
 {{define "row"}}
@@ -20,7 +35,125 @@ tr:nth-child(even) { background-color: #fafafa; }
 {{end}}
 
 {{define "footer"}}
+</tbody>
 </table>
+<script>
+(() => {
+	const table = document.querySelector("table");
+	if (!table) return;
+
+	const headers = table.querySelectorAll("thead th");
+	const tbody = table.querySelector("tbody");
+	if (!headers.length || !tbody) return;
+
+	const rows = Array.from(tbody.querySelectorAll("tr"));
+
+	const getCellText = (row, columnIndex) =>
+		(row.children[columnIndex]?.textContent || "").trim();
+
+	const updateColumnAutocomplete = (columnIndex, datalistId) => {
+		const values = new Set();
+		rows.forEach((row) => {
+			if (row.style.display === "none") return;
+			const value = getCellText(row, columnIndex);
+			if (value) values.add(value);
+		});
+
+		const datalist = document.getElementById(datalistId);
+		if (!datalist) return;
+		datalist.innerHTML = "";
+
+		Array.from(values)
+			.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
+			.forEach((value) => {
+				const option = document.createElement("option");
+				option.value = value;
+				datalist.appendChild(option);
+			});
+	};
+
+	const applyFilters = () => {
+		const filters = Array.from(headers).map((header) => {
+			const input = header.querySelector(".header-filter");
+			return (input?.value || "").trim().toLowerCase();
+		});
+
+		rows.forEach((row) => {
+			const visible = filters.every((filterValue, columnIndex) => {
+				if (!filterValue) return true;
+				const cellValue = getCellText(row, columnIndex).toLowerCase();
+				return cellValue.includes(filterValue);
+			});
+			row.style.display = visible ? "" : "none";
+		});
+
+		headers.forEach((_, columnIndex) => {
+			updateColumnAutocomplete(columnIndex, `header-filter-options-${columnIndex}`);
+		});
+	};
+
+	headers.forEach((header, columnIndex) => {
+		const title = (header.textContent || "").trim();
+		header.textContent = "";
+
+		const titleSpan = document.createElement("span");
+		titleSpan.className = "header-title";
+		titleSpan.textContent = title;
+		header.appendChild(titleSpan);
+
+		const datalistId = `header-filter-options-${columnIndex}`;
+		const datalist = document.createElement("datalist");
+		datalist.id = datalistId;
+		header.appendChild(datalist);
+
+		const input = document.createElement("input");
+		input.className = "header-filter";
+		input.type = "search";
+		input.placeholder = "Search...";
+		input.setAttribute("list", datalistId);
+		input.addEventListener("click", (event) => event.stopPropagation());
+		input.addEventListener("keydown", (event) => event.stopPropagation());
+		input.addEventListener("input", applyFilters);
+		header.appendChild(input);
+
+		updateColumnAutocomplete(columnIndex, datalistId);
+
+		header.addEventListener("click", () => {
+			const current = header.getAttribute("data-sort-direction");
+			const direction = current === "asc" ? "desc" : "asc";
+
+			headers.forEach((h) => h.removeAttribute("data-sort-direction"));
+			header.setAttribute("data-sort-direction", direction);
+
+			rows.sort((rowA, rowB) => {
+				const textA = getCellText(rowA, columnIndex);
+				const textB = getCellText(rowB, columnIndex);
+
+				const numA = Number(textA);
+				const numB = Number(textB);
+				const bothNumeric = !Number.isNaN(numA) && !Number.isNaN(numB);
+
+				let comparison = 0;
+				if (bothNumeric) {
+					comparison = numA - numB;
+				} else {
+					comparison = textA.localeCompare(textB, undefined, {
+						numeric: true,
+						sensitivity: "base",
+					});
+				}
+
+				return direction === "asc" ? comparison : -comparison;
+			});
+
+			rows.forEach((row) => tbody.appendChild(row));
+			applyFilters();
+		});
+	});
+
+	applyFilters();
+})();
+</script>
 </body>
 </html>
 {{end}}
