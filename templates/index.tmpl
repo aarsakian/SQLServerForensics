@@ -25,26 +25,49 @@
                 <th>Table Name</th>
                 <th>Type</th>
                 <th>Page Numbers</th>
-        <th>Table Link</th>
-        <th>Schema Link</th>
+        <th> Links</th>
+      
     </tr>
     </thead>
     <tbody>
 {{end}}
 
 {{define "row"}}
-            <tr>
-                <td>{{.Name}}</td>
-                <td>{{.Type}}</td>
-                <td class="page-numbers">
-                    {{range $pageType, $pages := .PageIDsPerType}}
-                        <strong>{{$pageType}}:</strong> {{range $index, $page := $pages}}{{if $index}}, {{end}}{{$page}}{{end}}<br>
-                    {{end}}
-                </td>
-                <td><a href="{{.HTMLPath}}" target="_blank">{{.Name}}.html</a></td>
-                <td><a href="{{.SchemaPath}}" target="_blank">{{.Name}}_schema.html</a></td>
-            </tr>
+<tr>
+    <td>{{.Name}}</td>
+    <td>{{.Type}}</td>
+    <td class="page-numbers">
+        {{range $pageType, $pages := .PageIDsPerType}}
+            <strong>{{$pageType}}:</strong> {{range $index, $page := $pages}}{{if $index}}, {{end}}{{$page}}{{end}}<br>
+        {{end}}
+    </td>
+    <td>
+        <ul>
+            <li><a href="{{index .ExportPaths 0}}" target="_blank">Table Data</a></li>
+            <li><a href="{{index .ExportPaths 1}}" target="_blank">Table Schema</a></li>
+
+            {{range $i, $path := .ExportPaths}}
+                {{if ge $i 2}}
+
+                    {{/* Extract filename */}}
+                    {{ $file := pathBase $path }}
+
+                    {{/* Remove suffix */}}
+                    {{ $clean := replaceAll $file  "_index.html"  ""    }}
+
+                    <li>
+                        <a href="{{$path}}" target="_blank">
+                            Index {{$clean}} 
+                        </a>
+                    </li>
+
+                {{end}}
+            {{end}}
+        </ul>
+    </td>
+</tr>
 {{end}}
+
 
 {{define "footer"}}
         </tbody>
