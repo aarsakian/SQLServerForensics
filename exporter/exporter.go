@@ -121,7 +121,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			wg.Wait()
 		case "html":
 
-			writeIndex(tmpl, indexFile, table)
+			writeTOC(tmpl, indexFile, table)
 			writeSchema(table.Schema, expPath, table.Name)
 			wg.Add(1)
 			go WriteHTML(wg, records, table.Name, expPath, headers)
