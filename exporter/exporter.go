@@ -78,7 +78,11 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			go table.GetBlobs(wg, blobs)
 			wg.Add(1)
 			go writeBlobs(wg, blobs, expPath)
+			wg.Wait()
 
+		}
+		if exp.Format != "html" && exp.Format != "csv" {
+			continue
 		}
 
 		records := make(chan utils.Record, 1000)
