@@ -44,10 +44,11 @@
     <td>
         <ul>
             <li><a href="{{index .ExportPaths 0}}" target="_blank">Table Data</a></li>
-            <li><a href="{{index .ExportPaths 1}}" target="_blank">Table Schema</a></li>
+            <li><a href="{{index .ExportPaths 1}}" target="_blank">Table Data (Paginated)</a></li>
+            <li><a href="{{index .ExportPaths 2}}" target="_blank">Table Schema</a></li>
 
             {{range $i, $path := .ExportPaths}}
-                {{if ge $i 2}}
+                {{if ge $i 3}}
 
                     {{/* Extract filename */}}
                     {{ $file := pathBase $path }}
