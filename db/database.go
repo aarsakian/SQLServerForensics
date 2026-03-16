@@ -284,16 +284,16 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 
 			select {
 			case tablesCH <- table:
+				tablesFound[tname] = true
 			case <-ctx.Done():
+				return
 			}
-
-			tablesFound[tname] = true
 
 		}
 	}
 
 	for tablename, found := range tablesFound {
-		if !found && tablename != "" {
+		if !found {
 			fmt.Printf("Table %s not found\n", tablename)
 		}
 
