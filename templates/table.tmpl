@@ -33,11 +33,10 @@ h2 {justify-content: center; display: flex; color: #333; }
 </head>
 <body>
 <h2>Table {{.Name}}</h2>
-{{if or .PrevPage .NextPage}}
+{{if and .IsPaginated (or .PrevPage .NextPage)}}
 <nav class="page-nav">
-
 {{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
-{{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{else}}<strong class="page-nav-current">Page 1</strong>{{end}}
+{{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{end}}
 {{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
 </nav>
 {{end}}
@@ -57,10 +56,10 @@ h2 {justify-content: center; display: flex; color: #333; }
 
 </tbody>
 </table>
-{{if or .PrevPage .NextPage}}
+{{if and .IsPaginated (or .PrevPage .NextPage)}}
 <nav class="page-nav page-nav-bottom">
 {{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
-{{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{else}}<strong class="page-nav-current">Page 1</strong>{{end}}
+{{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{end}}
 {{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
 </nav>
 {{end}}
