@@ -2,18 +2,20 @@ package exporter
 
 import (
 	"MSSQLParser/db"
+	"MSSQLParser/db/tables"
 	"MSSQLParser/utils"
+	"html/template"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 	"sync"
-	"text/template"
 )
 
 type Writer interface {
-	write(records utils.Records)
+	WriteRecords(*sync.WaitGroup, <-chan utils.Record, []string, string)
+
+	WriteSchema([]tables.Column, string)
+	WriteIndexRecords(*sync.WaitGroup, string, <-chan utils.Record, tables.Index)
 }
 
 type Exporter struct {
@@ -24,11 +26,11 @@ type Exporter struct {
 }
 
 func (exp Exporter) CreateExportPath(databaseFolder string,
-	databaseName string, tableType string) string {
+	databaseName string, tableType string, tableName string) string {
 
-	expPath := filepath.Join(exp.Path, databaseFolder, databaseName, tableType)
+	expPath := filepath.Join(exp.Path, databaseFolder, databaseName, tableType, tableName)
 
-	err := os.Mkdir(expPath, 0750)
+	err := os.MkdirAll(expPath, 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
@@ -40,9 +42,9 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	databaseName string, databaseFolder string, tables <-chan db.Table) {
 	defer expWg.Done()
 
-	var tmpl *template.Template
-	var indexFile *os.File
-
+	//var tmpl *template.Template
+	//var indexFile *os.File
+	var writers []Writer
 	databaseName = filepath.Base(databaseName)
 	err := os.RemoveAll(filepath.Join(exp.Path, databaseFolder, databaseName))
 	if err != nil {
@@ -52,48 +54,49 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
+	indexPath := filepath.Join(exp.Path, databaseFolder, databaseName, "toc.html")
+	indexFile, err := os.Create(indexPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer indexFile.Close()
 
-	if exp.Format == "html" {
-		indexPath := filepath.Join(exp.Path, databaseFolder, databaseName, "index.html")
-		indexFile, err = os.Create(indexPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer indexFile.Close()
-
-		funcMap := template.FuncMap{
-			"pathBase":   path.Base,
-			"replaceAll": strings.ReplaceAll,
-		}
-
-		tmpl = template.New("templates/index.tmpl").Funcs(funcMap)
-
-		tmpl, err := tmpl.ParseFiles("templates/index.tmpl")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if err := tmpl.ExecuteTemplate(indexFile, "header", struct {
-			DatabaseName string
-		}{
-			DatabaseName: databaseName,
-		}); err != nil {
-			log.Fatal(err)
-		}
-
+	tocTmpl, err := template.New("toc.tmpl").Funcs(funcMap).ParseFiles("templates/toc.tmpl")
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	writeTOCHeader(tocTmpl, indexFile, databaseName)
 	for table := range tables {
+		wg := new(sync.WaitGroup)
 
-		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type)
+		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type, table.Name)
+
+		if exp.Image {
+			images := make(chan utils.Image, 10)
+			wg.Add(1)
+			go table.GetImages(wg, images)
+			wg.Add(1)
+			go writeImages(wg, images, table.Name, expPath)
+
+		}
 
 		records := make(chan utils.Record, 1000)
 
 		headers := table.GetHeader(colnames)
 
-		indexRecordsMap := make(map[string]chan utils.Record)
+		if exp.Format == "html" {
+			hTMLExporter := HTMLExporter{Path: expPath, Filename: databaseName}
+			hTMLExporter.InitalizeTemplates()
+			writeTOC(tocTmpl, indexFile, table)
 
-		wg := new(sync.WaitGroup)
+			writers = append(writers, hTMLExporter)
+		} else if exp.Format == "csv" {
+			csvExporter := CSVExporter{Path: expPath, Filename: databaseName}
+			writers = append(writers, csvExporter)
+		}
+
+		indexRecordsMap := make(map[string]chan utils.Record)
 
 		wg.Add(1)
 		go table.GetRecords(wg, selectedTableRow, colnames, records)
@@ -105,41 +108,17 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			go index.GetRecords(wg, selectedTableRow, colnames, indexRecordsMap[index.Name])
 		}
 
-		if exp.Image {
-			images := make(chan utils.Image, 10)
+		for _, writer := range writers {
+			writer.WriteSchema(table.Schema, table.Name)
 			wg.Add(1)
-			go table.GetImages(wg, images)
-			wg.Add(1)
-			go writeImages(wg, images, table.Name, expPath)
-
-		}
-
-		switch exp.Format {
-		case "csv":
-			wg.Add(1)
-			go WriteCSV(wg, records, table.Name, expPath, headers)
-			wg.Wait()
-		case "html":
-
-			writeTOC(tmpl, indexFile, table)
-			writeSchema(table.Schema, expPath, table.Name)
-			wg.Add(1)
-			go WriteHTML(wg, records, table.Name, expPath, headers)
+			go writer.WriteRecords(wg, records, headers, table.Name)
 
 			for _, index := range table.Indexes {
-
 				wg.Add(1)
-				go writeIndexRecords(wg, table.Name, expPath, indexRecordsMap[index.Name], index)
+				go writer.WriteIndexRecords(wg, table.Name, indexRecordsMap[index.Name], index)
 			}
 
-			wg.Wait()
 		}
+		wg.Wait()
 	}
-
-	if exp.Format == "html" {
-		if err := tmpl.ExecuteTemplate(indexFile, "footer", nil); err != nil {
-			log.Fatal(err)
-		}
-	}
-
 }
