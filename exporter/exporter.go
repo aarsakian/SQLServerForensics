@@ -44,7 +44,6 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 	//var tmpl *template.Template
 	//var indexFile *os.File
-	var writers []Writer
 	databaseName = filepath.Base(databaseName)
 	err := os.RemoveAll(filepath.Join(exp.Path, databaseFolder, databaseName))
 	if err != nil {
@@ -68,6 +67,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 	writeTOCHeader(tocTmpl, indexFile, databaseName)
 	for table := range tables {
+		writers := make([]Writer, 0, 1)
 		wg := new(sync.WaitGroup)
 
 		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type, table.Name)
@@ -86,13 +86,13 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		headers := table.GetHeader(colnames)
 
 		if exp.Format == "html" {
-			hTMLExporter := HTMLExporter{Path: expPath, Filename: databaseName}
+			hTMLExporter := HTMLExporter{Path: expPath}
 			hTMLExporter.InitalizeTemplates()
 			writeTOC(tocTmpl, indexFile, table)
 
 			writers = append(writers, hTMLExporter)
 		} else if exp.Format == "csv" {
-			csvExporter := CSVExporter{Path: expPath, Filename: databaseName}
+			csvExporter := CSVExporter{Path: expPath}
 			writers = append(writers, csvExporter)
 		}
 
@@ -117,6 +117,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 				wg.Add(1)
 				go writer.WriteIndexRecords(wg, table.Name, indexRecordsMap[index.Name], index)
 			}
+			wg.Wait()
 
 		}
 		wg.Wait()
