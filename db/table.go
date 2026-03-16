@@ -660,7 +660,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 	close(records)
 }
 
-func (table Table) GetImages(wg *sync.WaitGroup, images chan<- utils.Image) {
+func (table Table) GetBlobs(wg *sync.WaitGroup, blobs chan<- utils.Blob) {
 	defer wg.Done()
 	for rowid, row := range table.Rows {
 
@@ -670,10 +670,10 @@ func (table Table) GetImages(wg *sync.WaitGroup, images chan<- utils.Image) {
 			}
 			colData := row.ColMap[c.Name]
 
-			images <- utils.Image{Name: c.Name, Content: colData.Content, Id: rowid}
+			blobs <- utils.Blob{Name: c.Name, Content: colData.Content, Id: rowid}
 		}
 	}
-	close(images)
+	close(blobs)
 
 }
 
