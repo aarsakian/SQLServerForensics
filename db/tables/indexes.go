@@ -1,4 +1,4 @@
-package db
+package tables
 
 import (
 	"MSSQLParser/page"
@@ -6,32 +6,32 @@ import (
 	"sync"
 )
 
-type TableIndex struct {
-	id          uint32
+type Index struct {
+	Id          uint32
 	Name        string
-	rootPageId  uint32
-	firstPageId uint32
-	isClustered bool
+	RootPageId  uint32
+	FirstPageId uint32
+	IsClustered bool
 	Columns     []*Column
-	rows        []Row
+	Rows        []Row
 }
 
-func (tableIndex *TableIndex) addAllocatedPages(sysallocunit SysAllocUnits) {
-	rooPageId := sysallocunit.GetRootPageId()
-	if rooPageId == 0 || sysallocunit.GetDescription() != "IN_ROW_DATA" {
+func (index *Index) AddAllocatedPages(sysallocunit SysAllocUnits) {
+	rootPageId := sysallocunit.GetRootPageId()
+	if rootPageId == 0 || sysallocunit.GetDescription() != "IN_ROW_DATA" {
 		return
 	}
 
-	tableIndex.firstPageId = sysallocunit.GetFirstPageId()
-	tableIndex.rootPageId = rooPageId
+	index.FirstPageId = sysallocunit.GetFirstPageId()
+	index.RootPageId = rootPageId
 
 }
 
-func (tableIndex TableIndex) GetRecords(wg *sync.WaitGroup, selectedRows []int,
+func (index Index) GetRecords(wg *sync.WaitGroup, selectedRows []int,
 	colnames []string, records chan<- utils.Record) {
 	defer wg.Done()
 
-	for rowidx, row := range tableIndex.rows {
+	for rowidx, row := range index.Rows {
 		var record utils.Record
 		var vals []string
 
@@ -45,9 +45,9 @@ func (tableIndex TableIndex) GetRecords(wg *sync.WaitGroup, selectedRows []int,
 		}
 
 	processRow:
-		for _, c := range tableIndex.Columns {
+		for _, c := range index.Columns {
 			colData := row.ColMap[c.Name]
-			vals = append(vals, c.toString(colData.Content))
+			vals = append(vals, c.ToString(colData.Content))
 		}
 		record = utils.Record{Vals: vals, Carved: row.Carved, Logged: row.Logged}
 		records <- record
@@ -55,12 +55,12 @@ func (tableIndex TableIndex) GetRecords(wg *sync.WaitGroup, selectedRows []int,
 	close(records)
 }
 
-func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
+func (index *Index) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
 	var rows []Row
 	var pagesQueue []uint32
 
 	var pages *page.PagesPerIdNode
-	pagesQueue = append(pagesQueue, tindex.rootPageId)
+	pagesQueue = append(pagesQueue, index.RootPageId)
 
 	var indexedDataPages []uint32
 	for len(pagesQueue) != 0 && pagesQueue[0] != 0 {
@@ -81,7 +81,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 
 			VarLenIndexColOrder := 0
 
-			for _, c := range tindex.Columns {
+			for _, c := range index.Columns {
 
 				/*if startOffset > len(keyValue) || startOffset+int(c.Size) > len(keyValue) {
 					msg := fmt.Sprintf("data length of non-leaf index is exhausted by %d at page Id %d",
@@ -89,7 +89,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 					mslogger.Mslogger.Warning(msg)
 					break
 				}*/
-				if c.isStatic() {
+				if c.IsStatic() {
 					if pages.Pages[0].IndexRows[idx].FixedLenCols != nil {
 						cmap[c.Name] = ColData{Content: pages.Pages[0].IndexRows[idx].FixedLenCols[startOffset : startOffset+int(c.Size)]}
 						startOffset += int(c.Size)
@@ -126,7 +126,7 @@ func (tindex *TableIndex) Populate(indexPages page.PagesPerId[uint32]) []uint32 
 		}
 
 	}
-	tindex.rows = rows
+	index.Rows = rows
 
 	return indexedDataPages
 	/*sort indexes

@@ -1,4 +1,4 @@
-package db
+package tables
 
 import (
 	"MSSQLParser/data"
@@ -6,6 +6,7 @@ import (
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
 	"fmt"
+	"time"
 
 	"golang.org/x/text/encoding/charmap"
 )
@@ -20,6 +21,14 @@ type Computed struct {
 }
 
 type ColMap map[string]ColData //name->coldata
+
+type Row struct {
+	ColMap          ColMap
+	LoggedOperation string
+	Carved          bool
+	Logged          bool
+	LogDate         time.Time
+}
 
 type Column struct {
 	Name         string
@@ -46,7 +55,7 @@ type Column struct {
 
 func (c Column) Print(data []byte) {
 
-	fmt.Printf("%s ", c.toString(data))
+	fmt.Printf("%s ", c.ToString(data))
 
 }
 
@@ -64,7 +73,7 @@ func (c Column) parseReal(data []byte) string {
 
 }
 
-func (c Column) isStatic() bool {
+func (c Column) IsStatic() bool {
 
 	if c.Type == "varchar" || c.Type == "nvarchar" ||
 		c.Type == "varbinary" || c.Type == "xml" || c.Type == "text" ||
@@ -77,7 +86,7 @@ func (c Column) isStatic() bool {
 
 }
 
-func (c Column) toString(data []byte) string {
+func (c Column) ToString(data []byte) string {
 	if len(data) == 0 {
 		//mslogger.Mslogger.Warning(fmt.Sprintf("Empty data col %s", c.Name))
 		return "NULL"
@@ -158,14 +167,14 @@ func (c Column) ParseTime(data []byte) string {
 	return utils.ParseTime(data, int(c.Precision))
 }
 
-func (c *Column) addContent(datarow data.DataRow,
+func (c *Column) AddContent(datarow data.DataRow,
 	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64, nofNullCols int) ([]byte, error) {
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
 
-		if !c.isStatic() && datarow.HasBlobInfo(c.VarLenOrder-uint16(nofNullCols)) ||
-			!c.isStatic() && datarow.HasTextBlobInfo(c.VarLenOrder-uint16(nofNullCols)) {
+		if !c.IsStatic() && datarow.HasBlobInfo(c.VarLenOrder-uint16(nofNullCols)) ||
+			!c.IsStatic() && datarow.HasTextBlobInfo(c.VarLenOrder-uint16(nofNullCols)) {
 			rowIds, textTimestamp := datarow.GetBloBInfo(c.VarLenOrder - uint16(nofNullCols))
 			if !lobPages.IsEmpty() && len(rowIds) != 0 { //only when there are lobpages proceed
 				var content []byte
@@ -180,7 +189,7 @@ func (c *Column) addContent(datarow data.DataRow,
 				return nil, fmt.Errorf("lob data not found for col %s", c.Name)
 			}
 		} else {
-			return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.isStatic(),
+			return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.IsStatic(),
 				c.VarLenOrder-uint16(nofNullCols))
 		}
 	}

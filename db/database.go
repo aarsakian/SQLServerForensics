@@ -2,6 +2,7 @@ package db
 
 import (
 	"MSSQLParser/data"
+	tables "MSSQLParser/db/tables"
 	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
@@ -27,15 +28,15 @@ type Database struct {
 	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables              []Table
 	LogDB               *LogDB
-	tablesInfo          TablesInfo
-	columnsinfo         ColumnsInfo
-	tablesPartitions    TablesPartitions
-	tablesAllocations   TablesAllocations
-	columnsPartitions   ColumnsPartitions // rowsetid -> sysrscols
-	columnsStatistics   ColumnsStatistics // objectid -> sysiscols
-	metadataBlobs       MetadataBlobs
-	indexesInfo         IndexesInfo
-	sysfiles            SysFiles //info about files of db mdf, ldf
+	tablesInfo          tables.TablesInfo
+	columnsinfo         tables.ColumnsInfo
+	tablesPartitions    tables.TablesPartitions
+	tablesAllocations   tables.TablesAllocations
+	columnsPartitions   tables.ColumnsPartitions // rowsetid -> sysrscols
+	columnsStatistics   tables.ColumnsStatistics // objectid -> sysiscols
+	metadataBlobs       tables.MetadataBlobs
+	indexesInfo         tables.IndexesInfo
+	sysfiles            tables.SysFiles //info about files of db mdf, ldf
 	DbiCheckptLSN       utils.LSN
 	MinLSN              utils.LSN
 	DirtyPages          map[uint32]utils.LSN
@@ -47,16 +48,16 @@ type SystemTable interface {
 }
 
 func (db *Database) ProcessSystemTables() {
-	node := db.PagesPerAllocUnitID.GetHeadNode()   //start from head
-	db.tablesInfo = make(TablesInfo)               //objectid -> table info
-	db.columnsinfo = make(ColumnsInfo)             //objectid -> column info
-	db.tablesPartitions = make(TablesPartitions)   //objectid ->  sysrowsets
-	db.tablesAllocations = make(TablesAllocations) //rowsetid -> sysalloc
-	db.columnsPartitions = make(ColumnsPartitions) //partitionid ->  sysrscols
-	db.indexesInfo = make(IndexesInfo)             //objectid -> index info
-	db.columnsStatistics = make(ColumnsStatistics) //objectid ->
-	db.sysfiles = make(SysFiles, 2)                // mdf, ldf
-	db.metadataBlobs = make(MetadataBlobs)         //objectid -> metadata blobs
+	node := db.PagesPerAllocUnitID.GetHeadNode()          //start from head
+	db.tablesInfo = make(tables.TablesInfo)               //objectid -> table info
+	db.columnsinfo = make(tables.ColumnsInfo)             //objectid -> column info
+	db.tablesPartitions = make(tables.TablesPartitions)   //objectid ->  sysrowsets
+	db.tablesAllocations = make(tables.TablesAllocations) //rowsetid -> sysalloc
+	db.columnsPartitions = make(tables.ColumnsPartitions) //partitionid ->  sysrscols
+	db.indexesInfo = make(tables.IndexesInfo)             //objectid -> index info
+	db.columnsStatistics = make(tables.ColumnsStatistics) //objectid ->
+	db.sysfiles = make(tables.SysFiles, 2)                // mdf, ldf
+	db.metadataBlobs = make(tables.MetadataBlobs)         //objectid -> metadata blobs
 
 	for node != nil { //for every alloc unit go over pages
 
@@ -72,23 +73,23 @@ func (db *Database) ProcessSystemTables() {
 			pageType := page.Header.ObjectId
 
 			switch pageType {
-			case SystemTablesFlags["sysschobjs"]:
+			case tables.SystemTablesFlags["sysschobjs"]:
 				db.tablesInfo.Populate(page.DataRows)
-			case SystemTablesFlags["syscolpars"]:
+			case tables.SystemTablesFlags["syscolpars"]:
 				db.columnsinfo.Populate(page.DataRows)
-			case SystemTablesFlags["sysallocationunits"]:
+			case tables.SystemTablesFlags["sysallocationunits"]:
 				db.tablesAllocations.Populate(page.DataRows)
-			case SystemTablesFlags["sysrscols"]:
+			case tables.SystemTablesFlags["sysrscols"]:
 				db.columnsPartitions.Populate(page.DataRows)
-			case SystemTablesFlags["sysrowsets"]:
+			case tables.SystemTablesFlags["sysrowsets"]:
 				db.tablesPartitions.Populate(page.DataRows)
-			case SystemTablesFlags["sysiscols"]:
+			case tables.SystemTablesFlags["sysiscols"]:
 				db.columnsStatistics.Populate(page.DataRows)
-			case SystemTablesFlags["sysidxstats"]:
+			case tables.SystemTablesFlags["sysidxstats"]:
 				db.indexesInfo.Populate(page.DataRows)
-			case SystemTablesFlags["sysfiles"]:
+			case tables.SystemTablesFlags["sysfiles"]:
 				db.sysfiles.Populate(page.DataRows)
-			case SystemTablesFlags["sysobjvalues"]:
+			case tables.SystemTablesFlags["sysobjvalues"]:
 				db.metadataBlobs.Populate(page.DataRows)
 			}
 
@@ -251,7 +252,7 @@ func (db *Database) FilterPagesBySystemTables(systemTable string) {
 	db.PagesPerAllocUnitID = db.PagesPerAllocUnitID.FilterBySystemTables(systemTable)
 }
 
-func (db Database) GetTablesInfo() TablesInfo {
+func (db Database) GetTablesInfo() tables.TablesInfo {
 	return db.tablesInfo
 }
 
@@ -384,7 +385,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 		}*/
 
 	for _, indexInfo := range db.indexesInfo[objectid] {
-		filteredSysIscols := sysiscols.filterByIndexId(indexInfo.Indid)
+		filteredSysIscols := sysiscols.FilterByIndexId(indexInfo.Indid)
 		table.udateColIndex(filteredSysIscols)
 	}
 

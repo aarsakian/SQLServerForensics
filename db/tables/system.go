@@ -1,4 +1,4 @@
-package db
+package tables
 
 import (
 	"MSSQLParser/data"
@@ -337,63 +337,63 @@ func (c SysColpars) isColNullable() bool {
 	return c.Status&0x01 == 0
 }
 
-func (c SysColpars) isAnsiPadded() bool {
+func (c SysColpars) IsAnsiPadded() bool {
 	// 0x02 indicates ANSI Padding (CPM_NOTRIM)
 	return c.Status&0x02 != 0
 }
 
-func (c SysColpars) isIdentity() bool {
+func (c SysColpars) IsIdentity() bool {
 	// 0x04 is the Identity bit (CPM_IDENTCOL)
 	return c.Status&0x04 != 0
 }
 
-func (c SysColpars) isRowGUIDCol() bool {
+func (c SysColpars) IsRowGUIDCol() bool {
 	// 0x08 is the RowGUID bit (CPM_ROWGUIDCOL)
 	return c.Status&0x08 != 0
 }
 
-func (c SysColpars) isComputed() bool {
+func (c SysColpars) IsComputed() bool {
 	// 0x10 (16) is the Computed bit (CPM_COMPUTED)
 	return c.Status&0x10 != 0
 }
 
-func (c SysColpars) isFilestream() bool {
+func (c SysColpars) IsFilestream() bool {
 	// 0x20 (32) is the Filestream bit (CPM_FILESTREAM)
 	return c.Status&0x20 != 0
 }
 
-func (c SysColpars) isPersisted() bool {
+func (c SysColpars) IsPersisted() bool {
 	// 0x40 (64) is the Persisted bit (CPM_PERSISTED)
 	return c.Status&0x200000 != 0
 }
 
-func (c SysColpars) isColumnSet() bool {
+func (c SysColpars) IsColumnSet() bool {
 	// 0x80 (128) is the ColumnSet bit (CPM_COLUMNSET)
 	return c.Status&0x2000000 != 0
 }
 
 func (syscolpars SysColpars) GetAdditionalAttributes() string {
 	var attributes strings.Builder
-	if syscolpars.isComputed() {
+	if syscolpars.IsComputed() {
 		attributes.WriteString("Computed ")
 	}
 	if syscolpars.isColNullable() {
 		attributes.WriteString("Nullable ")
 	}
 
-	if syscolpars.isIdentity() {
+	if syscolpars.IsIdentity() {
 		attributes.WriteString("Identity ")
 	}
 
-	if syscolpars.isRowGUIDCol() {
+	if syscolpars.IsRowGUIDCol() {
 		attributes.WriteString("Row GUID")
 	}
 
-	if syscolpars.isAnsiPadded() {
+	if syscolpars.IsAnsiPadded() {
 		attributes.WriteString("ANSI Padded ")
 	}
 
-	if syscolpars.isFilestream() {
+	if syscolpars.IsFilestream() {
 		attributes.WriteString("Filestream ")
 	}
 
@@ -591,7 +591,7 @@ func (sysobjvalues SysObjValues) GetValueAsString() string {
 
 }
 
-func (sysiscols SysIsCols) filterByIndexId(indexid uint32) SysIsCols {
+func (sysiscols SysIsCols) FilterByIndexId(indexid uint32) SysIsCols {
 	return utils.Filter(sysiscols, func(sysiscol SysIsCol) bool {
 		return sysiscol.Idminor == indexid
 

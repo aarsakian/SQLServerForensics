@@ -2,6 +2,7 @@ package db
 
 import (
 	"MSSQLParser/data"
+	tables "MSSQLParser/db/tables"
 	LDF "MSSQLParser/ldf"
 	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
@@ -14,34 +15,25 @@ import (
 	"slices"
 	"sort"
 	"sync"
-	"time"
 )
-
-type Row struct {
-	ColMap          ColMap
-	LoggedOperation string
-	Carved          bool
-	Logged          bool
-	LogDate         time.Time
-}
 
 type Table struct {
 	Name                          string
 	ObjectId                      int32
 	Type                          string
-	Rows                          []Row
+	Rows                          []tables.Row
 	AllocationUnitIdTopartitionId map[uint64]uint64
-	Schema                        []Column
-	Indexes                       []TableIndex
+	Schema                        []tables.Column
+	Indexes                       []tables.Index
 	VarLenCols                    []int
 	PageIDsPerType                map[string][]uint32 //pageType ->pageID
 	indexType                     string
 	logRecords                    LDF.Records
 }
 
-type ByRowId []ColMap
+type ByRowId []tables.ColMap
 
-type ByColOrder []Column
+type ByColOrder []tables.Column
 
 func (b ByColOrder) Less(i, j int) bool {
 
@@ -58,7 +50,7 @@ func (b ByColOrder) Len() int {
 
 }
 
-type ByActionDate []Row
+type ByActionDate []tables.Row
 
 func (row ByActionDate) Less(i, j int) bool {
 
@@ -80,7 +72,7 @@ func (table Table) sortByColOrder() {
 	sort.Sort(ByColOrder(table.Schema))
 }
 
-type OrderedRows []Row
+type OrderedRows []tables.Row
 
 /*func (byrowid ByRowId) Len() int {
 	return len(byrowid)
@@ -96,10 +88,10 @@ func (byrowid ByRowId) Swap(i, j int) {
 	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
 }*/
 
-func (table *Table) udateColIndex(sysiscols SysIsCols) {
+func (table *Table) udateColIndex(sysiscols tables.SysIsCols) {
 	for _, sysiscol := range sysiscols {
 		for indexIdx, indexInfo := range table.Indexes {
-			if indexInfo.id != sysiscol.Idminor {
+			if indexInfo.Id != sysiscol.Idminor {
 				continue
 			}
 			for idx, col := range table.Schema {
@@ -150,13 +142,13 @@ func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64
 
 }
 
-func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysallocunits []SysAllocUnits) {
+func (table *Table) addIndex(indexInfo tables.SysIdxStats, hasallocunits bool, sysallocunits []tables.SysAllocUnits) {
 
-	tableIndex := TableIndex{id: indexInfo.Indid, Name: indexInfo.GetName(), isClustered: indexInfo.Type == 1}
+	tableIndex := tables.Index{Id: indexInfo.Indid, Name: indexInfo.GetName(), IsClustered: indexInfo.Type == 1}
 
 	if hasallocunits {
 		for _, sysallocunit := range sysallocunits {
-			tableIndex.addAllocatedPages(sysallocunit)
+			tableIndex.AddAllocatedPages(sysallocunit)
 
 		}
 	}
@@ -168,7 +160,7 @@ func (table *Table) addIndex(indexInfo SysIdxStats, hasallocunits bool, sysalloc
 func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32 {
 	var indexedDataPages []uint32
 	for idx := range table.Indexes {
-		if !table.Indexes[idx].isClustered {
+		if !table.Indexes[idx].IsClustered {
 			continue
 		}
 
@@ -186,7 +178,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32
 
 		data := indexrow.NoNLeaf.KeyValue
 
-			if tindex.isClustered && int(c.Size) != len(indexrow.NoNLeaf.KeyValue)-4 && //4 bytes to ensure uniqueness of cluster key
+			if tindex.IsClustered && int(c.Size) != len(indexrow.NoNLeaf.KeyValue)-4 && //4 bytes to ensure uniqueness of cluster key
 				int(c.Size) != len(indexrow.NoNLeaf.KeyValue) {
 				break
 			}
@@ -225,7 +217,7 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 
 	lobPages := page.PagesPerId[uint32]{}
 	textLobPages := page.PagesPerId[uint32]{}
-	colmap := make(ColMap)
+	colMap := make(tables.ColMap)
 	nofNullCols := 0
 	for _, col := range table.Schema {
 		if record.Lop_Insert_Delete.DataRow == nil {
@@ -235,9 +227,9 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 			continue
 		}
 
-		colval, e := col.addContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID, nofNullCols)
+		colval, e := col.AddContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID, nofNullCols)
 		if e == nil {
-			colmap[col.Name] = ColData{Content: colval}
+			colMap[col.Name] = tables.ColData{Content: colval}
 		}
 
 	}
@@ -246,7 +238,7 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 	loggedOperation += record.GetBeginCommitDate()
 	loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	table.Rows = append(table.Rows, Row{ColMap: colmap, LoggedOperation: loggedOperation,
+	table.Rows = append(table.Rows, tables.Row{ColMap: colMap, LoggedOperation: loggedOperation,
 		LogDate: record.GetBeginCommitDateObj(), Carved: carved, Logged: true})
 }
 
@@ -338,7 +330,7 @@ func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
 					newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
 					newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
 
-					colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
+					colData.LoggedColData = &tables.ColData{Content: newcontent.Bytes()}
 					row.ColMap[c.Name] = colData
 
 				}
@@ -382,7 +374,7 @@ func (table *Table) addLogChanges(records LDF.Records) {
 
 }
 
-func (table *Table) addColumn(column Column) {
+func (table *Table) addColumn(column tables.Column) {
 
 	table.Schema = append(table.Schema, column)
 
@@ -392,7 +384,7 @@ func (table *Table) setVarLenCols() {
 
 	vid := 0
 	for idx := range table.Schema {
-		if table.Schema[idx].isStatic() {
+		if table.Schema[idx].IsStatic() {
 			continue
 		}
 		if table.Schema[idx].IsComputed {
@@ -404,21 +396,21 @@ func (table *Table) setVarLenCols() {
 	}
 }
 
-func (table *Table) setMetadataBlobs(sysobjvalues []SysObjValues) {
+func (table *Table) setMetadataBlobs(sysobjvalues []tables.SysObjValues) {
 
 	for _, sysobjvalue := range sysobjvalues {
 		// metadata fragment
 		if sysobjvalue.Valclass == 2 && int(sysobjvalue.Subobjid-1) < len(table.Schema) {
 
 			table.Schema[sysobjvalue.Subobjid-1].Computed =
-				&Computed{Definition: string(sysobjvalue.Imageval[:])}
+				&tables.Computed{Definition: string(sysobjvalue.Imageval[:])}
 		}
 
 	}
 
 }
 
-func (table *Table) addColumns(columns []SysColpars) {
+func (table *Table) addColumns(columns []tables.SysColpars) {
 
 	for _, col := range columns {
 
@@ -426,29 +418,29 @@ func (table *Table) addColumns(columns []SysColpars) {
 
 		if err == nil {
 
-			table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
+			table.addColumn(tables.Column{Name: col.GetName(), Type: col.GetType(),
 				Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
 				Charmap:   utils.LocateWindowsCharmap(codepage),
 				CodePage:  codepage,
 				Precision: col.Prec, Scale: col.Scale,
 				OffsetMap:    map[uint64]int16{},
-				IsAnsiPadded: col.isAnsiPadded(),
-				IsIdentity:   col.isIdentity(),
-				IsRowGUIDCol: col.isRowGUIDCol(),
-				IsComputed:   col.isComputed(),
-				IsColumnSet:  col.isColumnSet(),
-				IsFilestream: col.isFilestream(),
-				IsPersisted:  col.isPersisted(),
+				IsAnsiPadded: col.IsAnsiPadded(),
+				IsIdentity:   col.IsIdentity(),
+				IsRowGUIDCol: col.IsRowGUIDCol(),
+				IsComputed:   col.IsComputed(),
+				IsColumnSet:  col.IsColumnSet(),
+				IsFilestream: col.IsFilestream(),
+				IsPersisted:  col.IsPersisted(),
 			})
 
 		} else {
-			table.addColumn(Column{Name: col.GetName(), Type: col.GetType(),
+			table.addColumn(tables.Column{Name: col.GetName(), Type: col.GetType(),
 				Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
 				Precision: col.Prec, Scale: col.Scale,
-				OffsetMap: map[uint64]int16{}, IsAnsiPadded: col.isAnsiPadded(),
-				IsIdentity: col.isIdentity(), IsRowGUIDCol: col.isRowGUIDCol(),
-				IsComputed: col.isComputed(), IsColumnSet: col.isColumnSet(),
-				IsFilestream: col.isFilestream(), IsPersisted: col.isPersisted()})
+				OffsetMap: map[uint64]int16{}, IsAnsiPadded: col.IsAnsiPadded(),
+				IsIdentity: col.IsIdentity(), IsRowGUIDCol: col.IsRowGUIDCol(),
+				IsComputed: col.IsComputed(), IsColumnSet: col.IsColumnSet(),
+				IsFilestream: col.IsFilestream(), IsPersisted: col.IsPersisted()})
 		}
 
 	}
@@ -460,7 +452,7 @@ func (table Table) printSchema() {
 
 		fmt.Printf("Static cols \n")
 		for _, col := range table.Schema {
-			if !col.isStatic() {
+			if !col.IsStatic() {
 				continue
 			}
 			fmt.Printf(" | %s %s Padded %t Identity %t RowGUID %t Computed %t Filestream %t",
@@ -468,7 +460,7 @@ func (table Table) printSchema() {
 		}
 		fmt.Printf("\nDynamic cols\n")
 		for _, col := range table.Schema {
-			if col.isStatic() {
+			if col.IsStatic() {
 				continue
 			}
 			fmt.Printf("| %s %s Padded %t Identity %t RowGUID %t Computed %t Filestream %t",
@@ -645,7 +637,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 			if len(colnames) == 0 {
 				colData := row.ColMap[c.Name]
 
-				vals = append(vals, c.toString(colData.Content))
+				vals = append(vals, c.ToString(colData.Content))
 			}
 
 			for _, colname := range colnames {
@@ -657,7 +649,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 					vals = append(vals, c.Computed.Definition)
 					continue
 				}
-				vals = append(vals, c.toString(colData.Content))
+				vals = append(vals, c.ToString(colData.Content))
 			}
 
 		}
@@ -701,7 +693,7 @@ func (table Table) printHeader(showcolnames []string) {
 func (table Table) printIndex() {
 	fmt.Printf("Table Index names\n")
 	for _, tindex := range table.Indexes {
-		if tindex.isClustered {
+		if tindex.IsClustered {
 			fmt.Printf(" Clustered ")
 		} else {
 			fmt.Printf(" Statistics ")
@@ -713,7 +705,7 @@ func (table Table) printIndex() {
 
 		fmt.Printf("\n")
 
-		for idx, row := range tindex.rows {
+		for idx, row := range tindex.Rows {
 			fmt.Printf("%d: ", idx+1)
 			for _, c := range tindex.Columns {
 				colData := row.ColMap[c.Name]
@@ -726,13 +718,13 @@ func (table Table) printIndex() {
 }
 
 func (table Table) cleverPrintData() {
-	groupedRowsById := make(map[string]Row)
+	groupedRowsById := make(map[string]tables.Row)
 
 	for _, row := range table.Rows {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
 
-		groupedRowsById[c.toString(colData.Content)] = row
+		groupedRowsById[c.ToString(colData.Content)] = row
 
 	}
 
@@ -740,14 +732,14 @@ func (table Table) cleverPrintData() {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
 
-		groupedRowsById[c.toString(colData.Content)] = row
+		groupedRowsById[c.ToString(colData.Content)] = row
 	}
 
 	/*fmt.Printf("\nGrouped By First col all changes carved and logged oldest first\n")
 	sort.Sort(ByActionDate(table.Rows))
 	for _, loggedRow := range table.loggedrows {
 		for cid, c := range table.Schema {
-			loggedCol := loggedRow.ColMap[c.Name]
+			loggedCol := loggedrow.ColMap[c.Name]
 			if cid == 0 {
 
 				org_row = groupedRowsById[c.toString(loggedCol.Content)] //to check arbitrary
@@ -957,9 +949,9 @@ func (table *Table) setContentFromPage(page page.Page,
 }
 
 func (table Table) ProcessRow(rownum int, datarow data.DataRow,
-	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], partitionId uint64) Row {
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], partitionId uint64) tables.Row {
 
-	colmap := make(ColMap)
+	colMap := make(tables.ColMap)
 	nofCols := len(table.Schema)
 	bitrepresentation := datarow.PrintNullBitmapToBit(nofCols)
 
@@ -987,11 +979,11 @@ func (table Table) ProcessRow(rownum int, datarow data.DataRow,
 			continue
 		}
 
-		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.isStatic(), col.Order, col.Type, col.Size))
-		colval, e := col.addContent(datarow, lobPages, textLobPages, partitionId, nofNullCols)
+		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.IsStatic(), col.Order, col.Type, col.Size))
+		colval, e := col.AddContent(datarow, lobPages, textLobPages, partitionId, nofNullCols)
 		if e == nil {
-			colmap[col.Name] = ColData{Content: colval}
+			colMap[col.Name] = tables.ColData{Content: colval}
 		}
 	}
-	return Row{ColMap: colmap, Carved: datarow.Carved, Logged: false}
+	return tables.Row{ColMap: colMap, Carved: datarow.Carved, Logged: false}
 }
