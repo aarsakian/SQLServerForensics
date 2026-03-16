@@ -55,7 +55,7 @@ type Auid struct {
 	Zeros    uint32
 }
 
-type Image struct {
+type Blob struct {
 	Name    string
 	Content []byte
 	Id      int
@@ -66,10 +66,10 @@ type PageSlot struct {
 	FileId uint16
 }
 
-type Images []Image
+type Blobs []Blob
 
-func (image Image) GetFilename() string {
-	return fmt.Sprintf("%s_%d.blob", image.Name, image.Id)
+func (blob Blob) GetFilename() string {
+	return fmt.Sprintf("%s_%d.blob", blob.Name, blob.Id)
 }
 
 func RemoveID(file1, file2 string) int {

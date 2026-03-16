@@ -20,7 +20,7 @@ type Writer interface {
 
 type Exporter struct {
 	Format string
-	Image  bool
+	Blobs  bool
 	Path   string
 	Index  bool
 }
@@ -72,12 +72,12 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type, table.Name)
 
-		if exp.Image {
-			images := make(chan utils.Image, 10)
+		if exp.Blobs {
+			blobs := make(chan utils.Blob, 10)
 			wg.Add(1)
-			go table.GetImages(wg, images)
+			go table.GetBlobs(wg, blobs)
 			wg.Add(1)
-			go writeImages(wg, images, table.Name, expPath)
+			go writeBlobs(wg, blobs, expPath)
 
 		}
 
