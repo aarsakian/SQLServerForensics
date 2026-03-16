@@ -39,8 +39,9 @@ func (mssqlparser_commsServer *Server) SetConfig(ctx context.Context, config *ms
 	mssqlparser_commsServer.pm.Initialize(false,
 		false, false, false, false, false, false,
 		false, false, false, false, false,
-		"", false, false, false, 0, -1, []int{}, config.Carve, false, false, "", false, []string{},
-		"CSV", false, config.ExporPath, "", "", "")
+		"", false, false, false, 0, -1, []int{}, config.Carve,
+		false, false, "", false, []string{},
+		"csv", false, config.ExporPath, false, "", "", "")
 
 	mssqlparser_commsServer.pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split("", ","),
