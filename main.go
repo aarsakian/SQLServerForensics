@@ -112,12 +112,16 @@ func main() {
 
 	exportPath := flag.String("export", "", "export tables to selected path")
 	exportFormat := flag.String("format", "", "select format to export (csv|html)")
-	exportIndex := flag.Bool("exportindex", false, "export table indexes (only with html format)")
+
+	exportIndex := flag.Bool("exportindex", false, "export table indexes")
+	exportSchema := flag.Bool("exportschema", false, "export table schema")
+
+	exportBlob := flag.Bool("exportblob", false, "export blobs (will be exported to a folder images under the database name, file extension is blob)")
 
 	logactive := flag.Bool("log", false, "log activity")
 	bakactive := flag.Bool("bak", false, "parse bak files found in images")
 	tabletype := flag.String("tabletype", "", "filter tables by type e.g. 'User Table' for user tables 'View' for views")
-	exportBlob := flag.Bool("exportblob", false, "export blobs (will be exported to a folder images under the database name, file extension is blob)")
+
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|begin_ckpt|end_ckpt|any")
@@ -154,8 +158,12 @@ func main() {
 		log.Fatalf("invalid export format %s currently only csv and html are supported", *exportFormat)
 	}
 
-	if *exportIndex && *exportFormat != "html" {
-		log.Fatalf("exportindex flag requires export format to be html")
+	if *exportIndex && *exportPath == "" {
+		log.Fatalf("exportindex flag requires export path to be set")
+	}
+
+	if *exportSchema && *exportPath == "" {
+		log.Fatalf("exportschema flag requires export path to be set")
 	}
 
 	if *walkLSN != "" && *filterlop == "" {
@@ -386,6 +394,7 @@ func main() {
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportBlob, *exportPath, *exportIndex,
+		*exportSchema,
 		*sortByLSN, *walkpageLSN, *walkLSN)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
