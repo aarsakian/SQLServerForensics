@@ -150,6 +150,9 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 
 	// Render full HTML footer
 	data.IsPaginated = false
+	data.PrevPage = ""
+	data.NextPage = ""
+	data.CurPage = ""
 	if err := h.Templates["table"].ExecuteTemplate(file, "footer", data); err != nil {
 		log.Fatal(err)
 	}
@@ -196,16 +199,21 @@ func writeTOCHeader(tocTmpl *template.Template, indexFile *os.File, databaseName
 
 }
 
-func writeTOC(tocTmpl *template.Template, indexFile *os.File, table db.Table) {
+func writeTOC(tocTmpl *template.Template, indexFile *os.File, table db.Table,
+	includeSchema bool, includeIndexes bool) {
 
 	exportPaths := make([]string, 0, len(table.Indexes)+2)
 
 	exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, table.Name+".html")))
 	exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, fmt.Sprintf("%s_0.html", table.Name))))
-	exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, table.Name+"_schema.html")))
+	if includeSchema {
+		exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, table.Name+"_schema.html")))
+	}
 
-	for _, index := range table.Indexes {
-		exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, fmt.Sprintf("%s_index.html", index.Name))))
+	if includeIndexes {
+		for _, index := range table.Indexes {
+			exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, fmt.Sprintf("%s_index.html", index.Name))))
+		}
 	}
 
 	rowData := struct {
