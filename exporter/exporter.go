@@ -23,6 +23,7 @@ type Exporter struct {
 	Blobs  bool
 	Path   string
 	Index  bool
+	Schema bool
 }
 
 func (exp Exporter) CreateExportPath(databaseFolder string,
@@ -42,8 +43,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	databaseName string, databaseFolder string, tables <-chan db.Table) {
 	defer expWg.Done()
 
-	//var tmpl *template.Template
-	//var indexFile *os.File
+	var writer Writer
 	databaseName = filepath.Base(databaseName)
 	err := os.RemoveAll(filepath.Join(exp.Path, databaseFolder, databaseName))
 	if err != nil {
@@ -67,18 +67,20 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 	writeTOCHeader(tocTmpl, indexFile, databaseName)
 	for table := range tables {
-		writers := make([]Writer, 0, 1)
+
 		wg := new(sync.WaitGroup)
 
 		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type, table.Name)
 
 		if exp.Blobs {
+			wginner := new(sync.WaitGroup)
 			blobs := make(chan utils.Blob, 10)
-			wg.Add(1)
-			go table.GetBlobs(wg, blobs)
-			wg.Add(1)
-			go writeBlobs(wg, blobs, expPath)
-			wg.Wait()
+
+			wginner.Add(1)
+			go table.GetBlobs(wginner, blobs)
+			wginner.Add(1)
+			go writeBlobs(wginner, blobs, expPath)
+			wginner.Wait()
 
 		}
 		if exp.Format != "html" && exp.Format != "csv" {
@@ -92,12 +94,12 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		if exp.Format == "html" {
 			hTMLExporter := HTMLExporter{Path: expPath}
 			hTMLExporter.InitalizeTemplates()
-			writeTOC(tocTmpl, indexFile, table)
+			writeTOC(tocTmpl, indexFile, table, exp.Schema, exp.Index)
 
-			writers = append(writers, hTMLExporter)
+			writer = hTMLExporter
 		} else if exp.Format == "csv" {
 			csvExporter := CSVExporter{Path: expPath}
-			writers = append(writers, csvExporter)
+			writer = csvExporter
 		}
 
 		indexRecordsMap := make(map[string]chan utils.Record)
@@ -105,25 +107,28 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		wg.Add(1)
 		go table.GetRecords(wg, selectedTableRow, colnames, records)
 
-		for _, index := range table.Indexes {
+		if exp.Index {
+			for _, index := range table.Indexes {
 
-			wg.Add(1)
-			indexRecordsMap[index.Name] = make(chan utils.Record, 100)
-			go index.GetRecords(wg, selectedTableRow, colnames, indexRecordsMap[index.Name])
+				wg.Add(1)
+				indexRecordsMap[index.Name] = make(chan utils.Record, 100)
+				go index.GetRecords(wg, selectedTableRow, colnames, indexRecordsMap[index.Name])
+			}
+		}
+		if exp.Schema {
+			writer.WriteSchema(table.Schema, table.Name)
 		}
 
-		for _, writer := range writers {
-			writer.WriteSchema(table.Schema, table.Name)
-			wg.Add(1)
-			go writer.WriteRecords(wg, records, headers, table.Name)
+		wg.Add(1)
+		go writer.WriteRecords(wg, records, headers, table.Name)
 
+		if exp.Index {
 			for _, index := range table.Indexes {
 				wg.Add(1)
 				go writer.WriteIndexRecords(wg, table.Name, indexRecordsMap[index.Name], index)
 			}
-			wg.Wait()
-
 		}
 		wg.Wait()
+
 	}
 }
