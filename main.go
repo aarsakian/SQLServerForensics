@@ -109,12 +109,15 @@ func main() {
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
 	selectedTableRows := flag.String("rows", "", "use comma to select rows")
 	userTable := flag.String("usertable", "", "get system table info about user table")
+
 	exportPath := flag.String("export", "", "export tables to selected path")
 	exportFormat := flag.String("format", "", "select format to export (csv|html)")
+	exportIndex := flag.Bool("exportindex", false, "export table indexes (only with html format)")
+
 	logactive := flag.Bool("log", false, "log activity")
 	bakactive := flag.Bool("bak", false, "parse bak files found in images")
 	tabletype := flag.String("tabletype", "", "filter tables by type e.g. 'User Table' for user tables 'View' for views")
-	exportImage := flag.Bool("exportimages", false, "export blobs (will be exported to a folder images under the database name, file extension is blob)")
+	exportBlob := flag.Bool("exportblob", false, "export blobs (will be exported to a folder images under the database name, file extension is blob)")
 	stopService := flag.Bool("stopservice", false, "stop MSSQL service (requires admin rights!)")
 	//	low := flag.Bool("low", false, "copy MDF file using low level access. Use location flag to set destination.")
 	filterlop := flag.String("filterlop", "", "filter log records per lop type values are insert|begin|commit|begin_ckpt|end_ckpt|any")
@@ -147,8 +150,12 @@ func main() {
 		log.Fatalf("invalid sort by lsn value %s allowed values are all|allocunit", *sortByLSN)
 	}
 
-	if *exportPath != "" && *exportFormat != "csv" && *exportFormat != "html" {
+	if *exportPath != "" && *exportFormat != "csv" && *exportFormat != "html" && !*exportBlob {
 		log.Fatalf("invalid export format %s currently only csv and html are supported", *exportFormat)
+	}
+
+	if *exportIndex && *exportFormat != "html" {
+		log.Fatalf("exportindex flag requires export format to be html")
 	}
 
 	if *walkLSN != "" && *filterlop == "" {
@@ -175,6 +182,10 @@ func main() {
 
 	if *showTableLDF && (*ldbfile == "" || *dbfile == "") {
 		log.Fatalf("showtableldf flag requires db and ldb files to be set")
+	}
+
+	if *exportBlob && *exportPath == "" {
+		log.Fatalf("exportblob flag requires export path to be set")
 	}
 
 	now := time.Now()
@@ -223,7 +234,8 @@ func main() {
 
 	}
 
-	exp := FSExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id", RecreatePath: true}
+	exp := FSExporter.Exporter{Location: *location, Hash: "SHA1", Strategy: "Id",
+		RecreatePath: true}
 
 	flm := filtermanager.FilterManager{}
 
@@ -373,7 +385,8 @@ func main() {
 		*skippedTableRows, selectedTableRowsInt,
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
-		*exportFormat, *exportImage, *exportPath, *sortByLSN, *walkpageLSN, *walkLSN)
+		*exportFormat, *exportBlob, *exportPath, *exportIndex,
+		*sortByLSN, *walkpageLSN, *walkLSN)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
