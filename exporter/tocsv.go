@@ -13,12 +13,11 @@ import (
 )
 
 type CSVExporter struct {
-	Filename string
-	Path     string
+	Path string
 }
 
-func (c CSVExporter) writeHeader(headers []string) {
-	fpath := filepath.Join(c.Path, fmt.Sprintf("%s.csv", c.Filename))
+func (c CSVExporter) writeHeader(headers []string, filename string) {
+	fpath := filepath.Join(c.Path, fmt.Sprintf("%s.csv", filename))
 	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
@@ -34,7 +33,7 @@ func (c CSVExporter) writeHeader(headers []string) {
 
 func (c CSVExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
 	headers []string, filename string) {
-	c.writeHeader(headers)
+	c.writeHeader(headers, filename)
 	defer wg.Done()
 	fpath := filepath.Join(c.Path, fmt.Sprintf("%s.csv", filename))
 	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
