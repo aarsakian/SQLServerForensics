@@ -43,27 +43,40 @@
     </td>
     <td>
         <ul>
-            <li><a href="{{index .ExportPaths 0}}" target="_blank">Table Data</a></li>
-            <li><a href="{{index .ExportPaths 1}}" target="_blank">Table Data (Paginated)</a></li>
-            <li><a href="{{index .ExportPaths 2}}" target="_blank">Table Schema</a></li>
+        
+                {{range $i, $path := .ExportPaths}}
+                    {{if ge $i 2}}
 
-            {{range $i, $path := .ExportPaths}}
-                {{if ge $i 3}}
+                        {{/* Extract filename */}}
+                        {{ $file := pathBase $path }}
 
-                    {{/* Extract filename */}}
-                    {{ $file := pathBase $path }}
+                        {{/* Remove suffix */}}
+                        {{ $clean := replaceAll $file  "_index.html"  ""    }}
 
-                    {{/* Remove suffix */}}
-                    {{ $clean := replaceAll $file  "_index.html"  ""    }}
+                        <li>
+                            <a href="{{$path}}" target="_blank">
+                                {{$clean}} 
+                            </a>
+                        </li>
+                        {{else if eq $i 0}}
+                                <li>
+                                <a href="{{.}}" target="_blank">
+                                  Table data  
+                                </a>
+                                </li>
 
-                    <li>
-                        <a href="{{$path}}" target="_blank">
-                            Index {{$clean}} 
-                        </a>
-                    </li>
+                    {{else if eq $i 1   }}
+                            <li>
+                            <a href="{{.}}" target="_blank">
+                                Paginated Table data
+                            </a>
+                            </li>
+
+                           
+                    {{end}}
 
                 {{end}}
-            {{end}}
+            
         </ul>
     </td>
 </tr>
