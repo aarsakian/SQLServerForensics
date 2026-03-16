@@ -6,23 +6,35 @@
 body { font-family: sans-serif; margin: 20px; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-th { background-color: #f5f5f5; font-weight: bold; cursor: pointer; user-select: none; }
+th { background-color: #f5f5f5; font-weight: bold; }
 th .header-title { display: block; }
 th .header-filter {
-	width: 100%;
-	margin-top: 8px;
-	padding: 6px;
-	box-sizing: border-box;
-	border: 1px solid #bbb;
-	border-radius: 4px;
-	font-size: 12px;
 }
 th[data-sort-direction="asc"]::after { content: " ▲"; }
 th[data-sort-direction="desc"]::after { content: " ▼"; }
 tr:nth-child(even) { background-color: #fafafa; }
+h2 {justify-content: center; display: flex; color: #333; }
+.page-nav { display: flex; gap: 12px; margin: 0 0 16px; font-size: 14px; align-items: center; justify-content: center; }
+.page-nav-bottom { margin: 16px 0 0; }
+.page-nav a,
+.page-nav .page-nav-disabled { padding: 4px 10px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; }
+.page-nav a { text-decoration: none; color: #333; }
+.page-nav a:hover { background: #eaeaea; }
+.page-nav .page-nav-disabled { color: #999; border-color: #ddd; background: #fafafa; }
+.page-nav .page-nav-current { font-weight: 700; letter-spacing: 0.02em; margin: 0 12px; }
 </style>
 </head>
 <body>
+<h2>Table {{.Name}}</h2>
+{{if or .PrevPage .NextPage}}
+<nav class="page-nav">
+
+{{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
+{{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{else}}<strong class="page-nav-current">Page 1</strong>{{end}}
+{{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
+</nav>
+{{end}}
+
 <table>
 <thead>
 <tr>{{ range .Headers }}<th>{{ . }}</th>{{ end }}</tr>
@@ -35,8 +47,18 @@ tr:nth-child(even) { background-color: #fafafa; }
 {{end}}
 
 {{define "footer"}}
+
 </tbody>
 </table>
+{{if or .PrevPage .NextPage}}
+<nav class="page-nav page-nav-bottom">
+{{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
+{{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{else}}<strong class="page-nav-current">Page 1</strong>{{end}}
+{{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
+</nav>
+{{end}}
+
+{{if not .IsPaginated}}
 <script>
 (() => {
 	const table = document.querySelector("table");
@@ -45,6 +67,11 @@ tr:nth-child(even) { background-color: #fafafa; }
 	const headers = table.querySelectorAll("thead th");
 	const tbody = table.querySelector("tbody");
 	if (!headers.length || !tbody) return;
+
+	headers.forEach((header) => {
+		header.style.cursor = "pointer";
+		header.style.userSelect = "none";
+	});
 
 	const rows = Array.from(tbody.querySelectorAll("tr"));
 
@@ -154,6 +181,7 @@ tr:nth-child(even) { background-color: #fafafa; }
 	applyFilters();
 })();
 </script>
+{{end}}
 </body>
 </html>
 {{end}}
