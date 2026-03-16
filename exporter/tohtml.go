@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"MSSQLParser/db"
+	"MSSQLParser/db/tables"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"fmt"
@@ -54,7 +55,7 @@ func WriteHTML(wg *sync.WaitGroup, records <-chan utils.Record, filename string,
 
 }
 
-func writeSchema(schema []db.Column, folder string, filename string) {
+func writeSchema(schema []tables.Column, folder string, filename string) {
 	fpath := filepath.Join(folder, fmt.Sprintf("%s_schema.html", filename))
 	file, err := os.Create(fpath)
 	if err != nil {
@@ -70,7 +71,7 @@ func writeSchema(schema []db.Column, folder string, filename string) {
 	data := struct {
 		TableName string
 
-		Columns []db.Column
+		Columns []tables.Column
 	}{
 		TableName: filename,
 
@@ -109,7 +110,7 @@ func writeIndex(tmpl *template.Template, indexFile *os.File, table db.Table) {
 }
 
 func writeIndexRecords(wg *sync.WaitGroup, tableName string, folder string,
-	indexRecords <-chan utils.Record, index db.TableIndex) {
+	indexRecords <-chan utils.Record, index tables.Index) {
 
 	defer wg.Done()
 	fpath := filepath.Join(folder, fmt.Sprintf("%s_index.html", index.Name))
