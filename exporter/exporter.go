@@ -5,7 +5,9 @@ import (
 	"MSSQLParser/utils"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"text/template"
 )
@@ -18,6 +20,7 @@ type Exporter struct {
 	Format string
 	Image  bool
 	Path   string
+	Index  bool
 }
 
 func (exp Exporter) CreateExportPath(databaseFolder string,
@@ -58,7 +61,14 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		}
 		defer indexFile.Close()
 
-		tmpl, err = template.ParseFiles("templates/index.tmpl")
+		funcMap := template.FuncMap{
+			"pathBase":   path.Base,
+			"replaceAll": strings.ReplaceAll,
+		}
+
+		tmpl = template.New("templates/index.tmpl").Funcs(funcMap)
+
+		tmpl, err := tmpl.ParseFiles("templates/index.tmpl")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -76,11 +86,24 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	for table := range tables {
 
 		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type)
-		wg := new(sync.WaitGroup)
-		wg.Add(1)
+
 		records := make(chan utils.Record, 1000)
+
 		headers := table.GetHeader(colnames)
+
+		indexRecordsMap := make(map[string]chan utils.Record)
+
+		wg := new(sync.WaitGroup)
+
+		wg.Add(1)
 		go table.GetRecords(wg, selectedTableRow, colnames, records)
+
+		for _, index := range table.Indexes {
+
+			wg.Add(1)
+			indexRecordsMap[index.Name] = make(chan utils.Record, 100)
+			go index.GetRecords(wg, selectedTableRow, colnames, indexRecordsMap[index.Name])
+		}
 
 		if exp.Image {
 			images := make(chan utils.Image, 10)
@@ -102,6 +125,13 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			writeSchema(table.Schema, expPath, table.Name)
 			wg.Add(1)
 			go WriteHTML(wg, records, table.Name, expPath, headers)
+
+			for _, index := range table.Indexes {
+
+				wg.Add(1)
+				go writeIndexRecords(wg, table.Name, expPath, indexRecordsMap[index.Name], index)
+			}
+
 			wg.Wait()
 		}
 	}
