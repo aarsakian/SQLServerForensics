@@ -16,7 +16,6 @@ import (
 )
 
 type HTMLExporter struct {
-	Filename  string //tablename
 	Path      string
 	Templates map[string]*template.Template
 }
@@ -81,7 +80,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	var paginatedFile *os.File
 	var paginatedfpath string
 
-	msg := fmt.Sprintf("Exporting data from %s", filename)
+	msg := fmt.Sprintf("Exporting data from %s to %s", filename, h.Path)
 	fmt.Printf(msg + " \n")
 	mslogger.Mslogger.Info(msg)
 
@@ -108,7 +107,8 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 		// Render paginated HTML header
 		if nofRows%RowsPerPage == 0 {
 			data.IsPaginated = true
-			paginatedfpath = filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename, nofRows/RowsPerPage))
+			paginatedfpath = filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename,
+				nofRows/RowsPerPage))
 			paginatedFile, err = os.OpenFile(paginatedfpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 
 			data.NextPage = paginatedPageName(filename, nofRows/RowsPerPage+1)
@@ -240,7 +240,7 @@ func (h HTMLExporter) WriteIndexRecords(wg *sync.WaitGroup, tableName string,
 	if err != nil {
 		log.Fatal(err)
 	}
-	msg := fmt.Sprintf("Exporting index %s data from %s", index.Name, tableName)
+	msg := fmt.Sprintf("Exporting index %s data from %s to %s", index.Name, tableName, fpath)
 	fmt.Printf(msg + " \n")
 	mslogger.Mslogger.Info(msg)
 
