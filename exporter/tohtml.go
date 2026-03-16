@@ -12,6 +12,9 @@ import (
 	"text/template"
 )
 
+type HTMLExporter struct {
+}
+
 func WriteHTML(wg *sync.WaitGroup, records <-chan utils.Record, filename string,
 	folder string, headers []string) {
 	defer wg.Done()
@@ -45,6 +48,10 @@ func WriteHTML(wg *sync.WaitGroup, records <-chan utils.Record, filename string,
 		}
 	}
 
+	if err := tmpl.ExecuteTemplate(file, "footer", nil); err != nil {
+		log.Fatal(err)
+	}
+
 }
 
 func writeSchema(schema []db.Column, folder string, filename string) {
@@ -76,22 +83,78 @@ func writeSchema(schema []db.Column, folder string, filename string) {
 }
 
 func writeIndex(tmpl *template.Template, indexFile *os.File, table db.Table) {
-	htmlPath := filepath.ToSlash(filepath.Join(table.Type, table.Name+".html"))
-	schemaPath := filepath.ToSlash(filepath.Join(table.Type, table.Name+"_schema.html"))
+
+	exportPaths := make([]string, 0, len(table.Indexes)+2)
+
+	exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name+".html")))
+	exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name+"_schema.html")))
+	for _, index := range table.Indexes {
+		exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, fmt.Sprintf("%s_index.html", index.Name))))
+	}
+
 	rowData := struct {
 		Name           string
 		Type           string
 		PageIDsPerType map[string][]uint32
-		HTMLPath       string
-		SchemaPath     string
+		ExportPaths    []string
 	}{
 		Name:           table.Name,
 		Type:           table.Type,
 		PageIDsPerType: table.PageIDsPerType,
-		HTMLPath:       htmlPath,
-		SchemaPath:     schemaPath,
+		ExportPaths:    exportPaths,
 	}
 	if err := tmpl.ExecuteTemplate(indexFile, "row", rowData); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func writeIndexRecords(wg *sync.WaitGroup, tableName string, folder string,
+	indexRecords <-chan utils.Record, index db.TableIndex) {
+
+	defer wg.Done()
+	fpath := filepath.Join(folder, fmt.Sprintf("%s_index.html", index.Name))
+	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+
+	if err != nil {
+		mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
+		fmt.Printf("%s\n", err)
+	}
+	defer file.Close()
+	tmpl, err := template.ParseFiles("templates/index_records.tmpl")
+	if err != nil {
+		log.Fatal(err)
+	}
+	msg := fmt.Sprintf("Exporting index %s data from %s", index.Name, tableName)
+	fmt.Printf(msg + " \n")
+	mslogger.Mslogger.Info(msg)
+
+	var headers []string
+	for _, col := range index.Columns {
+		headers = append(headers, col.Name)
+	}
+
+	data := struct {
+		TableName string
+		IndexName string
+		Headers   []string
+	}{
+		TableName: tableName,
+		IndexName: index.Name,
+		Headers:   headers,
+	}
+
+	if err := tmpl.ExecuteTemplate(file, "header", data); err != nil {
+		log.Fatal(err)
+	}
+
+	for record := range indexRecords {
+		if err := tmpl.ExecuteTemplate(file, "row", record.Vals); err != nil {
+			log.Fatal(err)
+			fmt.Printf("%s\n", err)
+		}
+	}
+
+	if err := tmpl.ExecuteTemplate(file, "footer", nil); err != nil {
 		log.Fatal(err)
 	}
 }
