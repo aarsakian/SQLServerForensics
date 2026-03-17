@@ -4,9 +4,16 @@
 <head>
 <style>
 body { font-family: sans-serif; margin: 20px; }
+:root { --sticky-legend-top: 0px; --sticky-legend-height: 42px; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-th { background-color: #f5f5f5; font-weight: bold; }
+th {
+	background-color: #f5f5f5;
+	font-weight: bold;
+	position: sticky;
+	top: calc(var(--sticky-legend-top) + var(--sticky-legend-height));
+	z-index: 20;
+}
 th .header-title { display: block; }
 th .header-filter {
 	width: 100%;
@@ -20,6 +27,8 @@ th .header-filter {
 th[data-sort-direction="asc"]::after { content: " ▲"; }
 th[data-sort-direction="desc"]::after { content: " ▼"; }
 tr:nth-child(even) { background-color: #fafafa; }
+tr[data-is-carved="true"] td { background-color: #ffd6d6; }
+tr[data-is-logged="true"] td { background-color: #fff6bf; }
 h2 {justify-content: center; display: flex; color: #333; }
 .page-nav { display: flex; gap: 12px; margin: 0 0 16px; font-size: 14px; align-items: center; justify-content: center; }
 .page-nav-bottom { margin: 16px 0 0; }
@@ -29,6 +38,36 @@ h2 {justify-content: center; display: flex; color: #333; }
 .page-nav a:hover { background: #eaeaea; }
 .page-nav .page-nav-disabled { color: #999; border-color: #ddd; background: #fafafa; }
 .page-nav .page-nav-current { font-weight: 700; letter-spacing: 0.02em; margin: 0 12px; }
+.row-legend {
+	display: flex;
+	justify-content: center;
+	gap: 16px;
+	margin: 10px 0 14px;
+	font-size: 13px;
+	color: #333;
+}
+.row-legend-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.row-legend-swatch {
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+	border: 1px solid #bbb;
+	border-radius: 3px;
+}
+.row-legend-swatch-carved { background-color: #ffd6d6; }
+.row-legend-swatch-logged { background-color: #fff6bf; }
+.row-legend-top {
+	position: sticky;
+	top: var(--sticky-legend-top);
+	z-index: 30;
+	background: #fff;
+	padding: 8px 0;
+	border-bottom: 1px solid #eee;
+}
 </style>
 </head>
 <body>
@@ -41,6 +80,11 @@ h2 {justify-content: center; display: flex; color: #333; }
 </nav>
 {{end}}
 
+<div class="row-legend row-legend-top" aria-label="Row color legend">
+<span class="row-legend-item"><span class="row-legend-swatch row-legend-swatch-carved"></span>Carved record</span>
+<span class="row-legend-item"><span class="row-legend-swatch row-legend-swatch-logged"></span>Logged record</span>
+</div>
+
 <table>
 <thead>
 <tr>{{ range .Headers }}<th>{{ . }}</th>{{ end }}</tr>
@@ -49,13 +93,18 @@ h2 {justify-content: center; display: flex; color: #333; }
 {{end}}
 
 {{define "row"}}
-<tr>{{ range . }}<td>{{ . }}</td>{{ end }}</tr>
+<tr data-is-logged="{{.Logged}}" data-is-carved="{{.Carved}}">{{ range .Vals }}<td>{{ . }}</td>{{ end }}</tr>
 {{end}}
 
 {{define "footer"}}
 
 </tbody>
 </table>
+
+<div class="row-legend" aria-label="Row color legend">
+<span class="row-legend-item"><span class="row-legend-swatch row-legend-swatch-carved"></span>Carved record</span>
+<span class="row-legend-item"><span class="row-legend-swatch row-legend-swatch-logged"></span>Logged record</span>
+</div>
 {{if and .IsPaginated (or .PrevPage .NextPage)}}
 <nav class="page-nav page-nav-bottom">
 {{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
