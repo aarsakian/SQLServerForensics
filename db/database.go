@@ -293,7 +293,7 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 	}
 
 	for tablename, found := range tablesFound {
-		if !found {
+		if !found && tablename != "" {
 			fmt.Printf("Table %s not found\n", tablename)
 		}
 
