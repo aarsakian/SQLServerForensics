@@ -202,6 +202,69 @@ func main() {
 		log.Fatalf("exportblob flag requires export path to be set")
 	}
 
+	// Additional flag combination validations
+
+	// Only one data source method should be used
+	dataSourceCount := 0
+	if *dbfile != "" {
+		dataSourceCount++
+	}
+	if *evidencefile != "" {
+		dataSourceCount++
+	}
+	if *physicalDrive != -1 {
+		dataSourceCount++
+	}
+	if *vmdkfile != "" {
+		dataSourceCount++
+	}
+	if *sourcedir != "" {
+		dataSourceCount++
+	}
+	if dataSourceCount > 1 {
+		log.Fatalf("only one data source can be specified: use either -db, -evidence, -physicaldrive, -vmdk, or -sourcedir")
+	}
+
+	// Export path requires format to be specified
+	if *exportPath != "" && *exportFormat == "" {
+		log.Fatalf("export path is set but -format flag is not specified (valid formats: csv|html|xlsx)")
+	}
+
+	// filterlop only makes sense with LDF processing
+	if *filterlop != "" && !*showLDF && *walkLSN == "" && *walkpageLSN == "" {
+		log.Fatalf("filterlop flag is set but none of -showldf, -walklsn, or -walkpagelsn are enabled")
+	}
+
+	// Table-specific display flags should be used with table processing
+	if (*showTableContent || *showTableIndex || *showTableSchema || *showDataCols || *showSlots) && !*processTables && *showTableAllocation == "" && !*showTableLDF {
+		log.Fatalf("table display flags (-showcontent, -showtableindex, -showschema, -showdatacols, -showslots) require -processtables or -showtableldf or -showtableallocation to be set")
+	}
+
+	// Table row selection flags require table processing or showtableallocation
+	if (*selectedTableRows != "" || *toTableRows != -1 || *skippedTableRows != 0) && !*processTables && *showTableAllocation == "" {
+		log.Fatalf("row selection flags (-rows, -torow, -fromrow) require -processtables or -showtableallocation to be set")
+	}
+
+	// Carve flag requires some form of table processing
+	if *carve && !*processTables && *showTableAllocation == "" && !*showTableLDF && !*showTableContent {
+		log.Fatalf("carve flag requires -processtables, -showtableallocation, -showtableldf, or -showcontent to be set")
+	}
+
+	// Table type filter requires some form of table processing
+	if *tabletype != "" && !*processTables && *showTableAllocation == "" {
+		log.Fatalf("tabletype flag requires -processtables or -showtableallocation to be set")
+	}
+
+	// Tab pages filter requires table processing or showtableallocation
+	if *tablepages != "" && !*processTables && *showTableAllocation == "" {
+		log.Fatalf("tablepages flag requires -processtables or -showtableallocation to be set")
+	}
+
+	// User table info requires DB input
+	if *userTable != "" && *dbfile == "" && *evidencefile == "" && *physicalDrive == -1 && *vmdkfile == "" {
+		log.Fatalf("usertable flag requires a database file to be specified (-db, -evidence, -physicaldrive, or -vmdk)")
+	}
+
 	now := time.Now()
 
 	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
