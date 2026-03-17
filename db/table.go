@@ -276,7 +276,7 @@ func (table *Table) AddPurgedRow(record LDF.Record, carved bool) error {
 		return errors.New(msg)
 
 	}
-	row := table.ProcessRow(len(table.Rows), *record.Lop_Insert_Delete.DataRow,
+	row := table.ProcessRow(*record.Lop_Insert_Delete.DataRow,
 		page.PagesPerId[uint32]{}, page.PagesPerId[uint32]{}, record.Lop_Insert_Delete.PartitionID)
 
 	//before adding a purged row check if the same row was carved
@@ -870,7 +870,7 @@ func (table *Table) updateColOffsets(column_id uint32, offset int16, parirtition
 }
 
 func (table *Table) setContent(dataPages page.PagesPerId[uint32],
-	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) {
+	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32]) int {
 	forwardPages := map[uint32][]uint32{} //list by when seen forward pointer with parent page
 
 	rownum := 0
@@ -883,23 +883,24 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 			}
 			page := pagesPerIDNode.Pages[0]
 
-			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages, rownum)
+			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages)
+
 		}
 	} else {
 		node := dataPages.GetHeadNode()
 		for node != nil {
 			page := node.Pages[0]
-			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages, rownum)
+			rownum += table.setContentFromPage(page, lobPages, textLobPages, forwardPages)
 			node = node.Next
 		}
 
 	}
-
+	return rownum
 }
 
 func (table *Table) setContentFromPage(page page.Page,
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32],
-	forwardPages map[uint32][]uint32, rownum int) int {
+	forwardPages map[uint32][]uint32) int {
 	pageId := page.Header.PageId
 	if page.HasForwardingPointers() {
 		forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
@@ -911,44 +912,44 @@ func (table *Table) setContentFromPage(page page.Page,
 	partitionId := table.AllocationUnitIdTopartitionId[pageAllocationUnitId]
 
 	nofCols := len(table.Schema)
-
+	pageRows := 0
 	for _, datarow := range page.DataRows {
 
 		if datarow.Carved && datarow.NullBitmap == nil {
 			msg := fmt.Sprintf("Null Bitmap in carved  in row %d,  page %d and schema cols %d table %s",
-				rownum, pageId, nofCols, table.Name)
+				pageRows, pageId, nofCols, table.Name)
 			mslogger.Mslogger.Warning(msg)
 			continue
 		}
-		rownum++
+		pageRows++
 		if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 			msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
-				int(datarow.NumberOfCols), rownum, pageId, nofCols, table.Name)
+				int(datarow.NumberOfCols), pageRows, pageId, nofCols, table.Name)
 			mslogger.Mslogger.Warning(msg)
 			//continue
 		}
 		if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
 			msg := fmt.Sprintf("Mismatch in number of declared data var cols %d in row %d,  page %d and with actual cols %d table %s",
-				int(datarow.NumberOfVarLengthCols), rownum, pageId, len(*datarow.VarLenCols), table.Name)
+				int(datarow.NumberOfVarLengthCols), pageRows, pageId, len(*datarow.VarLenCols), table.Name)
 			mslogger.Mslogger.Warning(msg)
 			//continue
 		}
 
 		if datarow.HasVersionTag() {
 			msg := fmt.Sprintf("Datarow %d at pageId %d has versioning enabled. Table %s",
-				rownum, pageId, table.Name)
+				pageRows, pageId, table.Name)
 			mslogger.Mslogger.Warning(msg)
 
 		}
 
 		table.Rows = append(table.Rows,
-			table.ProcessRow(rownum, datarow, lobPages, textLobPages, partitionId))
+			table.ProcessRow(datarow, lobPages, textLobPages, partitionId))
 
 	}
-	return rownum
+	return pageRows
 }
 
-func (table Table) ProcessRow(rownum int, datarow data.DataRow,
+func (table Table) ProcessRow(datarow data.DataRow,
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32], partitionId uint64) tables.Row {
 
 	colMap := make(tables.ColMap)
