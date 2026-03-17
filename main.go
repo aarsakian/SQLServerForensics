@@ -420,7 +420,7 @@ func main() {
 			*fromPage, *toPage, *carve)
 	}
 
-	fmt.Printf("Processed %d pages %d MB in %f secs \n",
+	fmt.Printf("Processed %d pages %d MB in %0.2f secs \n",
 		processedPages, processedPages*8192/1000/1024, time.Since(now).Seconds())
 
 	pm.FilterDatabases(*pageType, *systemTables, *userTable)
