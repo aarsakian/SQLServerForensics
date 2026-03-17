@@ -4,7 +4,7 @@
 
 ***[Description](#description)***  
 ***[Technical Details](#technical-details)***  
-[Dependencies](#depedencies)  
+[Dependencies](#dependencies)  
 ***[Licensing](#licensing)***  
 ***[Usage Instructions](#usage-instructions)***  
 [Input Options](#input-options)   
@@ -53,7 +53,7 @@ Responders who require immediate access to a SQL Server database, may either sto
 When low level access is used, MDF file and LDF files are copied *locally*, before  processing (defaut location is MDF folder). Responders must understand how logging works behind the scenes to avoid misinterpreting missing data or incomplete data—for example, committed rows that have not yet been written to the data file (MDF file) and therefore do not appear in the table.
 
 
- Digital forensics examiners can access SQL database by reading mdf, ldf, bak files directly from images. Supported images include dd, EWF (E01), vmdk (including sparce variant). No third parties depedencies are required to read expert witness format files (E01) or the NTFS file system. Both capabilities are provided by external libraries developed by the same author. Any files discovered are copied locally (default location MDF folder) before processing. 
+ Digital forensics examiners can access SQL database by reading mdf, ldf, bak files directly from images. Supported images include dd, EWF (E01), vmdk (including sparse variant). No third-party dependencies are required to read expert witness format files (E01) or the NTFS file system. Both capabilities are provided by external libraries developed by the same author. Any files discovered are copied locally (default location MDF folder) before processing. 
 
 
 A GUI is under development, which  communicates via rpc calls (protobufs) to the backend. It will be offered under a paid license. 
@@ -62,7 +62,7 @@ Additional features will be introduced over time, but no specific time release s
 
 The development of this tool is based on personal research and published academic work. 
 
-### Depedencies ###  
+### Dependencies ###  
 This tool requires [EWF library](https://github.com/aarsakian/EWF_Reader) for parsing E01 images, [MTF library](https://github.com/aarsakian/MTF_Reader) for handling TAPE (bak) files, and [VMDK library](https://github.com/aarsakian/VMDK_Reader) for reading VMware disk images, [NTFS library](https://github.com/aarsakian/FileSystemForensics) for accessing NTFS file systems without relying on Windows file system APIs. The afore mentioned libraries are developed by the same author. In addition, it requires selected modules of the [x](https://go.dev/wiki/X-Repositories) for interacting with Windows APIs and the [Google's grpc](https://pkg.go.dev/google.golang.org/grpc) libraries for using protobufs.
 
 ## LICENSING ## 
@@ -145,7 +145,7 @@ Usage instructions have been grouped so as to help the user.
         select specific pages to show info (use comma for each page id)
 
   -showpagestats
-        show page statistics (GAM, SGAM, PFS, IAM, DIFFMAP for selected pages)
+        show page statistics (SGAM, GAM, PFS, IAM for selected pages)
 
   -type string
         filter by page type (IAM, GAM, SGAM, PFS, DATA)
@@ -179,9 +179,11 @@ Usage instructions have been grouped so as to help the user.
 
   -walklsn string
         follow log records LSN (values: any, backward, forward)
+        requires -filterlop
 
   -walkpagelsn string
         follow log records associated with page (values: any, backward, forward)
+        requires -filterlop
 
   -sortbylsn string
         sort pages (values: all, allocunit)
@@ -196,9 +198,11 @@ Usage instructions have been grouped so as to help the user.
 
   -walklsn string
         follow log records LSN (values: any, backward, forward)
+        requires -filterlop
 
   -walkpagelsn string
         follow log records associated with page (values: any, backward, forward)
+        requires -filterlop
 
 #### Table Filtering Options
 
@@ -265,7 +269,7 @@ Usage instructions have been grouped so as to help the user.
         export table indexes
 
   -exportblob
-        export blobs (will be exported to a folder under the table name with .blob extension)
+        export blobs (will be exported to a folder images under the database name, file extension is blob)
  
 
  ### Log Options
@@ -302,17 +306,21 @@ Show  table contents of table ***PersonPhone*** in raw (hex values) format of da
 Show  table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** stored only at page ***17161***
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -showcontent -tablepages 17161
 
-Export table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports***
-> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables  -export MyExports -tables PersonPhone
+Export table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports*** in ***html***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables  -export MyExports -tables PersonPhone -format html
 
-Export all user table contents  of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports***
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tabletype 'User Table' -export MyExports
+Export all user table contents  of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports*** in ***csv***
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tabletype 'User Table' -export MyExports -format csv
+
+Export all ***Customer and Address*** table contents including ***index and schema*** information of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports*** in ***html*** 
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables "Customer,Address" -export MyExports -format html -exportschema -exportindex
+
 
 Show table allocation information such as ***Partition IDs, AllocationUnit IDs*** of table ***PersonPhone***
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableallocation links -tables PersonPhone
 
 Show table allocation information such as ***Partition IDs, AllocationUnit IDs*** of table ***PersonPhone*** including ***DATA, Index, IAM*** pages sorted by ID
-> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableallocation links -tables PersonPhone
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showtableallocation sorted -tables PersonPhone
 
 Show table schema of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showschema -tables PersonPhone
@@ -338,8 +346,8 @@ Show page information including ***index structure FileID, PageID, Key, RowSize*
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf   -showindex -showpages  11854
 
 
-Show page information inclding ***header, relevant log records of any lop type operation, follow log records both directions (previous and next)***
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showheader -filterlop any -walklsn any -sortbylsn any
+Show page information including ***header, relevant log records of any lop type operation, follow log records both directions (backward and forward)***
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showheader -filterlop any -walklsn any -sortbylsn all
 
 
 Show page ***bit allocation maps (PFS, GAM, SGAM, IAM, DIFFMAP)*** for pages 423, 454 
@@ -354,10 +362,9 @@ Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_M
 You can apply all operations of database file mdf to bak files, for instance see below:
 
 Export all tables of backup file ***AdventureWorks2022.bak***, mdf produced file will be saved to location ***BackupDB***
-> .\MSSQLParser.exe -mtf ..\Shared-mssql\data\AdventureWorks2022.bak -location BackupDB -processtables -export TablesFromBackup
+> .\MSSQLParser.exe -mtf ..\Shared-mssql\data\AdventureWorks2022.bak -location BackupDB -processtables -export TablesFromBackup -format csv
 
 
 ### Working With Evidence
 Export all tables to ***MyExport*** of any database file found in image ***tester-ewf***, database files are exported to ***MyDBs*** (Locating database files is based on extension)
->.\MSSQLParser.exe -evidence C:\Users\User\Downloads\evidence\tester-ewf.E01 -location
- MyDBs -processtables -export Myexport
+>.\MSSQLParser.exe -evidence C:\Users\User\Downloads\evidence\tester-ewf.E01 -location MyDBs -processtables -export Myexport -format csv
