@@ -76,13 +76,13 @@ Usage instructions have been grouped so as to help the user.
   -db string
         absolute path to the MDF file
 
--ldb string
+  -ldb string
         absolute path to the LDF file
 
--mtf string
-        path to bak file (TAPE format) (log records are not processed to be changed in the future)
+  -mtf string
+        path to bak file (TAPE format)
 
--evidence string
+  -evidence string
         path to image file
         
   -vmdk string
@@ -91,48 +91,64 @@ Usage instructions have been grouped so as to help the user.
   -physicaldrive int
         select the physical disk number to look for MDF file (requires admin rights!) (default -1)
 
- -filenames string
+  -partition int
+        select the partition number to look for MDF files (requires admin rights!) (default -1)
+
+  -filenames string
         select mdf files to filter use comma for each file (to be used with evidence)
 
- -sourcedir string 
-      process all mdf and ldf files found in source directory
-      
-### Processing options 
- 
- 
--bak
-        parse bak files found in images
+  -sourcedir string 
+        process all mdf and ldf files found in source directory
 
--carve
-        Carve data records and try to interpret
-
--to int
-        select page id to end parsing (default -1)
- 
--from int
-        select page id to start parsing
-
--location string
+  -location string
         the path to export MDF/LDF files (default "MDF")
+      
+### Processing options
 
--pages string
-       select pages to parse (use comma for each page id, other pages will be ignored)
- 
--processtables
+  -processtables
         process tables
 
+  -carve
+        Carve data records and try to interpret
+
+  -bak
+        parse bak files found in images
+
+  -from int
+        select page id to start parsing (default 0)
+
+  -to int
+        select page id to end parsing (default -1)
+
+  -pages string
+        select pages to parse (use comma for each page id, other pages will be ignored)
+
+  -type string
+        filter by page type (IAM, GAM, SGAM, PFS, DATA)
+
   -filterlop string
-        filter log records per lop type values are insert|begin|commit|any
+        filter log records per lop type (values: insert, begin, commit, begin_ckpt, end_ckpt, any)
 
 ### Output options
- 
-#### page related 
 
-  -sortbylsn string
-        sort pages  all|allocunit (sort all pages or sort per allocation unit basis)
+#### Database Information
 
- -showheader
+  -showdbinfo
+        show database information parsed from fileheader (page 0)
+
+#### Page related
+
+  -showheader
         show page header
+
+  -showpages string
+        select specific pages to show info (use comma for each page id)
+
+  -showpagestats
+        show page statistics (GAM, SGAM, PFS, IAM, DIFFMAP for selected pages)
+
+  -type string
+        filter by page type (IAM, GAM, SGAM, PFS, DATA)
 
   -showgam
         show GAM extents for each page
@@ -146,102 +162,110 @@ Usage instructions have been grouped so as to help the user.
   -showpfs
         show pfs page allocation
 
-   -showpagestats
-        show page statistics sgam, gam, pfs iam for selected pages
+  -showdiffmap
+        show differential map for each page
 
-  -showpages
-    select specific pages to show info (use comma for each page id)
+  -showbcm
+        show bulk change map
 
   -showslots
         show page slots
 
-
   -showdatacols
         show data cols for each data row
 
-  -walklsn string
-        follow lsn allowed values are prev|next
-
- -type string
-        filter by page type IAM, GAM, SGAM, PFS, DATA
-
-
- -showindex
+  -showindex
         show index contents
 
+  -walklsn string
+        follow log records LSN (values: any, backward, forward)
 
-#### Log related Options 
+  -walkpagelsn string
+        follow log records associated with page (values: any, backward, forward)
+
+  -sortbylsn string
+        sort pages (values: all, allocunit)
+
+#### Log related Options
+
   -showldf
         show vlf, log blocks and records of ldf files
 
- 
+  -showtableldf
+        show table log record info (must be used with -tables)
 
+  -walklsn string
+        follow log records LSN (values: any, backward, forward)
 
- #### Table filtering options
+  -walkpagelsn string
+        follow log records associated with page (values: any, backward, forward)
 
-   -tables string
+#### Table Filtering Options
+
+  -tables string
         select the tables to process (use comma for each table name)
 
- -fromrow int
-        show only the last rows (Default is all)
-
--torow int
-        show only the first rows (Default is all) (default -1)
-
--colnames string
-        the columns to display use comma for each column name
-        
--showcontent
-        show table contents
-
--rows string
-        use comma to select rows
-
-
-
-
- #### Table related Options
-
-   -systemtables string
-        show information about system tables sysschobjs sysrowsets syscolpars
- 
   -tabletype string
-        filter tables by type e.g. 'User Table' for user tables 'View' for views
+        filter tables by type (e.g. 'User Table' for user tables, 'View' for views)
 
--showtableallocation string
-        show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure
-
--showraw
-        show row data for each column in a table
-
--showtableindex
-        show table index contents
-
-  -showtableldf
-        show table log record info (must be used with table)
-
-   -showschema
-        show table schema
-
- -tablepages string
+  -tablepages string
         filter rows by pages (use comma)
 
+  -fromrow int
+        show only rows starting from this row number (default 0)
 
+  -torow int
+        show only the first N rows (default -1 for all)
+
+  -rows string
+        use comma to select specific rows (e.g. 1,5,10)
+
+  -colnames string
+        the columns to display (use comma for each column name)
+
+#### Table Related Options
+
+  -processtables
+        process tables
+
+  -showcontent
+        show table contents
+
+  -showschema
+        show table schema
+
+  -showtableindex
+        show table index contents
+
+  -showtableallocation string
+        show pages that the table has been allocated (values: simple, sorted, links)
+
+  -showraw
+        show row data for each column in a table in raw (hex) format
+
+  -systemtables string
+        show information about system tables (sysschobjs, sysrowsets, syscolpars)
 
   -usertable string
         get system table info about user table
 
 
 ### Export Options
- -export string
+
+  -export string
         export tables to selected path
 
-  -exportimages
-        export blobs (will be exported to a folder images under the database name, file extension is blob)
-
-
   -format string
-        select format to export (csv) (default "csv")
+        select format to export (csv or html)
+
+  -exportschema
+        export table schema
+
+  -exportindex
+        export table indexes
+
+  -exportblob
+        export blobs (will be exported to a folder under the table name with .blob extension)
  
 
  ### Log Options
@@ -249,18 +273,16 @@ Usage instructions have been grouped so as to help the user.
   -log
         log activity
 
-
 ### Misc options
- 
-
-
-  -rpc uint
-        communicate via grpc to selected port (from 1024 and upwards)
 
   -stopservice
         stop MSSQL service (requires admin rights!)
-  
- 
+
+  -rpc uint
+        use grpc to communicate, select port from 1024 and upwards
+
+  -profile
+        profile memory usage
 
 
 ## Examples 
@@ -297,11 +319,11 @@ Show table schema of table ***PersonPhone*** of database file ***AdventureWorks2
 
 
 Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf***  to row ***120*** correlate with log file entries ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")***. When a record is found in the transaction log relevant timestamps are shown. 
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone   -torow 120 -showcontent -ldf 1 -showtableldf
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -torow 120 -showcontent -showtableldf
 
-Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** ,  ***carve*** records, correlate with log file entries ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** including carved records. 
+Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** , ***carve*** records, correlate with log file entries ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** including carved records. 
 When a record is found in the transaction log relevant timestamps are shown. 
->.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -ldf 1 -showtableldf -carve -showcontent
+>.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -showtableldf -carve -showcontent
 
 ###  Page Internals Inspection 
 
@@ -324,8 +346,8 @@ Show page ***bit allocation maps (PFS, GAM, SGAM, IAM, DIFFMAP)*** for pages 423
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showpages 423,454 -showpagestats
 
 ### Transaction Log Internals Inspection 
-Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** such as ***Log Block Header Slots,  size of block, FirstLSN*** operations for log file ***AdventureWorks2022_log.ldf*** 
-> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf  -showldf -ldf 1
+Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** such as ***Log Block Header Slots, size of block, FirstLSN*** operations for log file ***AdventureWorks2022_log.ldf*** 
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -showldf -filterlop any
 
 
 ### Full Archive Backup (BAK)
