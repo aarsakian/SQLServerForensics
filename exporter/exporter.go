@@ -64,8 +64,10 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	if err != nil {
 		log.Fatal(err)
 	}
+	if exp.Format == "html" {
+		writeTOCHeader(tocTmpl, indexFile, databaseName)
+	}
 
-	writeTOCHeader(tocTmpl, indexFile, databaseName)
 	for table := range tables {
 
 		wg := new(sync.WaitGroup)
@@ -102,7 +104,8 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			csvExporter := CSVExporter{Path: expPath}
 			writer = csvExporter
 		case "xlsx":
-			xlsxExporter := XLSXExporter{Path: expPath}
+			xlsxExporter := &XLSXExporter{Path: expPath}
+			xlsxExporter.InitializeXlsxTemplates(table.Name)
 			writer = xlsxExporter
 		}
 
@@ -133,6 +136,12 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			}
 		}
 		wg.Wait()
+
+		if xlsxExporter, ok := writer.(*XLSXExporter); ok {
+			if err := xlsxExporter.Close(); err != nil {
+				log.Fatal(err)
+			}
+		}
 
 	}
 }
