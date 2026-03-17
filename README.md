@@ -16,6 +16,7 @@
 [Table Operations](#table-operations)  
 [Page Internals Inspection](#page-internals-inspection)   
 [Transaction Log internals Inspection](#transaction-log-internals-inspection)    
+[Additional Category Examples](#additional-category-examples)  
 [Full Archive Backup (BAK)](#full-archive-backup-bak)  
 [Working With Evidence](#working-with-evidence)  
 
@@ -356,6 +357,26 @@ Show page ***bit allocation maps (PFS, GAM, SGAM, IAM, DIFFMAP)*** for pages 423
 ### Transaction Log Internals Inspection 
 Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_MODIFY_ROW")*** such as ***Log Block Header Slots, size of block, FirstLSN*** operations for log file ***AdventureWorks2022_log.ldf*** 
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -showldf -filterlop any
+
+
+### Additional Category Examples
+
+Show basic database metadata from file header (database information category)
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showdbinfo
+
+Show system tables metadata (system tables category)
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -systemtables sysschobjs
+
+Get system-table details for a specific user table (user table metadata category)
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -usertable PersonPhone
+
+Export blob columns for a table (export blob category)
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables ProductPhoto -exportblob -export MyExports
+
+Enable file logging while exporting table data (log option category)
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -showcontent -log -export MyExports -format csv
+
+
 
 
 ### Full Archive Backup (BAK)
