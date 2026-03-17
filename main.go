@@ -203,6 +203,7 @@ func main() {
 	}
 
 	now := time.Now()
+
 	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
 	mslogger.InitializeLogger(*logactive, logfilename)
 	FSLogger.InitializeLogger(*logactive, logfilename)
@@ -410,7 +411,6 @@ func main() {
 		SelectedColumns: strings.Split(*colnames, ","),
 	}
 
-	start := time.Now()
 	processedPages := 0
 	if len(bakPayloads) > 0 {
 		processedPages = pm.ProcessBAKFiles(bakPayloads)
@@ -421,16 +421,15 @@ func main() {
 	}
 
 	fmt.Printf("Processed %d pages %d MB in %f secs \n",
-		processedPages, processedPages*8192/1000/1024, time.Since(start).Seconds())
+		processedPages, processedPages*8192/1000/1024, time.Since(now).Seconds())
 
 	pm.FilterDatabases(*pageType, *systemTables, *userTable)
 
 	if *processTables {
-		start := time.Now()
 
 		pm.ProcessTables(selectedTableRowsInt)
 
-		fmt.Printf("Finished in %f secs", time.Since(start).Seconds())
+		fmt.Printf("Finished in %0.2f secs\n", time.Since(now).Seconds())
 	}
 
 	pm.ShowInfo(utils.StringsToUint32Array(*showPages), *filterlop)
