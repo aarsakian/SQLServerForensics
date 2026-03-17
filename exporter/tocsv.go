@@ -196,13 +196,14 @@ func (c CSVExporter) WriteSchema(schema []tables.Column, filename string) {
 	mslogger.Mslogger.Info(msg)
 
 	var headers []string
-	headers = append(headers, "Column Name", "Data Type", "Length", "Nullable", "Ansi Padded", "Identity", "Computed", "Persisted", "Collation")
+	headers = append(headers, "Column Name", "Data Type", "Length", "Nullable", "Ansi Padded",
+		"Identity", "Computed", "Persisted", "Collation")
 	w.Write(headers)
 
 	for _, col := range schema {
 		var record []string
 		record = append(record, col.Name, col.Type, fmt.Sprintf("%d", col.Size),
-			fmt.Sprintf("%t", col.IslNullable), fmt.Sprintf("%d", col.IsAnsiPadded),
+			fmt.Sprintf("%t", col.IslNullable), fmt.Sprintf("%t", col.IsAnsiPadded),
 			fmt.Sprintf("%t", col.IsIdentity), fmt.Sprintf("%t", col.IsComputed),
 			fmt.Sprintf("%t", col.IsPersisted), fmt.Sprintf("%d", col.CollationId))
 		w.Write(record)
