@@ -426,7 +426,9 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 	} else {
 		table.setContent(dataPages, lobPages, textLobPages) // correlerate with page object ids
-
+		msg := fmt.Sprintf("Processing %s completed, rows: %d", table.Name, len(table.Rows))
+		mslogger.Mslogger.Info(msg)
+		fmt.Printf("%s\n", msg)
 	}
 
 	return table
