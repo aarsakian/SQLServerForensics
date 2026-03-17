@@ -13,7 +13,7 @@ import (
 func writeBlobs(wg *sync.WaitGroup, blobs chan utils.Blob, folder string) {
 	defer wg.Done()
 
-	base_path := path.Join(folder, "images")
+	base_path := path.Join(folder, "blobs")
 	err := os.MkdirAll(base_path, 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)

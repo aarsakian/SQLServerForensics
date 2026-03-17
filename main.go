@@ -116,7 +116,8 @@ func main() {
 	exportIndex := flag.Bool("exportindex", false, "export table indexes")
 	exportSchema := flag.Bool("exportschema", false, "export table schema")
 
-	exportBlob := flag.Bool("exportblob", false, "export blobs (will be exported to a folder images under the database name, file extension is blob)")
+	exportBlob := flag.Bool("exportblob", false,
+		"export blobs (will be exported to a folder blobs under the database name, file extension is blob)")
 
 	logactive := flag.Bool("log", false, "log activity")
 	bakactive := flag.Bool("bak", false, "parse bak files found in images")
