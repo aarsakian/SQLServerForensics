@@ -33,8 +33,11 @@ func (c CSVExporter) writeHeader(headers []string, filename string) {
 
 func (c CSVExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
 	headers []string, filename string) {
-	c.writeHeader(headers, filename)
 	defer wg.Done()
+	var loggedRecords, carvedRecords []utils.Record
+
+	c.writeHeader(headers, filename)
+
 	fpath := filepath.Join(c.Path, fmt.Sprintf("%s.csv", filename))
 	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 
@@ -44,15 +47,58 @@ func (c CSVExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Recor
 	defer file.Close()
 	w := csv.NewWriter(file)
 
-	msg := fmt.Sprintf("Exporting %d rows from %s", len(records), filename)
+	msg := fmt.Sprintf("Exporting data from %s", filename)
 	fmt.Printf(msg + " ")
 	mslogger.Mslogger.Info(msg)
 
 	for record := range records {
-		w.Write(record.Vals)
+		if record.Logged {
+			loggedRecords = append(loggedRecords, record)
+		} else if record.Carved {
+			carvedRecords = append(carvedRecords, record)
+		} else {
+			w.Write(record.Vals)
+		}
+
 	}
 	// Write any buffered data to the underlying writer (standard output).
 	w.Flush()
+
+	if len(loggedRecords) > 0 {
+		loggedFpath := filepath.Join(c.Path, fmt.Sprintf("%s_logged.csv", filename))
+		loggedFile, err := os.OpenFile(loggedFpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
+		}
+		defer loggedFile.Close()
+		loggedWriter := csv.NewWriter(loggedFile)
+		loggedWriter.Write(headers)
+		for _, record := range loggedRecords {
+			loggedWriter.Write(record.Vals)
+		}
+		loggedWriter.Flush()
+		if err := loggedWriter.Error(); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if len(carvedRecords) > 0 {
+		carvedFpath := filepath.Join(c.Path, fmt.Sprintf("%s_carved.csv", filename))
+		carvedFile, err := os.OpenFile(carvedFpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			mslogger.Mslogger.Error(fmt.Sprintf("failed to open file %s", err))
+		}
+		defer carvedFile.Close()
+		carvedWriter := csv.NewWriter(carvedFile)
+		carvedWriter.Write(headers)
+		for _, record := range carvedRecords {
+			carvedWriter.Write(record.Vals)
+		}
+		carvedWriter.Flush()
+		if err := carvedWriter.Error(); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	if err := w.Error(); err != nil {
 		log.Fatal(err)
@@ -76,7 +122,7 @@ func WriteCSV(wg *sync.WaitGroup, records <-chan utils.Record, filename string,
 	defer file.Close()
 	w := csv.NewWriter(file)
 
-	msg := fmt.Sprintf("Exporting %d rows from %s", len(records), filename)
+	msg := fmt.Sprintf("Exporting data from %s", filename)
 	fmt.Printf(msg + " ")
 	mslogger.Mslogger.Info(msg)
 
