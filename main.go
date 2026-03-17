@@ -111,7 +111,7 @@ func main() {
 	userTable := flag.String("usertable", "", "get system table info about user table")
 
 	exportPath := flag.String("export", "", "export tables to selected path")
-	exportFormat := flag.String("format", "", "select format to export (csv|html)")
+	exportFormat := flag.String("format", "", "select format to export (csv|html|xlsx)")
 
 	exportIndex := flag.Bool("exportindex", false, "export table indexes")
 	exportSchema := flag.Bool("exportschema", false, "export table schema")
@@ -155,8 +155,13 @@ func main() {
 		log.Fatalf("invalid sort by lsn value %s allowed values are all|allocunit", *sortByLSN)
 	}
 
-	if *exportPath != "" && *exportFormat != "csv" && *exportFormat != "html" && !*exportBlob {
-		log.Fatalf("invalid export format %s currently only csv and html are supported", *exportFormat)
+	if *exportPath != "" && *exportFormat != "csv" &&
+		*exportFormat != "html" && *exportFormat != "xlsx" && !*exportBlob {
+		log.Fatalf("invalid export format %s currently only csv, html, and xlsx are supported", *exportFormat)
+	}
+
+	if *exportPath != "" && *exportFormat != "csv" && *exportFormat != "html" && *exportFormat != "xlsx" && !*exportBlob {
+		log.Fatalf("export path is set but invalid export format %s currently only csv, html, and xlsx are supported", *exportFormat)
 	}
 
 	if *exportIndex && *exportPath == "" {

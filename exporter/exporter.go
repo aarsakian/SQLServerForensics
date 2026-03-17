@@ -83,7 +83,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			wginner.Wait()
 
 		}
-		if exp.Format != "html" && exp.Format != "csv" {
+		if exp.Format != "html" && exp.Format != "csv" && exp.Format != "xlsx" {
 			continue
 		}
 
@@ -91,15 +91,19 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 		headers := table.GetHeader(colnames)
 
-		if exp.Format == "html" {
+		switch exp.Format {
+		case "html":
 			hTMLExporter := HTMLExporter{Path: expPath}
 			hTMLExporter.InitalizeTemplates()
 			writeTOC(tocTmpl, indexFile, table, exp.Schema, exp.Index)
 
 			writer = hTMLExporter
-		} else if exp.Format == "csv" {
+		case "csv":
 			csvExporter := CSVExporter{Path: expPath}
 			writer = csvExporter
+		case "xlsx":
+			xlsxExporter := XLSXExporter{Path: expPath}
+			writer = xlsxExporter
 		}
 
 		indexRecordsMap := make(map[string]chan utils.Record)
