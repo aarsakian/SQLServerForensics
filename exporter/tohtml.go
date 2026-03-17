@@ -105,6 +105,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 
 	for record := range records {
 		// Render paginated HTML header
+
 		if nofRows%RowsPerPage == 0 {
 			data.IsPaginated = true
 			paginatedfpath = filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename,
@@ -128,13 +129,13 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 
 		// Render paginated HTML row
 		data.IsPaginated = true
-		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", record.Vals); err != nil {
+		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", record); err != nil {
 			log.Fatal(err)
 		}
 
 		// Render full HTML row
 		data.IsPaginated = false
-		if err := h.Templates["table"].ExecuteTemplate(file, "row", record.Vals); err != nil {
+		if err := h.Templates["table"].ExecuteTemplate(file, "row", record); err != nil {
 			log.Fatal(err)
 		}
 		nofRows++
