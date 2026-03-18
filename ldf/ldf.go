@@ -309,7 +309,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 
 		//LOP_BEGIN_CKPT = start of checkpoint
 		//LOP_END_CKPT = end of checkpoint
-		switch OperationType[record.Operation] {
+		switch OperationsType[record.Operation] {
 
 		case "LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_INSERT_SPLIT",
 			"LOP_DELETE_SPLIT":
