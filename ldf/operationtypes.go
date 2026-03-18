@@ -1,6 +1,8 @@
 package LDF
 
-var OperationType = map[uint8]string{
+type OperationType map[uint8]string
+
+var OperationsType = map[uint8]string{
 	0: "LOP_NULL",
 	1: "LOP_FORMAT_PAGE",
 	2: "LOP_INSERT_ROW", 3: "LOP_DELETE_ROW",
