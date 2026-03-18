@@ -2,6 +2,7 @@ package manager
 
 import (
 	"MSSQLParser/channels"
+	"MSSQLParser/correlation"
 	"MSSQLParser/db"
 	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
@@ -102,6 +103,7 @@ func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
 		}
 		totalProcessedPages += processedPages
 		database.ProcessSystemTables()
+		database.LinkAllocUnitIdToObjectId()
 		PM.Databases[utils.StringifyGUID(database.BindingID[:])] = database
 	}
 	return totalProcessedPages
@@ -132,6 +134,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		}
 
 		database.ProcessSystemTables()
+		database.LinkAllocUnitIdToObjectId()
 
 		processedPages += totalProcessedPages
 
@@ -186,7 +189,8 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 			database.AddLogRecords()
 			database.CorrelateLDFToPages()
-
+			CorrelationENgine := new(correlation.CorrelationEngine)
+			CorrelationENgine.CorrelateRecords(database.LogDB.GetRecords(), database.AllocTObjectID)
 			PM.Databases[dbkey] = database
 
 		} else {
