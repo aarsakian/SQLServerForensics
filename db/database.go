@@ -41,6 +41,7 @@ type Database struct {
 	MinLSN              utils.LSN
 	DirtyPages          map[uint32]utils.LSN
 	State               string
+	AllocTObjectID      map[uint64]int32
 }
 
 type SystemTable interface {
@@ -110,6 +111,29 @@ func (db *Database) ProcessSystemTables() {
 	msg := fmt.Sprintf("Processed system tables of %s .", db.Name)
 	mslogger.Mslogger.Info(msg)
 	fmt.Printf("msg %s\n", msg)
+}
+
+func (db *Database) LinkAllocUnitIdToObjectId() {
+	// Build once after ProcessSystemTables
+	rowsetToObject := map[uint64]int32{}
+	for objectID, rowsets := range db.tablesPartitions {
+		for _, rs := range rowsets {
+			rowsetToObject[rs.Rowsetid] = objectID
+		}
+	}
+
+	allocToObject := map[uint64]int32{}
+	for rowsetID, allocs := range db.tablesAllocations {
+		objID, ok := rowsetToObject[rowsetID]
+		if !ok {
+			continue
+		}
+		for _, au := range allocs {
+			allocToObject[au.GetId()] = objID
+		}
+	}
+
+	db.AllocTObjectID = allocToObject
 }
 
 func (db *Database) ProcessBAK(carve bool) (int, error) {
@@ -279,7 +303,7 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
 			if db.LogDB != nil {
-				table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogDB.LogRecordsMap)
+				table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogDB.LSNToRecords)
 			}
 
 			select {
@@ -452,14 +476,18 @@ func (db *Database) UpdateState(minLsn utils.LSN) {
 }
 
 func (db *Database) AddLogRecords() {
-
-	db.LogDB.LogRecordsMap = make(LDF.RecordsMap)
+	records := db.LogDB.GetRecords()
+	if db.LogDB.LSNToRecords == nil {
+		db.LogDB.LSNToRecords = make(LDF.RecordsMap, len(records))
+	} else {
+		clear(db.LogDB.LSNToRecords)
+	}
 
 	//cross validate with records
 
-	for _, record := range db.LogDB.GetRecords() {
-		record.UpdateActiveStatus(db.MinLSN)
-		db.LogDB.LogRecordsMap[record.CurrentLSN] = record
+	for idx := range records {
+		records[idx].UpdateActiveStatus(db.MinLSN)
+		db.LogDB.LSNToRecords[records[idx].CurrentLSN] = records[idx]
 	}
 
 }
@@ -478,7 +506,7 @@ func (db Database) CorrelateLDFToPages() {
 	node := db.PagesPerAllocUnitID.GetHeadNode()
 	for node != nil {
 		for idx := range node.Pages {
-			record, ok := db.LogDB.LogRecordsMap[node.Pages[idx].Header.LSN]
+			record, ok := db.LogDB.LSNToRecords[node.Pages[idx].Header.LSN]
 			if ok {
 				node.Pages[idx].LDFRecord = record
 				break
