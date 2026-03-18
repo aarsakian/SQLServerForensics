@@ -359,6 +359,11 @@ func DateTimeTostr(data []byte) string {
 	return fmt.Sprintf("%d-%d-%d %d:%02d:%02d.%03d", years, month, day, hours, minutes, seconds, msecs)
 }
 
+func DateTimeToTime(data []byte) time.Time {
+	day, month, years, hours, minutes, seconds, msecs := parseDateTime(data)
+	return time.Date(years, time.Month(month), day, hours, minutes, seconds, msecs*1000000, time.UTC)
+}
+
 func DateTimeToObj(data []byte) time.Time {
 	day, month, years, hours, minutes, seconds, msecs := parseDateTime(data)
 	return time.Date(years, time.Month(month), day, hours, minutes, seconds, msecs, time.UTC)
