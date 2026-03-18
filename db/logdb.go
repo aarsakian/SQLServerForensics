@@ -9,9 +9,9 @@ import (
 )
 
 type LogDB struct {
-	LogPage       page.Page
-	VLFs          *LDF.VLFs
-	LogRecordsMap LDF.RecordsMap
+	LogPage      page.Page
+	VLFs         *LDF.VLFs
+	LSNToRecords LDF.RecordsMap
 }
 
 func (logdb *LogDB) ProcessLDF(lname string, carve bool) (int, error) {
