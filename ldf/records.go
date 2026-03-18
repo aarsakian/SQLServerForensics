@@ -66,7 +66,7 @@ func (b ByIncreasingLSN) Len() int {
 }
 
 func (record Record) GetOperationType() string {
-	return OperationType[record.Operation]
+	return OperationsType[record.Operation]
 }
 
 func (record Record) GetContextType() string {
@@ -139,7 +139,7 @@ func (record Record) ShowLOPInfo(filterloptype string) {
 			record.CurrentLSN.ToStr(),
 			record.PreviousLSN.ToStr(), record.TransactionID.ToStr(),
 			record.Flag,
-			OperationType[record.Operation],
+			OperationsType[record.Operation],
 			record.GetContextType(), record.IsActive)
 	}
 
@@ -246,6 +246,30 @@ func (records Records) FilterByPageID(pageID uint32) Records {
 		return record.HasPageID(pageID)
 	})
 
+}
+
+func (records Records) GroupByPageID() map[uint32]Records {
+	grouped := make(map[uint32]Records)
+
+	for _, record := range records {
+		if record.Lop_Insert_Delete != nil {
+			pageID := record.Lop_Insert_Delete.RowId.PageId
+			grouped[pageID] = append(grouped[pageID], record)
+		} else if record.Generic_LOP != nil {
+			pageID := record.Generic_LOP.RowId.PageId
+			grouped[pageID] = append(grouped[pageID], record)
+		}
+	}
+	return grouped
+}
+
+func (records Records) GroupByTransactionID() map[string]Records {
+	grouped := make(map[string]Records)
+	for _, record := range records {
+		txID := record.TransactionID.ToStr()
+		grouped[txID] = append(grouped[txID], record)
+	}
+	return grouped
 }
 
 func (records Records) HasExpungeOperation(askedIdx int) bool {
