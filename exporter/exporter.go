@@ -4,12 +4,16 @@ import (
 	"MSSQLParser/db"
 	"MSSQLParser/db/tables"
 	"MSSQLParser/utils"
+	"embed"
 	"html/template"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
 )
+
+//go:embed templates/*tmpl
+var tmplFS embed.FS
 
 type Writer interface {
 	WriteRecords(*sync.WaitGroup, <-chan utils.Record, []string, string)
@@ -43,7 +47,10 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	databaseName string, databaseFolder string, tables <-chan db.Table) {
 	defer expWg.Done()
 
+	var tocTmpl *template.Template
 	var writer Writer
+	var indexFile *os.File
+
 	databaseName = filepath.Base(databaseName)
 	err := os.RemoveAll(filepath.Join(exp.Path, databaseFolder, databaseName))
 	if err != nil {
@@ -53,18 +60,18 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
-	indexPath := filepath.Join(exp.Path, databaseFolder, databaseName, "toc.html")
-	indexFile, err := os.Create(indexPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer indexFile.Close()
 
-	tocTmpl, err := template.New("toc.tmpl").Funcs(funcMap).ParseFiles("templates/toc.tmpl")
-	if err != nil {
-		log.Fatal(err)
-	}
 	if exp.Format == "html" {
+		indexPath := filepath.Join(exp.Path, databaseFolder, databaseName, "index.html")
+		indexFile, err = os.Create(indexPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer indexFile.Close()
+		tocTmpl, err = template.New("toc.tmpl").Funcs(funcMap).ParseFS(tmplFS, "templates/toc.tmpl")
+		if err != nil {
+			log.Fatal(err)
+		}
 		writeTOCHeader(tocTmpl, indexFile, databaseName)
 	}
 
