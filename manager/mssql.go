@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/aarsakian/FileSystemForensics/utils"
@@ -264,8 +265,10 @@ func (PM ProcessManager) ProcessTables(selectedTables []int) {
 
 		if PM.exporter.Path != "" {
 			wg.Add(1)
-			lastDBFolder := filepath.Base(filepath.Clean(database.Fname))
-			lastDBFolder = lastDBFolder[:len(lastDBFolder)-len(filepath.Ext(lastDBFolder))]
+			dir := filepath.Dir(database.Fname)
+			vol := filepath.VolumeName(dir)
+			lastDBFolder := strings.TrimPrefix(dir, vol)
+
 			go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name, lastDBFolder,
 				listener1)
 		}
