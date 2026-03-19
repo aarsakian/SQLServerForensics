@@ -37,32 +37,18 @@ var funcMap = template.FuncMap{
 func (h *HTMLExporter) InitalizeTemplates() {
 	h.Templates = make(map[string]*template.Template)
 	var err error
-	// Check if templates exist
-	if _, err := os.Stat("templates/table.tmpl"); os.IsNotExist(err) {
-		log.Fatal("table template not found")
-	}
-	if _, err := os.Stat("templates/schema.tmpl"); os.IsNotExist(err) {
-		log.Fatal("schema template not found")
-	}
-	if _, err := os.Stat("templates/toc.tmpl"); os.IsNotExist(err) {
-		log.Fatal("toc template not found")
-	}
 
-	if _, err := os.Stat("templates/index_records.tmpl"); os.IsNotExist(err) {
-		log.Fatal("index records template not found")
-	}
-
-	h.Templates["table"], err = template.New("table.tmpl").Funcs(funcMap).ParseFiles("templates/table.tmpl")
+	h.Templates["table"], err = template.New("table.tmpl").Funcs(funcMap).ParseFS(tmplFS, "templates/table.tmpl")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	h.Templates["schema"], err = template.New("schema.tmpl").Funcs(funcMap).ParseFiles("templates/schema.tmpl")
+	h.Templates["schema"], err = template.New("schema.tmpl").Funcs(funcMap).ParseFS(tmplFS, "templates/schema.tmpl")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	h.Templates["indexes"], err = template.New("index_records.tmpl").Funcs(funcMap).ParseFiles("templates/index_records.tmpl")
+	h.Templates["indexes"], err = template.New("index_records.tmpl").Funcs(funcMap).ParseFS(tmplFS, "templates/index_records.tmpl")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -111,7 +97,10 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 			paginatedfpath = filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename,
 				nofRows/RowsPerPage))
 			paginatedFile, err = os.OpenFile(paginatedfpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-
+			defer paginatedFile.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
 			data.NextPage = paginatedPageName(filename, nofRows/RowsPerPage+1)
 			data.CurPage = fmt.Sprintf("%d", nofRows/RowsPerPage+1)
 
@@ -124,7 +113,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 			if err = h.Templates["table"].ExecuteTemplate(paginatedFile, "header", data); err != nil {
 				log.Fatal(err)
 			}
-			defer paginatedFile.Close()
+
 		}
 
 		// Render paginated HTML row
@@ -168,7 +157,7 @@ func (h HTMLExporter) WriteSchema(schema []tables.Column, filename string) {
 	}
 	defer file.Close()
 
-	tmpl, err := template.ParseFiles("templates/schema.tmpl")
+	tmpl, err := template.ParseFS(tmplFS, "templates/schema.tmpl")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -245,7 +234,7 @@ func (h HTMLExporter) WriteIndexRecords(wg *sync.WaitGroup, tableName string,
 		fmt.Printf("%s\n", err)
 	}
 	defer file.Close()
-	tmpl, err := template.ParseFiles("templates/index_records.tmpl")
+	tmpl, err := template.ParseFS(tmplFS, "templates/index_records.tmpl")
 	if err != nil {
 		log.Fatal(err)
 	}
