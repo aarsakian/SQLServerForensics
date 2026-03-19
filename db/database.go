@@ -245,7 +245,7 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 		totalProcessedPages++
 
 	}
-	msg := fmt.Sprintf("Processing pages of %s completed ", db.Name)
+	msg := fmt.Sprintf("Processing pages of %s completed ", db.Fname)
 	mslogger.Mslogger.Info(msg)
 	fmt.Printf("%s\n", msg)
 
@@ -471,6 +471,8 @@ func (db *Database) UpdateState(minLsn utils.LSN) {
 
 		db.State = "dirty"
 
+	} else {
+		db.State = "OK"
 	}
 
 }
