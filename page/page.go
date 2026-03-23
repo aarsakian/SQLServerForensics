@@ -87,8 +87,9 @@ type PageKey interface {
 }
 
 type PagesPerIdNode struct {
-	Next  *PagesPerIdNode
-	Pages Pages
+	Next     *PagesPerIdNode
+	PagesMap map[uint32]*Page
+	Pages    Pages
 }
 
 type PagesPerId[K PageKey] struct {
@@ -118,6 +119,8 @@ func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
 			pagesPerID.list.UpdateNext(pagesPerIDNode)
 		}
 		pagesPerIDNode.Pages = Pages{page}
+		pagesPerIDNode.PagesMap = make(map[uint32]*Page)
+		pagesPerIDNode.PagesMap[page.Header.PageId] = &page
 		pagesPerID.Lookup[allocUnitID] = pagesPerIDNode
 
 	} else {
