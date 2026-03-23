@@ -32,9 +32,10 @@ var LeapYear = []int{0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
 var Year = []int{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365}
 
 type Record struct {
-	Vals   []string
-	Carved bool
-	Logged bool
+	Vals            []string
+	Carved          bool
+	Logged          bool
+	LoggedOperation string
 }
 type Records [][]string
 
@@ -42,6 +43,11 @@ type RowId struct {
 	PageId     uint32
 	FileId     uint16
 	SlotNumber uint16
+}
+
+func (rowid RowId) IsEqual(other RowId) bool {
+	return rowid.PageId == other.PageId && rowid.FileId == other.FileId &&
+		rowid.SlotNumber == other.SlotNumber
 }
 
 type TransactionID struct {
