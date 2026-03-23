@@ -7,26 +7,27 @@ import (
 )
 
 type CorrelatedRecord struct {
-	LSN            utils.LSN
-	TxID           string
-	XactID         uint32
-	Operation      string
-	FileID         int
-	PageID         int
-	AllocationUnit uint64
-	ObjectID       int
-	Timestamp      time.Time
+	LSN       utils.LSN
+	TxID      string
+	XactID    uint32
+	Operation string
+
+	PartitionId uint64
+	ObjectID    int32
+	Timestamp   time.Time
+	RowId       *utils.RowId
+	LogRecord   *LDF.Record
 }
 
 type CorrelationEngine struct {
 	ByLSN      map[utils.LSN]*CorrelatedRecord
 	ByTxID     map[string][]*CorrelatedRecord
 	ByXactID   map[uint32][]*CorrelatedRecord
-	ByPage     map[utils.PageSlot][]*CorrelatedRecord
-	ByObjectID map[int][]*CorrelatedRecord
+	ByPage     map[uint32][]*CorrelatedRecord
+	ByObjectID map[int32][]*CorrelatedRecord
 }
 
-func (ce *CorrelationEngine) CorrelateRecords(records LDF.Records, allocToObjectID map[uint64]int32) {
+func (ce *CorrelationEngine) CorrelateRecords(records LDF.Records, partitionIdToObjectId map[uint64]int32) {
 	if ce.ByLSN == nil {
 		ce.ByLSN = make(map[utils.LSN]*CorrelatedRecord)
 	}
@@ -37,28 +38,41 @@ func (ce *CorrelationEngine) CorrelateRecords(records LDF.Records, allocToObject
 		ce.ByXactID = make(map[uint32][]*CorrelatedRecord)
 	}
 	if ce.ByPage == nil {
-		ce.ByPage = make(map[utils.PageSlot][]*CorrelatedRecord)
+		ce.ByPage = make(map[uint32][]*CorrelatedRecord)
 	}
 	if ce.ByObjectID == nil {
-		ce.ByObjectID = make(map[int][]*CorrelatedRecord)
+		ce.ByObjectID = make(map[int32][]*CorrelatedRecord)
 	}
 
 	for _, record := range records {
 		cr := &CorrelatedRecord{
-			LSN:  record.CurrentLSN,
-			TxID: record.TransactionID.ToStr(),
-
+			LSN:       record.CurrentLSN,
+			TxID:      record.TransactionID.ToStr(),
+			LogRecord: record,
 			Operation: record.GetOperationType(),
 		}
 		if record.Lop_Insert_Delete != nil {
-			cr.FileID = int(record.Lop_Insert_Delete.RowId.FileId)
-			cr.PageID = int(record.Lop_Insert_Delete.RowId.PageId)
-			cr.AllocationUnit = record.Lop_Insert_Delete.PartitionID
-		} else if record.Generic_LOP != nil {
-			cr.FileID = int(record.Generic_LOP.RowId.FileId)
-			cr.PageID = int(record.Generic_LOP.RowId.PageId)
-			cr.AllocationUnit = record.Generic_LOP.PartitionID
+			cr.RowId = new(utils.RowId)
+			//use zero based numbering log file
+			cr.RowId.FileId = record.Lop_Insert_Delete.RowId.FileId - 1
+			cr.RowId.PageId = record.Lop_Insert_Delete.RowId.PageId
 
+			cr.PartitionId = record.Lop_Insert_Delete.PartitionID
+			cr.ObjectID = partitionIdToObjectId[cr.PartitionId]
+		} else if record.Generic_LOP != nil {
+			cr.RowId = new(utils.RowId)
+			cr.RowId.FileId = record.Generic_LOP.RowId.FileId - 1
+			cr.RowId.PageId = record.Generic_LOP.RowId.PageId
+
+			cr.PartitionId = record.Generic_LOP.PartitionID
+			cr.ObjectID = partitionIdToObjectId[cr.PartitionId]
+		} else if record.Lop_Modify != nil {
+			cr.RowId = new(utils.RowId)
+			cr.RowId.FileId = record.Lop_Modify.RowId.FileId - 1
+			cr.RowId.PageId = record.Lop_Modify.RowId.PageId
+
+			cr.PartitionId = record.Lop_Modify.PartitionID
+			cr.ObjectID = partitionIdToObjectId[cr.PartitionId]
 		} else if record.Lop_Begin != nil {
 			cr.Timestamp = utils.DateTimeToTime(record.Lop_Begin.BeginTime[:])
 			cr.XactID = record.Lop_Begin.XactID
@@ -69,12 +83,6 @@ func (ce *CorrelationEngine) CorrelateRecords(records LDF.Records, allocToObject
 			cr.XactID = record.Lop_Commit.XactID
 		}
 
-		if cr.AllocationUnit != 0 {
-			if objectID, ok := allocToObjectID[cr.AllocationUnit]; ok {
-				cr.ObjectID = int(objectID)
-			}
-		}
-
 		ce.ByLSN[record.CurrentLSN] = cr
 		if cr.TxID != "0000:00000000" {
 			ce.ByTxID[cr.TxID] = append(ce.ByTxID[cr.TxID], cr)
@@ -82,12 +90,17 @@ func (ce *CorrelationEngine) CorrelateRecords(records LDF.Records, allocToObject
 		if cr.XactID != 0 {
 			ce.ByXactID[cr.XactID] = append(ce.ByXactID[cr.XactID], cr)
 		}
-		if cr.FileID != 0 && cr.PageID != 0 {
-			ce.ByPage[utils.PageSlot{FileId: uint16(cr.FileID), PageId: uint32(cr.PageID)}] =
-				append(ce.ByPage[utils.PageSlot{FileId: uint16(cr.FileID), PageId: uint32(cr.PageID)}], cr)
+		if cr.RowId != nil && cr.RowId.PageId != 0 {
+			ce.ByPage[cr.RowId.PageId] =
+				append(ce.ByPage[cr.RowId.PageId], cr)
 		}
 		if cr.ObjectID != 0 {
 			ce.ByObjectID[cr.ObjectID] = append(ce.ByObjectID[cr.ObjectID], cr)
 		}
 	}
+}
+
+func (ce *CorrelationEngine) CorrelateTable(objectit int32) []*CorrelatedRecord {
+
+	return ce.ByObjectID[objectit]
 }
