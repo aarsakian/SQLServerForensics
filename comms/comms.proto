@@ -53,7 +53,8 @@ message RowResponse {
 message Row {
     repeated string Vals = 1;
     bool Carved = 2;
-    bool Logged = 3; 
+    bool Logged = 3;
+    string LoggedOperation = 4;
 }
 
 message Page {

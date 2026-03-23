@@ -7,11 +7,12 @@
 package mssqlparser_comms
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -514,12 +515,13 @@ func (*RowResponse_Row) isRowResponse_MessageType() {}
 func (*RowResponse_Message) isRowResponse_MessageType() {}
 
 type Row struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Vals          []string               `protobuf:"bytes,1,rep,name=Vals,proto3" json:"Vals,omitempty"`
-	Carved        bool                   `protobuf:"varint,2,opt,name=Carved,proto3" json:"Carved,omitempty"`
-	Logged        bool                   `protobuf:"varint,3,opt,name=Logged,proto3" json:"Logged,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Vals            []string               `protobuf:"bytes,1,rep,name=Vals,proto3" json:"Vals,omitempty"`
+	Carved          bool                   `protobuf:"varint,2,opt,name=Carved,proto3" json:"Carved,omitempty"`
+	Logged          bool                   `protobuf:"varint,3,opt,name=Logged,proto3" json:"Logged,omitempty"`
+	LoggedOperation string                 `protobuf:"bytes,4,opt,name=LoggedOperation,proto3" json:"LoggedOperation,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Row) Reset() {
@@ -571,6 +573,13 @@ func (x *Row) GetLogged() bool {
 		return x.Logged
 	}
 	return false
+}
+
+func (x *Row) GetLoggedOperation() string {
+	if x != nil {
+		return x.LoggedOperation
+	}
+	return ""
 }
 
 type Page struct {
