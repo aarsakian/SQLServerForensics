@@ -2,9 +2,12 @@ package tables
 
 import (
 	"MSSQLParser/data"
+
+	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"bytes"
 	"fmt"
 	"time"
 
@@ -23,11 +26,14 @@ type Computed struct {
 type ColMap map[string]ColData //name->coldata
 
 type Row struct {
-	ColMap          ColMap
-	LoggedOperation string
-	Carved          bool
-	Logged          bool
-	LogDate         time.Time
+	ColMap            ColMap
+	LoggedOperation   string
+	Carved            bool
+	Logged            bool
+	LogDate           time.Time
+	RowId             utils.RowId
+	LSN               utils.LSN
+	LogBasedLinkedRow *Row
 }
 
 type Column struct {
@@ -51,6 +57,86 @@ type Column struct {
 	IsColumnSet  bool
 	IsFilestream bool
 	Computed     *Computed
+}
+
+func (row *Row) UpdateWithLogRecord(record *LDF.Record, pageFlushed bool, tableSchma []Column) {
+
+	row.LoggedOperation = record.GetOperationType()
+	switch row.LoggedOperation {
+	case "LOP_INSERT_ROW":
+		if pageFlushed {
+			row.MarkInserted(record)
+
+		}
+
+	case "LOP_MODIFY_ROW":
+		if !pageFlushed {
+
+			row.MarkModified(record, tableSchma, false)
+		}
+
+	case "LOP_DELETE_ROW":
+		if !pageFlushed {
+			row.MarkDeleted(record)
+		}
+	}
+
+}
+
+func (row *Row) MarkDeleted(record *LDF.Record) {
+	row.LoggedOperation = "Deleted at  " + record.GetBeginCommitDate() +
+		fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+	row.Logged = true
+	row.LogDate = record.GetBeginCommitDateObj()
+	row.LSN = record.CurrentLSN
+}
+
+func (row *Row) MarkInserted(record *LDF.Record) {
+	row.Logged = true
+
+	row.LogDate = record.GetBeginCommitDateObj()
+	row.LSN = record.CurrentLSN
+	row.LoggedOperation = "Inserted at  " + record.GetBeginCommitDate() +
+		fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+}
+
+func (row *Row) MarkModified(record *LDF.Record, tableSchema []Column, carved bool) {
+	row.Logged = true
+	row.LogDate = record.GetBeginCommitDateObj()
+	row.LSN = record.CurrentLSN
+	row.LoggedOperation += "Pending flushing, Modified at " +
+		record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
+
+	logBasedLinkedRow := new(Row)
+
+	logBasedLinkedRow.LogDate = record.GetBeginCommitDateObj()
+	logBasedLinkedRow.Carved = true
+	logBasedLinkedRow.Logged = true
+
+	for _, c := range tableSchema {
+		if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
+			var newcontent bytes.Buffer
+			newcontent.Grow(int(c.Size))
+
+			colData := row.ColMap[c.Name]
+			//new data from startoffset -> startoffset + modifysize
+			startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
+			if startOffset > 0 {
+				newcontent.Write(colData.Content[:startOffset]) //unchanged content
+				newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
+				newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
+
+				colData.LoggedColData = &ColData{Content: newcontent.Bytes()}
+				logBasedLinkedRow.ColMap[c.Name] = colData
+
+			}
+
+			break
+		}
+	}
+
+	row.LogBasedLinkedRow = logBasedLinkedRow
+
 }
 
 func (c Column) Print(data []byte) {
