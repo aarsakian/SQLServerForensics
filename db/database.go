@@ -1,6 +1,7 @@
 package db
 
 import (
+	"MSSQLParser/correlation"
 	"MSSQLParser/data"
 	tables "MSSQLParser/db/tables"
 	LDF "MSSQLParser/ldf"
@@ -22,26 +23,27 @@ type Database struct {
 	Fname   string // path to mdf file
 	Lname   string // path to ldf file
 
-	Name                string
-	NofPages            int
-	BindingID           [16]byte
-	PagesPerAllocUnitID page.PagesPerId[uint64] //allocationunitid -> Pages
-	Tables              []Table
-	LogDB               *LogDB
-	tablesInfo          tables.TablesInfo
-	columnsinfo         tables.ColumnsInfo
-	tablesPartitions    tables.TablesPartitions
-	tablesAllocations   tables.TablesAllocations
-	columnsPartitions   tables.ColumnsPartitions // rowsetid -> sysrscols
-	columnsStatistics   tables.ColumnsStatistics // objectid -> sysiscols
-	metadataBlobs       tables.MetadataBlobs
-	indexesInfo         tables.IndexesInfo
-	sysfiles            tables.SysFiles //info about files of db mdf, ldf
-	DbiCheckptLSN       utils.LSN
-	MinLSN              utils.LSN
-	DirtyPages          map[uint32]utils.LSN
-	State               string
-	AllocTObjectID      map[uint64]int32
+	Name                  string
+	NofPages              int
+	BindingID             [16]byte
+	PagesPerAllocUnitID   page.PagesPerId[uint64] //allocationunitid -> Pages
+	Tables                []*Table
+	LogDB                 *LogDB
+	tablesInfo            tables.TablesInfo
+	columnsinfo           tables.ColumnsInfo
+	tablesPartitions      tables.TablesPartitions
+	tablesAllocations     tables.TablesAllocations
+	columnsPartitions     tables.ColumnsPartitions // rowsetid -> sysrscols
+	columnsStatistics     tables.ColumnsStatistics // objectid -> sysiscols
+	metadataBlobs         tables.MetadataBlobs
+	indexesInfo           tables.IndexesInfo
+	sysfiles              tables.SysFiles //info about files of db mdf, ldf
+	DbiCheckptLSN         utils.LSN
+	MinLSN                utils.LSN
+	DirtyPages            map[uint32]utils.LSN
+	State                 string
+	PartitionIdToObjectID map[uint64]int32
+	CorrelationEngine     *correlation.CorrelationEngine
 }
 
 type SystemTable interface {
@@ -113,7 +115,7 @@ func (db *Database) ProcessSystemTables() {
 	fmt.Printf("msg %s\n", msg)
 }
 
-func (db *Database) LinkAllocUnitIdToObjectId() {
+func (db *Database) LinkPartitionIdToObjectId() {
 	// Build once after ProcessSystemTables
 	rowsetToObject := map[uint64]int32{}
 	for objectID, rowsets := range db.tablesPartitions {
@@ -122,18 +124,7 @@ func (db *Database) LinkAllocUnitIdToObjectId() {
 		}
 	}
 
-	allocToObject := map[uint64]int32{}
-	for rowsetID, allocs := range db.tablesAllocations {
-		objID, ok := rowsetToObject[rowsetID]
-		if !ok {
-			continue
-		}
-		for _, au := range allocs {
-			allocToObject[au.GetId()] = objID
-		}
-	}
-
-	db.AllocTObjectID = allocToObject
+	db.PartitionIdToObjectID = rowsetToObject
 }
 
 func (db *Database) ProcessBAK(carve bool) (int, error) {
@@ -281,11 +272,15 @@ func (db Database) GetTablesInfo() tables.TablesInfo {
 }
 
 func (db Database) ProcessTables(ctx context.Context, tablenames []string, tabletype string,
-	tablesCH chan<- Table, tablePages []int) {
+	tablesCH chan<- *Table, tablePages []int) {
 
 	defer close(tablesCH)
 
 	tablesFound := make(map[string]bool)
+	skipUserTables := map[string]struct{}{
+		"trace_xe_event_map":  {},
+		"trace_xe_action_map": {},
+	}
 	for _, tablename := range tablenames {
 		tablesFound[tablename] = false
 		for objectid, tableinfo := range db.GetTablesInfo() {
@@ -293,6 +288,14 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 			tname := tableinfo.GetName()
 
 			tableType := tableinfo.GetTableType()
+
+			if tabletype == "User Table" {
+				if _, shouldSkip := skipUserTables[tname]; shouldSkip {
+					msg := fmt.Sprintf("skipping table %s for type %s", tname, tabletype)
+					mslogger.Mslogger.Info(msg)
+					continue
+				}
+			}
 
 			if tablename != "" && tablename != tname || tabletype != "" && tabletype != tableType {
 				msg := fmt.Sprintf("table %s not processed", tname)
@@ -303,11 +306,11 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 
 			table := db.ProcessTable(objectid, tname, tableType, tablePages)
 			if db.LogDB != nil {
-				table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogDB.LSNToRecords)
+				//		table.AddChangesHistory(db.PagesPerAllocUnitID, db.LogDB.LSNToRecords)
 			}
 
 			select {
-			case tablesCH <- table:
+			case tablesCH <- &table:
 				tablesFound[tname] = true
 			case <-ctx.Done():
 				return
@@ -343,6 +346,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	mslogger.Mslogger.Info(msg)
 
 	table.AllocationUnitIdTopartitionId = make(map[uint64]uint64)
+	table.PartitionIdToAllocationsUnitId = make(map[uint64][]uint64)
 
 	colsinfo := db.columnsinfo[objectid]
 
@@ -371,12 +375,15 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 		allocationUnits, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
 
 		if ok {
+			table.PartitionIdToAllocationsUnitId[partition.Rowsetid] = make([]uint64, 0, len(allocationUnits))
 			for _, allocationUnit := range allocationUnits {
-
+				allocUnitId := allocationUnit.GetId()
 				table_alloc_pages = append(table_alloc_pages,
-					db.PagesPerAllocUnitID.GetPages(allocationUnit.GetId())...) // find the pages the table was allocated
+					db.PagesPerAllocUnitID.GetPages(allocUnitId)...) // find the pages the table was allocated
 
-				table.AllocationUnitIdTopartitionId[allocationUnit.GetId()] = partition.Rowsetid
+				table.AllocationUnitIdTopartitionId[allocUnitId] = partition.Rowsetid
+				table.PartitionIdToAllocationsUnitId[partition.Rowsetid] = append(table.PartitionIdToAllocationsUnitId[partition.Rowsetid],
+					allocUnitId)
 
 			}
 
