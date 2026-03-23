@@ -49,7 +49,8 @@ func (index Index) GetRecords(wg *sync.WaitGroup, selectedRows []int,
 			colData := row.ColMap[c.Name]
 			vals = append(vals, c.ToString(colData.Content))
 		}
-		record = utils.Record{Vals: vals, Carved: row.Carved, Logged: row.Logged}
+		record = utils.Record{Vals: vals, Carved: row.Carved, Logged: row.Logged,
+			LoggedOperation: row.LoggedOperation}
 		records <- record
 	}
 	close(records)
