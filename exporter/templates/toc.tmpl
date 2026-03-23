@@ -19,6 +19,7 @@
 </head>
 <body>
     <h1>Database {{.DatabaseName}} - Tables Index</h1>
+    <p>Src File: {{.Filename}}</p>
     <table>
         <thead>
             <tr>
@@ -61,7 +62,7 @@
                         {{else if eq $i 0}}
                                 <li>
                                 <a href="{{.}}" target="_blank">
-                                  Table data  
+                                                                    Table data ({{$.RowCount}} rows)
                                 </a>
                                 </li>
 
