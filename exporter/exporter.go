@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -30,8 +31,52 @@ type Exporter struct {
 	Schema bool
 }
 
+func exportedRowCount(table *db.Table, selectedTableRow []int) int {
+	if len(selectedTableRow) == 0 {
+		return len(table.Rows)
+	}
+
+	rowCount := 0
+	for _, rowNum := range selectedTableRow {
+		if rowNum >= 0 && rowNum < len(table.Rows) {
+			rowCount++
+		}
+	}
+
+	return rowCount
+}
+
+func sanitizeDatabaseFolder(databaseFolder string) string {
+	cleaned := filepath.Clean(databaseFolder)
+	if cleaned == "." {
+		return ""
+	}
+
+	cleaned = strings.TrimPrefix(cleaned, filepath.VolumeName(cleaned))
+	cleaned = strings.TrimLeft(cleaned, `/\\`)
+
+	parts := strings.FieldsFunc(cleaned, func(r rune) bool {
+		return r == '\\' || r == '/'
+	})
+
+	safeParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			continue
+		}
+		safeParts = append(safeParts, part)
+	}
+
+	if len(safeParts) == 0 {
+		return ""
+	}
+
+	return filepath.Join(safeParts...)
+}
+
 func (exp Exporter) CreateExportPath(databaseFolder string,
 	databaseName string, tableType string, tableName string) string {
+	databaseFolder = sanitizeDatabaseFolder(databaseFolder)
 
 	expPath := filepath.Join(exp.Path, databaseFolder, databaseName, tableType, tableName)
 
@@ -44,8 +89,10 @@ func (exp Exporter) CreateExportPath(databaseFolder string,
 }
 
 func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnames []string,
-	databaseName string, databaseFolder string, tables <-chan db.Table) {
+	databaseName string, sourceFilename string, databaseFolder string, tables <-chan *db.Table) {
 	defer expWg.Done()
+
+	databaseFolder = sanitizeDatabaseFolder(databaseFolder)
 
 	var tocTmpl *template.Template
 	var writer Writer
@@ -72,7 +119,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		if err != nil {
 			log.Fatal(err)
 		}
-		writeTOCHeader(tocTmpl, indexFile, databaseName)
+		writeTOCHeader(tocTmpl, indexFile, sourceFilename, databaseName)
 	}
 
 	for table := range tables {
@@ -102,9 +149,8 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 		switch exp.Format {
 		case "html":
-			hTMLExporter := HTMLExporter{Path: expPath}
+			hTMLExporter := HTMLExporter{Path: expPath, SourceFilename: sourceFilename, DatabaseName: databaseName}
 			hTMLExporter.InitalizeTemplates()
-			writeTOC(tocTmpl, indexFile, table, exp.Schema, exp.Index)
 
 			writer = hTMLExporter
 		case "csv":
@@ -148,6 +194,17 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			if err := xlsxExporter.Close(); err != nil {
 				log.Fatal(err)
 			}
+		}
+
+		if exp.Format == "html" {
+			paginatedPath := filepath.Join(expPath, table.Name+"_0.html")
+			_, err := os.Stat(paginatedPath)
+			includePaginated := err == nil
+			if err != nil && !os.IsNotExist(err) {
+				log.Fatal(err)
+			}
+
+			writeTOC(tocTmpl, indexFile, table, exportedRowCount(table, selectedTableRow), includePaginated, exp.Schema, exp.Index)
 		}
 
 	}
