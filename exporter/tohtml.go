@@ -16,8 +16,10 @@ import (
 )
 
 type HTMLExporter struct {
-	Path      string
-	Templates map[string]*template.Template
+	Path           string
+	SourceFilename string
+	DatabaseName   string
+	Templates      map[string]*template.Template
 }
 
 type tableTemplateData struct {
@@ -26,6 +28,8 @@ type tableTemplateData struct {
 	NextPage    string
 	CurPage     string
 	Name        string
+	SourceFile  string
+	Database    string
 	IsPaginated bool
 }
 
@@ -64,14 +68,13 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	defer wg.Done()
 
 	var paginatedFile *os.File
-	var paginatedfpath string
 
 	msg := fmt.Sprintf("Exporting data from %s to %s", filename, h.Path)
 	fmt.Printf(msg + " \n")
 	mslogger.Mslogger.Info(msg)
 
 	data := tableTemplateData{Headers: headers,
-		Name: filename, IsPaginated: false}
+		Name: filename, SourceFile: h.SourceFilename, Database: h.DatabaseName, IsPaginated: false}
 
 	fpath := filepath.Join(h.Path, fmt.Sprintf("%s.html", filename))
 	file, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
@@ -86,42 +89,63 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 
 	nofRows := 0
 	RowsPerPage := 1000
+	pageIdx := -1
+	pageRowCount := 0
+	paginationEnabled := false
+	firstPageBuffer := make([]utils.Record, 0, RowsPerPage)
 
-	data.IsPaginated = false
-
-	for record := range records {
-		// Render paginated HTML header
-
-		if nofRows%RowsPerPage == 0 {
-			data.IsPaginated = true
-			paginatedfpath = filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename,
-				nofRows/RowsPerPage))
-			paginatedFile, err = os.OpenFile(paginatedfpath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-			defer paginatedFile.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-			data.NextPage = paginatedPageName(filename, nofRows/RowsPerPage+1)
-			data.CurPage = fmt.Sprintf("%d", nofRows/RowsPerPage+1)
-
-			if nofRows/RowsPerPage-1 < 0 {
-				data.PrevPage = ""
-			} else {
-				data.PrevPage = paginatedPageName(filename, nofRows/RowsPerPage-1)
-			}
-
-			if err = h.Templates["table"].ExecuteTemplate(paginatedFile, "header", data); err != nil {
-				log.Fatal(err)
-			}
-
-		}
-
-		// Render paginated HTML row
-		data.IsPaginated = true
-		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", record); err != nil {
+	openPaginatedPage := func(idx int) {
+		var err error
+		fpath := filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename, idx))
+		paginatedFile, err = os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
 			log.Fatal(err)
 		}
 
+		pageData := data
+		pageData.IsPaginated = true
+		pageData.CurPage = fmt.Sprintf("%d", idx+1)
+		if idx == 0 {
+			pageData.PrevPage = ""
+		} else {
+			pageData.PrevPage = paginatedPageName(filename, idx-1)
+		}
+		pageData.NextPage = ""
+
+		if err = h.Templates["table"].ExecuteTemplate(paginatedFile, "header", pageData); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	closePaginatedPage := func(hasNext bool) {
+		if paginatedFile == nil {
+			return
+		}
+
+		pageData := data
+		pageData.IsPaginated = true
+		pageData.CurPage = fmt.Sprintf("%d", pageIdx+1)
+		if pageIdx == 0 {
+			pageData.PrevPage = ""
+		} else {
+			pageData.PrevPage = paginatedPageName(filename, pageIdx-1)
+		}
+		if hasNext {
+			pageData.NextPage = paginatedPageName(filename, pageIdx+1)
+		} else {
+			pageData.NextPage = ""
+		}
+
+		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "footer", pageData); err != nil {
+			log.Fatal(err)
+		}
+		if err := paginatedFile.Close(); err != nil {
+			log.Fatal(err)
+		}
+		paginatedFile = nil
+	}
+
+	for record := range records {
 		// Render full HTML row
 		data.IsPaginated = false
 		if err := h.Templates["table"].ExecuteTemplate(file, "row", record); err != nil {
@@ -129,13 +153,38 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 		}
 		nofRows++
 
-		// Render paginated HTML footer
-		if nofRows%RowsPerPage == 0 {
-			data.IsPaginated = true
-			if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "footer", data); err != nil {
-				log.Fatal(err)
+		if !paginationEnabled {
+			firstPageBuffer = append(firstPageBuffer, record)
+			if nofRows == RowsPerPage {
+				paginationEnabled = true
+				pageIdx = 0
+				openPaginatedPage(pageIdx)
+				for _, bufferedRecord := range firstPageBuffer {
+					if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", bufferedRecord); err != nil {
+						log.Fatal(err)
+					}
+				}
+				pageRowCount = len(firstPageBuffer)
+				firstPageBuffer = nil
 			}
+			continue
 		}
+
+		if pageRowCount == RowsPerPage {
+			closePaginatedPage(true)
+			pageIdx++
+			openPaginatedPage(pageIdx)
+			pageRowCount = 0
+		}
+
+		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", record); err != nil {
+			log.Fatal(err)
+		}
+		pageRowCount++
+	}
+
+	if paginationEnabled {
+		closePaginatedPage(false)
 	}
 
 	// Render full HTML footer
@@ -163,11 +212,15 @@ func (h HTMLExporter) WriteSchema(schema []tables.Column, filename string) {
 	}
 
 	data := struct {
-		TableName string
+		TableName  string
+		SourceFile string
+		Database   string
 
 		Columns []tables.Column
 	}{
-		TableName: filename,
+		TableName:  filename,
+		SourceFile: h.SourceFilename,
+		Database:   h.DatabaseName,
 
 		Columns: schema,
 	}
@@ -177,10 +230,12 @@ func (h HTMLExporter) WriteSchema(schema []tables.Column, filename string) {
 	}
 }
 
-func writeTOCHeader(tocTmpl *template.Template, indexFile *os.File, databaseName string) {
+func writeTOCHeader(tocTmpl *template.Template, indexFile *os.File, sourceFilename string, databaseName string) {
 	data := struct {
+		Filename     string
 		DatabaseName string
 	}{
+		Filename:     sourceFilename,
 		DatabaseName: databaseName,
 	}
 	if err := tocTmpl.ExecuteTemplate(indexFile, "header", data); err != nil {
@@ -189,13 +244,15 @@ func writeTOCHeader(tocTmpl *template.Template, indexFile *os.File, databaseName
 
 }
 
-func writeTOC(tocTmpl *template.Template, indexFile *os.File, table db.Table,
-	includeSchema bool, includeIndexes bool) {
+func writeTOC(tocTmpl *template.Template, indexFile *os.File, table *db.Table,
+	rowCount int, includePaginated bool, includeSchema bool, includeIndexes bool) {
 
 	exportPaths := make([]string, 0, len(table.Indexes)+2)
 
 	exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, table.Name+".html")))
-	exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, fmt.Sprintf("%s_0.html", table.Name))))
+	if includePaginated {
+		exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, fmt.Sprintf("%s_0.html", table.Name))))
+	}
 	if includeSchema {
 		exportPaths = append(exportPaths, filepath.ToSlash(filepath.Join(table.Type, table.Name, table.Name+"_schema.html")))
 	}
@@ -209,11 +266,13 @@ func writeTOC(tocTmpl *template.Template, indexFile *os.File, table db.Table,
 	rowData := struct {
 		Name           string
 		Type           string
+		RowCount       int
 		PageIDsPerType map[string][]uint32
 		ExportPaths    []string
 	}{
 		Name:           table.Name,
 		Type:           table.Type,
+		RowCount:       rowCount,
 		PageIDsPerType: table.PageIDsPerType,
 		ExportPaths:    exportPaths,
 	}
@@ -248,13 +307,17 @@ func (h HTMLExporter) WriteIndexRecords(wg *sync.WaitGroup, tableName string,
 	}
 
 	data := struct {
-		TableName string
-		IndexName string
-		Headers   []string
+		TableName  string
+		IndexName  string
+		SourceFile string
+		Database   string
+		Headers    []string
 	}{
-		TableName: tableName,
-		IndexName: index.Name,
-		Headers:   headers,
+		TableName:  tableName,
+		IndexName:  index.Name,
+		SourceFile: h.SourceFilename,
+		Database:   h.DatabaseName,
+		Headers:    headers,
 	}
 
 	if err := tmpl.ExecuteTemplate(file, "header", data); err != nil {
