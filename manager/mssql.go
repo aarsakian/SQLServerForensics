@@ -12,7 +12,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/aarsakian/FileSystemForensics/utils"
@@ -104,7 +103,7 @@ func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
 		}
 		totalProcessedPages += processedPages
 		database.ProcessSystemTables()
-		database.LinkAllocUnitIdToObjectId()
+		database.LinkPartitionIdToObjectId()
 		PM.Databases[utils.StringifyGUID(database.BindingID[:])] = database
 	}
 	return totalProcessedPages
@@ -135,7 +134,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		}
 
 		database.ProcessSystemTables()
-		database.LinkAllocUnitIdToObjectId()
+		database.LinkPartitionIdToObjectId()
 
 		processedPages += totalProcessedPages
 
@@ -190,8 +189,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 			database.AddLogRecords()
 			database.CorrelateLDFToPages()
-			CorrelationENgine := new(correlation.CorrelationEngine)
-			CorrelationENgine.CorrelateRecords(database.LogDB.GetRecords(), database.AllocTObjectID)
+
 			PM.Databases[dbkey] = database
 
 		} else {
@@ -238,45 +236,90 @@ func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, 
 
 }
 
-func (PM ProcessManager) ProcessTables(selectedTables []int) {
+func (PM *ProcessManager) ProcessTables() {
 
-	for _, database := range PM.Databases {
+	for guid, database := range PM.Databases {
 		wg := new(sync.WaitGroup)
 		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		var listener1, listener2 <-chan db.Table
-		tablesCH := make(chan db.Table, CHANNEL_SIZE)
+
+		var listener2, listener3 <-chan *db.Table
+		tablesCH := make(chan *db.Table, CHANNEL_SIZE)
+
 		broadcaster := channels.NewBroadcastServer(ctx, tablesCH)
+
+		if database.Tables == nil {
+			database.Tables = make([]*db.Table, 0, len(database.GetTablesInfo()))
+		}
 
 		msg := fmt.Sprintf("Processing tables of database %s from %s ", database.Name, database.Fname)
 		fmt.Printf("%s \n", msg)
 		mslogger.Mslogger.Info(msg)
 
-		if PM.exporter.Path != "" {
-
-			listener1 = broadcaster.Subscribe()
-
-		}
-
 		listener2 = broadcaster.Subscribe()
+		listener3 = broadcaster.Subscribe()
 
 		go database.ProcessTables(ctx, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
 			tablesCH, PM.TableConfiguration.SelectedPages)
 
-		if PM.exporter.Path != "" {
-			wg.Add(1)
-			dir := filepath.Dir(database.Fname)
-			vol := filepath.VolumeName(dir)
-			lastDBFolder := strings.TrimPrefix(dir, vol)
-
-			go PM.exporter.Export(wg, selectedTables, PM.TableConfiguration.SelectedColumns, database.Name, lastDBFolder,
-				listener1)
-		}
 		wg.Add(1)
-		go PM.reporter.ShowTableInfo(wg, listener2)
+		go func(wgs *sync.WaitGroup) {
+			defer wgs.Done()
+			for table := range listener2 {
+
+				database.Tables = append(database.Tables, table)
+
+			}
+
+			PM.Databases[guid] = database
+		}(wg)
+
+		wg.Add(1)
+		go PM.reporter.ShowTableInfo(wg, listener3)
 		wg.Wait()
+		cancel()
 	}
 
+}
+
+func (PM *ProcessManager) ExportTables(selectedTableRows []int) {
+	if PM.exporter.Path == "" {
+		return
+	}
+
+	for _, database := range PM.Databases {
+		tablesCH := make(chan *db.Table, len(database.Tables))
+		for _, table := range database.Tables {
+			tablesCH <- table
+		}
+		close(tablesCH)
+
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		databaseFolder := filepath.Dir(database.Fname)
+		sourceFilename := filepath.Base(database.Fname)
+		go PM.exporter.Export(wg, selectedTableRows, PM.TableConfiguration.SelectedColumns,
+			database.Name, sourceFilename, databaseFolder, tablesCH)
+		wg.Wait()
+	}
+}
+
+func (PM *ProcessManager) Correlate() {
+	for guid, database := range PM.Databases {
+		if database.LogDB == nil {
+			continue
+		}
+		CorrelationEngine := new(correlation.CorrelationEngine)
+		CorrelationEngine.CorrelateRecords(database.LogDB.GetRecords(), database.PartitionIdToObjectID)
+		for _, table := range database.Tables {
+
+			correlatedRecords := CorrelationEngine.CorrelateTable(table.ObjectId)
+
+			table.AddChangesHistory(correlatedRecords, database.PagesPerAllocUnitID)
+
+		}
+
+		PM.Databases[guid] = database
+	}
 }
 
 func (PM ProcessManager) GetDatabaseNames() []string {
