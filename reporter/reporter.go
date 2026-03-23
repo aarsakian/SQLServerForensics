@@ -153,7 +153,7 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string,
 	}
 }
 
-func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan db.Table) {
+func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan *db.Table) {
 	defer wg.Done()
 
 	for table := range tables {
