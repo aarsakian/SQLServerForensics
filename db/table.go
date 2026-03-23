@@ -1,6 +1,7 @@
 package db
 
 import (
+	"MSSQLParser/correlation"
 	"MSSQLParser/data"
 	tables "MSSQLParser/db/tables"
 	LDF "MSSQLParser/ldf"
@@ -8,7 +9,6 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
-	"bytes"
 	"errors"
 	"fmt"
 	"reflect"
@@ -18,17 +18,18 @@ import (
 )
 
 type Table struct {
-	Name                          string
-	ObjectId                      int32
-	Type                          string
-	Rows                          []tables.Row
-	AllocationUnitIdTopartitionId map[uint64]uint64
-	Schema                        []tables.Column
-	Indexes                       []tables.Index
-	VarLenCols                    []int
-	PageIDsPerType                map[string][]uint32 //pageType ->pageID
-	indexType                     string
-	logRecords                    LDF.Records
+	Name                           string
+	ObjectId                       int32
+	Type                           string
+	Rows                           []*tables.Row
+	AllocationUnitIdTopartitionId  map[uint64]uint64
+	PartitionIdToAllocationsUnitId map[uint64][]uint64
+	Schema                         []tables.Column
+	Indexes                        []tables.Index
+	VarLenCols                     []int
+	PageIDsPerType                 map[string][]uint32 //pageType ->pageID
+	indexType                      string
+	logRecords                     LDF.Records
 }
 
 type ByRowId []tables.ColMap
@@ -109,36 +110,83 @@ func (table *Table) udateColIndex(sysiscols tables.SysIsCols) {
 	}
 }
 
-func (table *Table) AddChangesHistory(pagesPerAllocUnitID page.PagesPerId[uint64],
-	logRecordsMap LDF.RecordsMap) {
-	var allocatedPages page.Pages
-
-	var candidateRecords LDF.Records
-
-	// only data changes
-
-	logRecords := logRecordsMap.FilterOutNullOperations()
-
-	for allocUnitID := range table.AllocationUnitIdTopartitionId {
-		allocatedPages = append(allocatedPages, pagesPerAllocUnitID.GetPages(allocUnitID)...)
-	}
-
-	for _, page := range allocatedPages {
-		if page.GetType() != "DATA" {
-			continue
-		}
-
-		candidateRecords = append(candidateRecords,
-			logRecords.FilterByPageID(page.Header.PageId)...)
-
-	}
-
-	sort.Sort(LDF.ByIncreasingLSN(candidateRecords))
+func (table *Table) AddChangesHistory(correlatedRecords []*correlation.CorrelatedRecord,
+	pagesPerAllocUnitID page.PagesPerId[uint64]) {
 
 	//flag denotes carved
-	table.addLogChanges(candidateRecords)
+	//	table.addLogChanges(candidateRecords)
 
-	table.logRecords = candidateRecords
+	partitionIDToMap := make(map[uint64]*page.Page)
+
+	for _, record := range correlatedRecords {
+
+		allocunitids := table.PartitionIdToAllocationsUnitId[record.PartitionId]
+		for _, alloc := range allocunitids {
+			pagesPerIdNode := pagesPerAllocUnitID.Lookup[alloc]
+			if pagesPerIdNode == nil {
+				msg := fmt.Sprintf("Allocation unit id %d not found in pages per allocation unit id for partition id %d and record LSN %s",
+					alloc, record.PartitionId, record.LSN.ToStr())
+				mslogger.Mslogger.Warning(msg)
+				continue
+			}
+			page := pagesPerIdNode.PagesMap[record.RowId.PageId]
+			if page == nil {
+				continue
+			}
+			partitionIDToMap[record.PartitionId+uint64(record.RowId.PageId)] = page
+		}
+	}
+
+	for _, row := range table.Rows {
+
+		for _, record := range correlatedRecords {
+			// correlateRecord found
+			if record.RowId != nil && row.RowId.IsEqual(*record.RowId) {
+				page, ok := partitionIDToMap[record.PartitionId+uint64(row.RowId.PageId)]
+				//page has already been flashed record exists
+				if !ok {
+					continue
+				}
+				row.UpdateWithLogRecord(record.LogRecord,
+					page.Header.LSN.IsGreaterEqual(record.LogRecord.CurrentLSN), table.Schema)
+
+			}
+		}
+	}
+	//add records to table not existing
+
+	for _, pageId := range table.PageIDsPerType["DATA"] {
+		for _, record := range correlatedRecords {
+			// correlateRecord found
+			if record.RowId != nil {
+				page, ok := partitionIDToMap[record.PartitionId+uint64(pageId)]
+				//page has already been flashed record exists
+				if !ok {
+					continue
+				}
+				table.AddLogBasedRecord(record.LogRecord,
+					page.Header.LSN.IsGreaterEqual(record.LogRecord.CurrentLSN))
+
+			}
+		}
+
+	}
+
+	//table.logRecords = candidateRecords
+
+}
+
+func (table *Table) AddLogBasedRecord(record *LDF.Record, pageFlushed bool) {
+	// && !slotRecordsPerGroup.HasExpungeOperation(idx)
+	if record.GetOperationType() == "LOP_DELETE_ROW" && pageFlushed ||
+		record.GetOperationType() == "LOP_INSERT_ROW" && !pageFlushed {
+
+		table.AddRow(record, true)
+
+		//} else if record.GetOperationType() == "LOP_DELETE_ROW" && slotRecordsPerGroup.HasExpungeOperation(idx) {
+		//		table.AddPurgedRow(*record, record.Carved)
+
+	}
 
 }
 
@@ -213,7 +261,7 @@ func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32
 
 }
 
-func (table *Table) AddRow(record LDF.Record, carved bool) {
+func (table *Table) AddRow(record *LDF.Record, carved bool) {
 
 	lobPages := page.PagesPerId[uint32]{}
 	textLobPages := page.PagesPerId[uint32]{}
@@ -238,29 +286,8 @@ func (table *Table) AddRow(record LDF.Record, carved bool) {
 	loggedOperation += record.GetBeginCommitDate()
 	loggedOperation += fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
 
-	table.Rows = append(table.Rows, tables.Row{ColMap: colMap, LoggedOperation: loggedOperation,
+	table.Rows = append(table.Rows, &tables.Row{ColMap: colMap, LoggedOperation: loggedOperation,
 		LogDate: record.GetBeginCommitDateObj(), Carved: carved, Logged: true})
-}
-
-func (table *Table) MarkRowDeleted(record LDF.Record, carved bool) {
-
-	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
-
-	if len(table.Rows) > rowid {
-
-		loggedOperation := "Deleted at " + record.GetBeginCommitDate() +
-			fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
-
-		row := table.Rows[rowid]
-		row.Carved = carved
-		row.Logged = true
-		row.LoggedOperation = loggedOperation
-		row.LogDate = record.GetBeginCommitDateObj()
-
-		table.Rows[rowid] = row
-
-	}
-
 }
 
 func (table *Table) AddPurgedRow(record LDF.Record, carved bool) error {
@@ -301,77 +328,10 @@ func (table *Table) AddPurgedRow(record LDF.Record, carved bool) error {
 		row.Logged = true
 		row.LoggedOperation = loggedOperation
 		row.LogDate = record.GetBeginCommitDateObj()
-		table.Rows = append(table.Rows, row)
+		table.Rows = append(table.Rows, &row)
 	}
 
 	return nil
-}
-
-func (table *Table) MarkRowModified(record LDF.Record, carved bool) {
-
-	rowid := int(record.Lop_Insert_Delete.RowId.SlotNumber)
-	if len(table.Rows) > rowid {
-		row := table.Rows[rowid]
-		row.LoggedOperation += "Modified at " + record.GetBeginCommitDate() + fmt.Sprintf(" commited at %s", record.GetEndCommitDate())
-		row.LogDate = record.GetBeginCommitDateObj()
-		row.Carved = carved
-		row.Logged = true
-
-		for _, c := range table.Schema {
-			if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
-				var newcontent bytes.Buffer
-				newcontent.Grow(int(c.Size))
-
-				colData := row.ColMap[c.Name]
-				//new data from startoffset -> startoffset + modifysize
-				startOffset := int16(record.Lop_Insert_Delete.OffsetInRow) - c.OffsetMap[record.Lop_Insert_Delete.PartitionID]
-				if startOffset > 0 {
-					newcontent.Write(colData.Content[:startOffset]) //unchanged content
-					newcontent.Write(record.Lop_Insert_Delete.RowLogContents[0])
-					newcontent.Write(colData.Content[startOffset+int16(record.Lop_Insert_Delete.ModifySize):])
-
-					colData.LoggedColData = &tables.ColData{Content: newcontent.Bytes()}
-					row.ColMap[c.Name] = colData
-
-				}
-
-				break
-			}
-
-		}
-		table.Rows = append(table.Rows, row)
-	}
-
-}
-
-func (table *Table) addLogChanges(records LDF.Records) {
-	groupedPerSlotID := make(map[int]LDF.Records)
-	for _, record := range records {
-		if record.Lop_Insert_Delete != nil {
-			groupedPerSlotID[int(record.Lop_Insert_Delete.RowId.SlotNumber)] =
-				append(groupedPerSlotID[int(record.Lop_Insert_Delete.RowId.SlotNumber)], record)
-		} else {
-			groupedPerSlotID[int(record.Generic_LOP.RowId.SlotNumber)] =
-				append(groupedPerSlotID[int(record.Generic_LOP.RowId.SlotNumber)], record)
-		}
-
-	}
-	for _, slotRecordsPerGroup := range groupedPerSlotID {
-		for idx, record := range slotRecordsPerGroup {
-
-			if record.GetOperationType() == "LOP_DELETE_ROW" && !slotRecordsPerGroup.HasExpungeOperation(idx) {
-				table.MarkRowDeleted(*record, record.Carved)
-			} else if record.GetOperationType() == "LOP_DELETE_ROW" && slotRecordsPerGroup.HasExpungeOperation(idx) {
-				table.AddPurgedRow(*record, record.Carved)
-			} else if record.GetOperationType() == "LOP_MODIFY_ROW" {
-				table.MarkRowModified(*record, record.Carved)
-			} else if record.GetOperationType() == "LOP_INSERT_ROW" {
-				table.AddRow(*record, record.Carved)
-			}
-
-		}
-	}
-
 }
 
 func (table *Table) addColumn(column tables.Column) {
@@ -500,7 +460,7 @@ func (table Table) Show(showSchema bool, showContent bool,
 	if showContent {
 
 		fmt.Printf("(l) - logged (c) - carved\n")
-		table.printHeader(showcolnames)
+		table.printHeader(showcolnames, showtableldf)
 		table.printData(showtorow, skiprows, showrows, showcarved, showtableldf, showcolnames, showrawdata)
 		table.cleverPrintData()
 	}
@@ -605,6 +565,7 @@ func (table Table) GetHeader(colnames []string) []string {
 			names = append(names, c.Name)
 		}
 	}
+	names = append(names, "log information")
 	return names
 
 }
@@ -653,7 +614,9 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 			}
 
 		}
-		record = utils.Record{Vals: vals, Carved: row.Carved, Logged: row.Logged}
+		vals = append(vals, row.LoggedOperation)
+		record = utils.Record{Vals: vals, Carved: row.Carved, Logged: row.Logged,
+			LoggedOperation: row.LoggedOperation}
 
 		records <- record
 	}
@@ -677,8 +640,12 @@ func (table Table) GetBlobs(wg *sync.WaitGroup, blobs chan<- utils.Blob) {
 
 }
 
-func (table Table) printHeader(showcolnames []string) {
+func (table Table) printHeader(showcolnames []string, showldf bool) {
 	for _, c := range table.Schema {
+		if len(showcolnames) == 0 {
+			fmt.Printf("%s ", c.Name)
+			continue
+		}
 		for _, showcolname := range showcolnames {
 			if showcolname != "" && showcolname != c.Name {
 				continue
@@ -686,6 +653,9 @@ func (table Table) printHeader(showcolnames []string) {
 			fmt.Printf("%s ", c.Name)
 		}
 
+	}
+	if showldf {
+		fmt.Printf("log information ")
 	}
 	fmt.Printf("\n")
 }
@@ -724,7 +694,7 @@ func (table Table) cleverPrintData() {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
 
-		groupedRowsById[c.ToString(colData.Content)] = row
+		groupedRowsById[c.ToString(colData.Content)] = *row
 
 	}
 
@@ -732,7 +702,7 @@ func (table Table) cleverPrintData() {
 		c := table.Schema[0]
 		colData := row.ColMap[c.Name]
 
-		groupedRowsById[c.ToString(colData.Content)] = row
+		groupedRowsById[c.ToString(colData.Content)] = *row
 	}
 
 	/*fmt.Printf("\nGrouped By First col all changes carved and logged oldest first\n")
@@ -921,7 +891,7 @@ func (table *Table) setContentFromPage(page page.Page,
 			mslogger.Mslogger.Warning(msg)
 			continue
 		}
-		pageRows++
+
 		if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
 			msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
 				int(datarow.NumberOfCols), pageRows, pageId, nofCols, table.Name)
@@ -942,9 +912,10 @@ func (table *Table) setContentFromPage(page page.Page,
 
 		}
 
-		table.Rows = append(table.Rows,
-			table.ProcessRow(datarow, lobPages, textLobPages, partitionId))
-
+		row := table.ProcessRow(datarow, lobPages, textLobPages, partitionId)
+		row.RowId = utils.RowId{PageId: pageId, SlotNumber: uint16(pageRows)}
+		table.Rows = append(table.Rows, &row)
+		pageRows++
 	}
 	return pageRows
 }
