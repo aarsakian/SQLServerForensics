@@ -89,7 +89,7 @@ func (mssqlparser_commsServer *Server) Process(
 		[]int{}, 0, math.MaxUint32, fileDetails.Carve)
 
 	for guid, database := range mssqlparser_commsServer.pm.Databases {
-		srcCH := make(chan db.Table, 100000)
+		srcCH := make(chan *db.Table, 100000)
 		broadcaster := channels.NewBroadcastServer(ctx, srcCH)
 
 		listener1 := broadcaster.Subscribe()
@@ -116,8 +116,7 @@ func (mssqlparser_commsServer *Server) Process(
 			defer wgs.Done()
 			for table := range listener2 {
 
-				database.Tables = append(
-					database.Tables, table)
+				database.Tables = append(database.Tables, table)
 				mssqlparser_commsServer.pm.Databases[guid] = database
 			}
 		}(wg)
@@ -189,9 +188,10 @@ func (mssqlparser_commsServer *Server) GetTableContents(askedTable *mssqlparser_
 					fmt.Println("Sending ", record)
 
 					if err = stream.Send(&mssqlparser_comms.Row{
-						Vals:   record.Vals,
-						Carved: record.Carved,
-						Logged: record.Logged}); err != nil {
+						Vals:            record.Vals,
+						Carved:          record.Carved,
+						Logged:          record.Logged,
+						LoggedOperation: record.LoggedOperation}); err != nil {
 						break
 					}
 				}
@@ -330,7 +330,7 @@ func (mssqlparser_commsServer *Server) ProcessBak(bakfile *mssqlparser_comms.MTF
 		0, math.MaxUint32, false)
 
 	for guid, database := range mssqlparser_commsServer.pm.Databases {
-		srcCH := make(chan db.Table, 100000)
+		srcCH := make(chan *db.Table, 100000)
 		broadcaster := channels.NewBroadcastServer(ctx, srcCH)
 
 		listener1 := broadcaster.Subscribe()
@@ -357,7 +357,7 @@ func (mssqlparser_commsServer *Server) ProcessBak(bakfile *mssqlparser_comms.MTF
 			defer wgs.Done()
 			for table := range listener2 {
 
-				database.Tables = append(database.Tables, table)
+				database.Tables[table.ObjectId] = table
 				mssqlparser_commsServer.pm.Databases[guid] = database
 			}
 		}(wg)
