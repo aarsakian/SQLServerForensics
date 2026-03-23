@@ -490,7 +490,9 @@ func main() {
 
 	if *processTables {
 
-		pm.ProcessTables(selectedTableRowsInt)
+		pm.ProcessTables()
+		pm.Correlate()
+		pm.ExportTables(selectedTableRowsInt)
 
 		fmt.Printf("Finished in %0.2f secs\n", time.Since(now).Seconds())
 	}
