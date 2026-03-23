@@ -35,6 +35,7 @@ type Record struct {
 	Operation         uint8               //what type of data is stored 19
 	Context           uint8               //20
 	Lop_Insert_Delete *LOP_INSERT_DELETE
+	Lop_Modify        *LOP_MODIFY
 	Lop_Begin         *LOP_BEGIN
 	Lop_Commit        *LOP_COMMIT
 	Lop_Begin_CKPT    *LOP_BEGIN_CKPT

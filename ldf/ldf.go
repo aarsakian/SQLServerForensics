@@ -323,14 +323,17 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 			}
 
 		case "LOP_MODIFY_ROW", "LOP_MODIFY_SPLIT":
-			lop_modify := new(LOP_MODIFY)
+
 			if record.GetContextType() == "LCX_HEAP" ||
 				record.GetContextType() == "LCX_CLUSTERED" ||
 				record.GetContextType() == "LCX_INDEX_LEAF" ||
 				record.GetContextType() == "LCX_INDEX_INTERMEDIATE" ||
 				record.GetContextType() == "LCX_LOB_DATA" ||
 				record.GetContextType() == "LCX_METADATA" {
+				lop_modify := new(LOP_MODIFY)
 				lop_modify.Process(bs[recordOffset:])
+				record.Lop_Modify = lop_modify
+
 			}
 
 		case "LOP_BEGIN_XACT":
