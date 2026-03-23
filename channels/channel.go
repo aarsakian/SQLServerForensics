@@ -6,19 +6,19 @@ import (
 )
 
 type BroadcastServer struct {
-	source         <-chan db.Table
-	listeners      []chan db.Table
-	addListener    chan chan db.Table
-	removeListener chan (<-chan db.Table)
+	source         <-chan *db.Table
+	listeners      []chan *db.Table
+	addListener    chan chan *db.Table
+	removeListener chan (<-chan *db.Table)
 }
 
-func (s *BroadcastServer) Subscribe() <-chan db.Table {
-	newListener := make(chan db.Table)
+func (s *BroadcastServer) Subscribe() <-chan *db.Table {
+	newListener := make(chan *db.Table)
 	s.addListener <- newListener
 	return newListener
 }
 
-func (s *BroadcastServer) CancelSubscription(channel <-chan db.Table) {
+func (s *BroadcastServer) CancelSubscription(channel <-chan *db.Table) {
 	s.removeListener <- channel
 }
 
@@ -67,12 +67,12 @@ func (s *BroadcastServer) Serve(ctx context.Context) {
 	}
 }
 
-func NewBroadcastServer(ctx context.Context, source <-chan db.Table) BroadcastServer {
+func NewBroadcastServer(ctx context.Context, source <-chan *db.Table) BroadcastServer {
 	broadcastService := BroadcastServer{
 		source:         source,
-		listeners:      make([]chan db.Table, 0),
-		addListener:    make(chan chan db.Table),
-		removeListener: make(chan (<-chan db.Table)),
+		listeners:      make([]chan *db.Table, 0),
+		addListener:    make(chan chan *db.Table),
+		removeListener: make(chan (<-chan *db.Table)),
 	}
 	go broadcastService.Serve(ctx)
 	return broadcastService
