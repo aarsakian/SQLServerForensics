@@ -114,7 +114,7 @@ func (row *Row) MarkModified(record *LDF.Record, tableSchema []Column, carved bo
 	logBasedLinkedRow.Logged = true
 
 	for _, c := range tableSchema {
-		if c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
+		if record.Lop_Insert_Delete != nil && c.OffsetMap[record.Lop_Insert_Delete.PartitionID] >= int16(record.Lop_Insert_Delete.OffsetInRow) {
 			var newcontent bytes.Buffer
 			newcontent.Grow(int(c.Size))
 
@@ -254,14 +254,15 @@ func (c Column) ParseTime(data []byte) string {
 }
 
 func (c *Column) AddContent(datarow data.DataRow,
-	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64, nofNullCols int) ([]byte, error) {
+	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64) ([]byte, error) {
+
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
 	} else {
 
-		if !c.IsStatic() && datarow.HasBlobInfo(c.VarLenOrder-uint16(nofNullCols)) ||
-			!c.IsStatic() && datarow.HasTextBlobInfo(c.VarLenOrder-uint16(nofNullCols)) {
-			rowIds, textTimestamp := datarow.GetBloBInfo(c.VarLenOrder - uint16(nofNullCols))
+		if !c.IsStatic() && datarow.HasBlobInfo(c.VarLenOrder) ||
+			!c.IsStatic() && datarow.HasTextBlobInfo(c.VarLenOrder) {
+			rowIds, textTimestamp := datarow.GetBloBInfo(c.VarLenOrder)
 			if !lobPages.IsEmpty() && len(rowIds) != 0 { //only when there are lobpages proceed
 				var content []byte
 				for _, rowId := range rowIds {
@@ -275,8 +276,10 @@ func (c *Column) AddContent(datarow data.DataRow,
 				return nil, fmt.Errorf("lob data not found for col %s", c.Name)
 			}
 		} else {
+
 			return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.IsStatic(),
-				c.VarLenOrder-uint16(nofNullCols))
+				c.VarLenOrder)
+
 		}
 	}
 
