@@ -266,7 +266,7 @@ func (table *Table) AddRow(record *LDF.Record, carved bool) {
 	lobPages := page.PagesPerId[uint32]{}
 	textLobPages := page.PagesPerId[uint32]{}
 	colMap := make(tables.ColMap)
-	nofNullCols := 0
+
 	for _, col := range table.Schema {
 		if record.Lop_Insert_Delete.DataRow == nil {
 			lsn := record.CurrentLSN.ToStr()
@@ -275,7 +275,7 @@ func (table *Table) AddRow(record *LDF.Record, carved bool) {
 			continue
 		}
 
-		colval, e := col.AddContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID, nofNullCols)
+		colval, e := col.AddContent(*record.Lop_Insert_Delete.DataRow, lobPages, textLobPages, record.Lop_Insert_Delete.PartitionID)
 		if e == nil {
 			colMap[col.Name] = tables.ColData{Content: colval}
 		}
@@ -927,7 +927,6 @@ func (table Table) ProcessRow(datarow data.DataRow,
 	nofCols := len(table.Schema)
 	bitrepresentation := datarow.PrintNullBitmapToBit(nofCols)
 
-	nofNullCols := 0 // only null var cols
 	computedCols := 0
 
 	for colnum, col := range table.Schema {
@@ -947,15 +946,16 @@ func (table Table) ProcessRow(datarow data.DataRow,
 			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
 			//mslogger.Mslogger.Error(msg)
 
-			nofNullCols++
 			continue
 		}
 
 		//mslogger.Mslogger.Info(col.Name + " " + fmt.Sprintf("%s %d %s %d", col.IsStatic(), col.Order, col.Type, col.Size))
-		colval, e := col.AddContent(datarow, lobPages, textLobPages, partitionId, nofNullCols)
+
+		colval, e := col.AddContent(datarow, lobPages, textLobPages, partitionId)
 		if e == nil {
 			colMap[col.Name] = tables.ColData{Content: colval}
 		}
+
 	}
 	return tables.Row{ColMap: colMap, Carved: datarow.Carved, Logged: false}
 }
