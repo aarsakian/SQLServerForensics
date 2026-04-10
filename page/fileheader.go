@@ -65,13 +65,20 @@ func (fileHeader *FileHeader) Parse(datarow datac.DataRow) error {
 	if datarow.VarLenCols == nil {
 		return errors.New("no var length cols found")
 	}
-	for i := 0; i < structValPtr.Elem().NumField(); i++ {
-		field := structValPtr.Elem().Field(i) //StructField type
-		if i >= len(*datarow.VarLenCols) {
-			return fmt.Errorf("exceed available number of var len cols at Field %s idx %d ", field, i)
+	fieldPos := 0
+	for _, varLenCol := range *datarow.VarLenCols {
+		if fieldPos >= structValPtr.Elem().NumField() {
+			return fmt.Errorf("not enough fields to assign")
 		}
-		val := (*datarow.VarLenCols)[i].Content
+		field := structValPtr.Elem().Field(fieldPos) //StructField type
 
+		val := varLenCol.Content
+
+		if len(val) == 0 {
+			continue
+		}
+
+		fieldPos++
 		switch field.Kind() {
 		case reflect.Uint16:
 			field.SetUint(uint64(binary.LittleEndian.Uint16(val)))
