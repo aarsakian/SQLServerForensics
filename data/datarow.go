@@ -256,8 +256,10 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 
 			break
 		}
-
-		if endVarColOffset <= startVarColOffset {
+		//empty col
+		if endVarColOffset < startVarColOffset {
+			msg := fmt.Sprintf("start var col offsets exceeds start offset by %d", startVarColOffset-endVarColOffset)
+			mslogger.Mslogger.Warning(msg)
 			continue
 		} else if int(startVarColOffset) > len(data) {
 			break
@@ -349,15 +351,15 @@ func (dataRow DataRow) ProcessData(colId uint16, colsize int16, startoffset int1
 			msg := fmt.Sprintf("No var len cols found at offset %d", startoffset)
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
-		} else if len(*dataRow.VarLenCols) <= int(valorder) {
-			// should had bitmap set to 1 however it is not expiremental
-			msg := fmt.Sprintf("Number of var len cols is less than the asked col %d col offset within datarow %d",
-				colId, startoffset)
+
+		} else if int(valorder) >= len(*dataRow.VarLenCols) {
+			msg := fmt.Sprintf("table has more var len cols than the datarow %d %d", valorder, len(*dataRow.VarLenCols))
 			mslogger.Mslogger.Error(msg)
 			return nil, errors.New(msg)
-
 		} else {
+
 			return (*dataRow.VarLenCols)[valorder].Content, nil
+
 		}
 
 	}
