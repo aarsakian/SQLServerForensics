@@ -6,7 +6,6 @@ import (
 	"MSSQLParser/channels"
 	mssqlparser_comms "MSSQLParser/comms"
 	"MSSQLParser/db"
-	"MSSQLParser/exporter"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/manager"
 	"MSSQLParser/utils"
@@ -22,6 +21,8 @@ import (
 	"github.com/aarsakian/MTF_Reader/mtf"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Server struct {
@@ -178,6 +179,14 @@ func (mssqlparser_commsServer *Server) GetTableContents(askedTable *mssqlparser_
 			records := make(chan utils.Record, 1000)
 			selectedTableRow := []int{}
 			colnames := []string{}
+
+			stream.Send(&mssqlparser_comms.Row{
+				Vals:            table.GetHeader(colnames),
+				Carved:          false,
+				Logged:          false,
+				LoggedOperation: "",
+			})
+
 			go table.GetRecords(wg, selectedTableRow, colnames, records)
 
 			wg.Add(1)
@@ -207,44 +216,78 @@ func (mssqlparser_commsServer *Server) ExportDatabase(askedDB *mssqlparser_comms
 	stream mssqlparser_comms.FileProcessorService_ExportDatabaseServer) error {
 
 	var err error
-	wg := new(sync.WaitGroup)
 	fmt.Println("asked DB", askedDB)
+
+	format, ok := mapExportFormat(askedDB.Format)
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "unsupported export format: %s", askedDB.Format.String())
+	}
 
 	for _, database := range mssqlparser_commsServer.pm.Databases {
 
 		if database.Name != askedDB.Name {
 			continue
 		}
+
+		mssqlparser_commsServer.pm.Exporter.Format = format
+		mssqlparser_commsServer.pm.Exporter.Path = askedDB.ExportPath
+		tablesCH := make(chan *db.Table, len(database.Tables))
+
 		for _, table := range database.Tables {
-
-			wg.Add(1)
-			records := make(chan utils.Record, 1000)
-			selectedTableRow := []int{}
-			colnames := []string{}
-			go table.GetRecords(wg, selectedTableRow, colnames, records)
-
-			wg.Add(1)
-			msg := fmt.Sprintf("Exporting Table %s to %s", table.Name, askedDB.ExportPath)
+			msg := fmt.Sprintf("Queueing Table %s for %s export to %s", table.Name, strings.ToUpper(format), askedDB.ExportPath)
 			fmt.Println(msg)
 			if err = stream.Send(&mssqlparser_comms.Message{Content: msg}); err != nil {
-				break
+				return err
 			}
-			headers := table.GetHeader(colnames)
-			go exporter.WriteCSV(wg, records, table.Name, askedDB.ExportPath, headers)
-			wg.Wait()
+			tablesCH <- table
 		}
+		close(tablesCH)
+
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		databaseFolder := filepath.Dir(database.Fname)
+		sourceFilename := filepath.Base(database.Fname)
+		go mssqlparser_commsServer.pm.Exporter.Export(wg, []int{}, mssqlparser_commsServer.pm.TableConfiguration.SelectedColumns,
+			database.Name, sourceFilename, databaseFolder, tablesCH)
+		wg.Wait()
+
+		msg := fmt.Sprintf("Completed export for database %s in %s format to %s", askedDB.Name,
+			strings.ToUpper(format), askedDB.ExportPath)
+		if err = stream.Send(&mssqlparser_comms.Message{Content: msg}); err != nil {
+			return err
+		}
+
+		return nil
 
 	}
 
-	return err
+	return status.Errorf(codes.NotFound, "database %s not found", askedDB.Name)
+
+}
+
+func mapExportFormat(format mssqlparser_comms.ExportFormat) (string, bool) {
+	switch format {
+	case mssqlparser_comms.ExportFormat_CSV:
+		return "csv", true
+	case mssqlparser_comms.ExportFormat_XLSX:
+		return "xlsx", true
+	case mssqlparser_comms.ExportFormat_HTML:
+		return "html", true
+	default:
+		return "", false
+	}
 
 }
 
 func (mssqlparser_commsServer *Server) ExportTable(ctx context.Context, askedTable *mssqlparser_comms.Table) (
 	*mssqlparser_comms.Message, error) {
 
-	var err error
-	wg := new(sync.WaitGroup)
+	format, ok := mapExportFormat(askedTable.Format)
+	if !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "unsupported export format: %s", askedTable.Format.String())
+	}
+
+	mssqlparser_commsServer.pm.Exporter.Format = format
 
 	for _, database := range mssqlparser_commsServer.pm.Databases {
 		fmt.Println("asked table", askedTable.Name, len(database.Tables))
@@ -254,24 +297,27 @@ func (mssqlparser_commsServer *Server) ExportTable(ctx context.Context, askedTab
 				continue
 			}
 
-			wg.Add(1)
-			records := make(chan utils.Record, 1000)
-			selectedTableRow := []int{}
-			colnames := []string{}
-			go table.GetRecords(wg, selectedTableRow, colnames, records)
+			tablesCH := make(chan *db.Table, 1)
+			tablesCH <- table
+			close(tablesCH)
 
+			wg := new(sync.WaitGroup)
 			wg.Add(1)
-			//if err = stream.Send(&mssqlparser_comms.Message{Content: "exporting"}); err != nil {
-			//	break
-			//}
-			headers := table.GetHeader(colnames)
-			go exporter.WriteCSV(wg, records, table.Name, "", headers)
+			databaseFolder := filepath.Dir(database.Fname)
+			sourceFilename := filepath.Base(database.Fname)
+			go mssqlparser_commsServer.pm.Exporter.Export(wg, []int{}, mssqlparser_commsServer.pm.TableConfiguration.SelectedColumns,
+				database.Name, sourceFilename, databaseFolder, tablesCH)
 			wg.Wait()
+
+			return &mssqlparser_comms.Message{
+				Content: fmt.Sprintf("Exported Table %s in %s format to %s",
+					askedTable.Name, strings.ToUpper(format),
+					mssqlparser_commsServer.pm.Exporter.Path)}, nil
 		}
 
 	}
 
-	return &mssqlparser_comms.Message{Content: fmt.Sprintf("Exported Table %s", askedTable.Name)}, err
+	return nil, status.Errorf(codes.NotFound, "table %s not found", askedTable.Name)
 
 }
 

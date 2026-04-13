@@ -15,6 +15,12 @@ message MTF {
     string MtfFile = 1;
 }
 
+enum ExportFormat {
+    CSV = 0;
+    XLSX = 1;
+    HTML = 2;
+}
+
 message Col {
     string Name = 1;
     string Type = 2;
@@ -25,6 +31,7 @@ message Table {
     string Type = 2;
     uint32 NofRows = 3;
     repeated Col Cols =4 ;
+    ExportFormat Format = 5;
 }
 
 message TableResponse {
@@ -41,6 +48,7 @@ message Rows {
 message Database {
     string Name = 1;
     string ExportPath = 2;
+    ExportFormat Format = 3;
 }
 
 
@@ -53,7 +61,7 @@ message RowResponse {
 message Row {
     repeated string Vals = 1;
     bool Carved = 2;
-    bool Logged = 3;
+    bool Logged = 3; 
     string LoggedOperation = 4;
 }
 
@@ -69,7 +77,6 @@ message Tables {
 message Message {
     string Content = 1;
 }
-
 message Config {
     string ExporPath = 1;
     bool Carve = 2;
@@ -87,6 +94,4 @@ service FileProcessorService {
     rpc MessageStream(stream Message) returns(stream Message) {}
    
 }
-
-
 
