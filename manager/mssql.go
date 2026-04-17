@@ -21,7 +21,7 @@ var CHANNEL_SIZE = 100000
 
 type ProcessManager struct {
 	reporter           reporter.Reporter
-	exporter           exporter.Exporter
+	Exporter           exporter.Exporter
 	Databases          map[string]db.Database
 	TableConfiguration TableProcessorConfiguration
 	BroadcastService   channels.BroadcastServer
@@ -78,13 +78,13 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 		WalkLSN:             walkLSN,
 	}
 
-	PM.exporter = exporter.Exporter{Format: exportFormat,
+	PM.Exporter = exporter.Exporter{Format: exportFormat,
 		Blobs: exportBlob, Path: exportPath, Index: exportIndex, Schema: exportSchema}
 
 }
 
 func (PM *ProcessManager) SetExportPath(path string) {
-	PM.exporter.Path = path
+	PM.Exporter.Path = path
 }
 
 func (PM *ProcessManager) SetShowCarve(showcarve bool) {
@@ -282,7 +282,7 @@ func (PM *ProcessManager) ProcessTables() {
 }
 
 func (PM *ProcessManager) ExportTables(selectedTableRows []int) {
-	if PM.exporter.Path == "" {
+	if PM.Exporter.Path == "" {
 		return
 	}
 
@@ -297,7 +297,7 @@ func (PM *ProcessManager) ExportTables(selectedTableRows []int) {
 		wg.Add(1)
 		databaseFolder := filepath.Dir(database.Fname)
 		sourceFilename := filepath.Base(database.Fname)
-		go PM.exporter.Export(wg, selectedTableRows, PM.TableConfiguration.SelectedColumns,
+		go PM.Exporter.Export(wg, selectedTableRows, PM.TableConfiguration.SelectedColumns,
 			database.Name, sourceFilename, databaseFolder, tablesCH)
 		wg.Wait()
 	}
