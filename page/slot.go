@@ -1,8 +1,11 @@
 package page
 
 import (
+	"MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"encoding/binary"
+	"errors"
+	"fmt"
 )
 
 type Slot struct {
@@ -44,19 +47,25 @@ func (s SortedSlotsByOrder) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func retrieveSlots(data []byte) Slots {
+func retrieveSlots(data []byte) (Slots, error) {
 	slots := make(Slots, len(data)/2)
 
 	pos := 0
 
 	for idx := 0; idx < binary.Size(data); idx += 2 {
+		offset := utils.ToUint16(data[idx : idx+2])
+		if offset >= PAGELEN {
+			msg := fmt.Sprintf("Slot offset %d exceeds page size", offset)
+			logger.Mslogger.Warning(msg)
+			return slots, errors.New(msg)
+		}
 		slots[pos] = Slot{Order: len(slots) - pos - 1,
-			Offset:  utils.ToUint16(data[idx : idx+2]),
+			Offset:  offset,
 			Deleted: false,
 		}
 		pos++
 
 	}
 
-	return slots
+	return slots, nil
 }
