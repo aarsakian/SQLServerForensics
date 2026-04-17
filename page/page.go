@@ -826,7 +826,10 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 	logger.Mslogger.Info(fmt.Sprintf("Page Header OK Id %d Type %s Object Id %d nof slots %d",
 		header.PageId, page.GetType(), page.Header.ObjectId, page.Header.SlotCnt))
 
-	page.PopulateSlots(data[PAGELEN-2*header.SlotCnt:])
+	err = page.PopulateSlots(data[PAGELEN-2*header.SlotCnt:])
+	if err != nil {
+		return err
+	}
 
 	if len(page.Slots) != int(header.SlotCnt) {
 		logger.Mslogger.Info(fmt.Sprintf("Discrepancy in number of page slots declared %d actual %d",
@@ -862,10 +865,14 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 	return err
 }
 
-func (page *Page) PopulateSlots(data []byte) {
-	slots := retrieveSlots(data) //starts from end of page
+func (page *Page) PopulateSlots(data []byte) error {
+	slots, err := retrieveSlots(data) //starts from end of page
+	if err != nil {
+		return err
+	}
 	sort.Sort(SortedSlotsByOffset(slots))
 	page.Slots = slots
+	return nil
 
 }
 
