@@ -85,7 +85,12 @@ func (indexRow *IndexRow) Parse(data []byte, offset int, fixedColsLen uint16) {
 		bytesNeeded := uint16(math.Floor(float64(indexRow.NumberOfCols) / 8))
 		if bytesNeeded == 0 {
 			bytesNeeded = 1
+		} else if int(bytesNeeded) > len(data)-int(currOffset)-2 {
+			logger.Mslogger.Warning(fmt.Sprintf("bytes needd exceeds buffer %d buf %d curoffset %d ",
+				bytesNeeded, len(data), currOffset))
+			return
 		}
+
 		indexRow.NullBitmap = data[currOffset+2 : currOffset+2+bytesNeeded]
 		currOffset += 2 + bytesNeeded
 	}
