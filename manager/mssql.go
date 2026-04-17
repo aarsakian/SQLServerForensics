@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/aarsakian/FileSystemForensics/utils"
@@ -295,10 +296,11 @@ func (PM *ProcessManager) ExportTables(selectedTableRows []int) {
 
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
-		databaseFolder := filepath.Dir(database.Fname)
+		databaseFolder := ""
 		sourceFilename := filepath.Base(database.Fname)
+		dbFolderName := strings.TrimSuffix(sourceFilename, filepath.Ext(sourceFilename))
 		go PM.Exporter.Export(wg, selectedTableRows, PM.TableConfiguration.SelectedColumns,
-			database.Name, sourceFilename, databaseFolder, tablesCH)
+			dbFolderName, sourceFilename, databaseFolder, database.Name, tablesCH)
 		wg.Wait()
 	}
 }
