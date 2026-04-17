@@ -248,7 +248,7 @@ func (mssqlparser_commsServer *Server) ExportDatabase(askedDB *mssqlparser_comms
 		databaseFolder := filepath.Dir(database.Fname)
 		sourceFilename := filepath.Base(database.Fname)
 		go mssqlparser_commsServer.pm.Exporter.Export(wg, []int{}, mssqlparser_commsServer.pm.TableConfiguration.SelectedColumns,
-			database.Name, sourceFilename, databaseFolder, tablesCH)
+			database.Name, sourceFilename, databaseFolder, database.Name, tablesCH)
 		wg.Wait()
 
 		msg := fmt.Sprintf("Completed export for database %s in %s format to %s", askedDB.Name,
@@ -306,7 +306,7 @@ func (mssqlparser_commsServer *Server) ExportTable(ctx context.Context, askedTab
 			databaseFolder := filepath.Dir(database.Fname)
 			sourceFilename := filepath.Base(database.Fname)
 			go mssqlparser_commsServer.pm.Exporter.Export(wg, []int{}, mssqlparser_commsServer.pm.TableConfiguration.SelectedColumns,
-				database.Name, sourceFilename, databaseFolder, tablesCH)
+				database.Name, sourceFilename, databaseFolder, database.Name, tablesCH)
 			wg.Wait()
 
 			return &mssqlparser_comms.Message{
