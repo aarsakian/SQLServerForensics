@@ -74,11 +74,9 @@ func sanitizeDatabaseFolder(databaseFolder string) string {
 	return filepath.Join(safeParts...)
 }
 
-func (exp Exporter) CreateExportPath(databaseFolder string,
-	databaseName string, tableType string, tableName string) string {
-	databaseFolder = sanitizeDatabaseFolder(databaseFolder)
+func (exp Exporter) CreateExportPath(databaseName string, dbName string, tableType string, tableName string) string {
 
-	expPath := filepath.Join(exp.Path, databaseFolder, databaseName, tableType, tableName)
+	expPath := filepath.Join(exp.Path, databaseName, dbName, tableType, tableName)
 
 	err := os.MkdirAll(expPath, 0750)
 	if err != nil && !os.IsExist(err) {
@@ -89,7 +87,7 @@ func (exp Exporter) CreateExportPath(databaseFolder string,
 }
 
 func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnames []string,
-	databaseName string, sourceFilename string, databaseFolder string, tables <-chan *db.Table) {
+	databaseName string, sourceFilename string, databaseFolder string, dbName string, tables <-chan *db.Table) {
 	defer expWg.Done()
 
 	databaseFolder = sanitizeDatabaseFolder(databaseFolder)
@@ -98,18 +96,17 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	var writer Writer
 	var indexFile *os.File
 
-	databaseName = filepath.Base(databaseName)
-	err := os.RemoveAll(filepath.Join(exp.Path, databaseFolder, databaseName))
+	err := os.RemoveAll(filepath.Join(exp.Path, databaseName, dbName))
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = os.MkdirAll(filepath.Join(exp.Path, databaseFolder, databaseName), 0750)
+	err = os.MkdirAll(filepath.Join(exp.Path, databaseName, dbName), 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
 
 	if exp.Format == "html" {
-		indexPath := filepath.Join(exp.Path, databaseFolder, databaseName, "index.html")
+		indexPath := filepath.Join(exp.Path, databaseName, dbName, "index.html")
 		indexFile, err = os.Create(indexPath)
 		if err != nil {
 			log.Fatal(err)
@@ -119,14 +116,14 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		if err != nil {
 			log.Fatal(err)
 		}
-		writeTOCHeader(tocTmpl, indexFile, sourceFilename, databaseName)
+		writeTOCHeader(tocTmpl, indexFile, sourceFilename, dbName)
 	}
 
 	for table := range tables {
 
 		wg := new(sync.WaitGroup)
 
-		expPath := exp.CreateExportPath(databaseFolder, databaseName, table.Type, table.Name)
+		expPath := exp.CreateExportPath(databaseName, dbName, table.Type, table.Name)
 
 		if exp.Blobs {
 			wginner := new(sync.WaitGroup)
