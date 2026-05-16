@@ -419,6 +419,10 @@ func (page *Page) parseLOB(data []byte) {
 				lob.Length))
 			continue
 		}
+		if 14 > lob.Length {
+			logger.Mslogger.Warning(fmt.Sprintf("lob length is less than 14 by %d ", 14-lob.Length))
+			continue
+		}
 		switch lob.Type {
 		case 3: // data leaf
 			content := make([]byte, slot.Offset+lob.Length-(slot.Offset+14))
@@ -756,6 +760,10 @@ func (page *Page) parseIndex(data []byte, offset int) {
 			indexRowLen = page.Header.FreeData - slot.Offset
 		}
 
+		if indexRowLen == 0 {
+			logger.Mslogger.Warning(fmt.Sprintf("zero index row length slot id %d %d", slotnum, offset+int(slot.Offset)))
+			break
+		}
 		if int(indexRowLen+slot.Offset) >= len(data) {
 			msg := fmt.Sprintf("exceeded buffer length %d by %d", len(data), len(data)-int(indexRowLen+slot.Offset))
 			logger.Mslogger.Warning(msg)
