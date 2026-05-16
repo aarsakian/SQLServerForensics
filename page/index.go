@@ -104,6 +104,10 @@ func (indexRow *IndexRow) Parse(data []byte, offset int, fixedColsLen uint16) {
 func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 	indexRow.NumberOfVarLengthCols = utils.ToUint16(data[0:2])
 	for i := 0; i < int(indexRow.NumberOfVarLengthCols); i++ {
+		if 4+2*i > len(data) {
+			logger.Mslogger.Warning(fmt.Sprintf("var len %d col exceeds buffer by %d", i, 4+2*i-len(data)))
+			break
+		}
 		varLenColOffset := utils.ToInt16(data[2+2*i : 4+2*i])
 		indexRow.VarLengthColOffsets = append(indexRow.VarLengthColOffsets, varLenColOffset)
 	}
