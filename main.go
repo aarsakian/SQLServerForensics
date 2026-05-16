@@ -273,6 +273,8 @@ func main() {
 	VMDKLogger.InitializeLogger(*logactive, logfilename)
 	mtfLogger.InitializeLogger(*logactive, logfilename)
 
+	var extensions []string
+
 	if *profile {
 
 		go func() {
@@ -322,19 +324,22 @@ func main() {
 		flm.Register(filters.NameFilter{Filenames: fileNamesToExport})
 	}*/
 
-	if *bakactive {
-		flm.Register(filters.ExtensionsFilter{Extensions: []string{"bak"}})
-	}
-
 	if *filenames == "" {
 		if *ldbfile != "" || *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
-			flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF", "LDF"}})
+
+			extensions = []string{"MDF", "LDF"}
 
 		} else {
-			flm.Register(filters.ExtensionsFilter{Extensions: []string{"MDF"}})
+			extensions = []string{"MDF"}
 		}
 
 	}
+
+	if *bakactive {
+		extensions = append(extensions, "BAK")
+	}
+
+	flm.Register(filters.ExtensionsFilter{Extensions: extensions})
 
 	if mdffile != "" && *ldbfile != "" {
 		flm.Register(filters.PrefixesSuffixesFilter{Prefixes: []string{strings.Split(mdffile, ".")[0], strings.Split(mdffile, ".")[0]},
@@ -368,7 +373,7 @@ func main() {
 
 		defer physicalDisk.Close()
 
-		if err != nil {
+		if err != nil && err.Error() != "NTFS volume discovered instead of MBR" {
 			log.Fatal(err)
 		}
 		for partitionId, records := range recordsPerPartition {
