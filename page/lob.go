@@ -3,6 +3,8 @@ package page
 import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
+	"errors"
+	"fmt"
 )
 
 type LOBS []LOB
@@ -75,14 +77,19 @@ func (lob *LOB) ParseRoot(data []byte) {
 	lob.Root = root
 }
 
-func (lob *LOB) ParseSmallRoot(data []byte) {
+func (lob *LOB) ParseSmallRoot(data []byte) error {
 	var smallroot *LOBSmallRoot = new(LOBSmallRoot)
 	utils.Unmarshal(data, smallroot)
-
+	if int(smallroot.Length) > len(data) {
+		msg := fmt.Sprintf("lob smallroot length exceeds available buffer by %d", int(smallroot.Length)-len(data))
+		mslogger.Mslogger.Warning(msg)
+		return errors.New(msg)
+	}
 	lob.SmallRoot = smallroot
 
 	lob.Data = make([]byte, lob.SmallRoot.Length)
 	copy(lob.Data, data[4:4+lob.SmallRoot.Length])
+	return nil
 
 }
 
@@ -91,12 +98,18 @@ func (lob *LOB) ParseInternal(data []byte) {
 	var dataPointers []LOBInternalBody
 	utils.Unmarshal(data[:6], internal)
 	for curLink := uint16(0); curLink < internal.CurLinks; curLink++ {
+		if int(6+16*(curLink+1)) > len(data) {
+			msg := fmt.Sprintf("lob internal exceeds available buffer by %d", int(6+16*(curLink+1))-len(data))
+			mslogger.Mslogger.Warning(msg)
+			break
+		}
 		var dataPointer *LOBInternalBody = new(LOBInternalBody)
 		utils.Unmarshal(data[6+16*curLink:6+16*(curLink+1)], dataPointer)
 		dataPointers = append(dataPointers, *dataPointer)
 	}
 	internal.DataPointers = dataPointers
 	lob.Internal = internal
+
 }
 
 func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32],
@@ -131,8 +144,8 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 			}
 
 			if len(internalLobPages) == 0 {
-				msg := "Lob or Text does not have pages."
-				mslogger.Mslogger.Warning(msg)
+
+				mslogger.Mslogger.Warning("Lob or Text does not have pages.")
 				continue
 			}
 			lobPage = internalLobPages[0]
