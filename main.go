@@ -225,7 +225,7 @@ func main() {
 		dataSourceCount++
 	}
 	if dataSourceCount > 1 {
-		log.Fatalf("only one data source can be specified: use either -db, -evidence, -physicaldrive, -vmdk, or -sourcedir")
+		log.Fatalf("only one data source can be specified: use either -db, -evidence, -physicaldrive, or -sourcedir")
 	}
 
 	// Export path requires format to be specified
@@ -264,8 +264,8 @@ func main() {
 	}
 
 	// User table info requires DB input
-	if *userTable != "" && *dbfile == "" && *evidencefile == "" && *physicalDrive == -1 && *vmdkfile == "" {
-		log.Fatalf("usertable flag requires a database file to be specified (-db, -evidence, -physicaldrive, or -vmdk)")
+	if *userTable != "" && *dbfile == "" && *evidencefile == "" && *physicalDrive == -1 {
+		log.Fatalf("usertable flag requires a database file to be specified (-db, -evidence, -physicaldrive)")
 	}
 
 	now := time.Now()
@@ -330,7 +330,7 @@ func main() {
 	}*/
 
 	if *filenames == "" {
-		if *ldbfile != "" || *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
+		if *ldbfile != "" || *evidencefile != "" || *physicalDrive != -1 {
 
 			extensions = []string{"MDF", "LDF"}
 
@@ -377,9 +377,9 @@ func main() {
 
 	}
 
-	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
+	if *evidencefile != "" || *physicalDrive != -1 {
 		physicalDisk := new(disk.Disk)
-		physicalDisk.Initialize(*evidencefile, *physicalDrive, *vmdkfile)
+		physicalDisk.Initialize(*evidencefile, *physicalDrive)
 
 		recordsPerPartition, err := physicalDisk.Process(*partitionNum, []int{}, 0,
 			math.MaxUint32, *password, *recoverykey)
