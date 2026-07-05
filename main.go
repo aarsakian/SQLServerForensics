@@ -67,8 +67,7 @@ func main() {
 	sourcedir := flag.String("sourcedir", "", "process all mdf and ldf files found in source directory")
 	physicalDrive := flag.Int("physicaldrive", -1,
 		"select the physical disk number to look for MDF file (requires admin rights!)")
-	evidencefile := flag.String("evidence", "", "path to image file")
-	vmdkfile := flag.String("vmdk", "", "path to vmdk file (Sparse formats are supported)")
+	evidencefile := flag.String("evidence", "", "path to image file (EWF/VHDX/Raw formats are supported)")
 	partitionNum := flag.Int("partition", -1,
 		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export MDF/LDF files")
@@ -221,9 +220,7 @@ func main() {
 	if *physicalDrive != -1 {
 		dataSourceCount++
 	}
-	if *vmdkfile != "" {
-		dataSourceCount++
-	}
+
 	if *sourcedir != "" {
 		dataSourceCount++
 	}
