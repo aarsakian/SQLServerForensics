@@ -45,15 +45,17 @@ import (
 	FSExporter "github.com/aarsakian/FileSystemForensics/exporter"
 	"github.com/aarsakian/FileSystemForensics/filtermanager"
 	"github.com/aarsakian/FileSystemForensics/filters"
+	"github.com/aarsakian/FileSystemForensics/signatures"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	mssqlparser_comms "MSSQLParser/comms"
 
 	FSLogger "github.com/aarsakian/FileSystemForensics/logger"
 	mtfLogger "github.com/aarsakian/MTF_Reader/logger"
 	mtf "github.com/aarsakian/MTF_Reader/mtf"
+	VHDXLogger "github.com/aarsakian/VHD_Reader/logger"
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
-
-	mssqlparser_comms "MSSQLParser/comms"
 )
 
 func main() {
@@ -136,6 +138,10 @@ func main() {
 	sortByLSN := flag.String("sortbylsn", "", "sort pages  all|allocunit (sort all pages or sort per allocation unit basis)")
 
 	profile := flag.Bool("profile", false, "profile memory usage")
+
+	verifySignatures := flag.Bool("verifysignatures", false, "verify bak (TAPE) file signatures")
+	password := flag.String("password", "", "password for Bitlocker volumes")
+	recoverykey := flag.String("recoverykey", "", "recovery key for Bitlocker volumes")
 
 	flag.Parse()
 
@@ -272,8 +278,10 @@ func main() {
 	FSLogger.InitializeLogger(*logactive, logfilename)
 	VMDKLogger.InitializeLogger(*logactive, logfilename)
 	mtfLogger.InitializeLogger(*logactive, logfilename)
+	VHDXLogger.InitializeLogger(*logactive, logfilename)
 
 	var extensions []string
+	var sgm signatures.SignatureManager
 
 	if *profile {
 
@@ -365,11 +373,19 @@ func main() {
 
 	}
 
+	if *verifySignatures {
+		sigs := signatures.ReadSignatures([]string{"BAK"})
+		sgm = signatures.SignatureManager{}
+		sgm.BuildSignatureTree(sigs)
+
+	}
+
 	if *evidencefile != "" || *physicalDrive != -1 || *vmdkfile != "" {
 		physicalDisk := new(disk.Disk)
 		physicalDisk.Initialize(*evidencefile, *physicalDrive, *vmdkfile)
 
-		recordsPerPartition, err := physicalDisk.Process(*partitionNum, []int{}, 0, math.MaxUint32)
+		recordsPerPartition, err := physicalDisk.Process(*partitionNum, []int{}, 0,
+			math.MaxUint32, *password, *recoverykey)
 
 		defer physicalDisk.Close()
 
@@ -379,6 +395,10 @@ func main() {
 		for partitionId, records := range recordsPerPartition {
 			if len(records) == 0 {
 				continue
+			}
+			if *verifySignatures {
+				flm.Register(filters.SignatureFilter{Sgm: sgm, Disk: *physicalDisk,
+					PartitionId: partitionId, Level: "strict"})
 			}
 			records = flm.ApplyFilters(records)
 
