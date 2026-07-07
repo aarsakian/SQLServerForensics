@@ -1,8 +1,10 @@
 package tables
 
 import (
+	"MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"fmt"
 	"sync"
 )
 
@@ -101,6 +103,11 @@ func (index *Index) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
 						//not all var len cols are part of the index key, only those defined as index key columns are, so we need to check the
 						// var len order of the column to know which varying length column in the index row corresponds
 						// to the column in the table schema
+						if VarLenIndexColOrder >= len(*pages.Pages[0].IndexRows[idx].VarLenCols) {
+							logger.Mslogger.Warning(fmt.Sprintf("var len index column order %d exceeds the number of var len columns in the index row",
+								VarLenIndexColOrder))
+							break
+						}
 						cmap[c.Name] = ColData{Content: (*pages.Pages[0].IndexRows[idx].VarLenCols)[VarLenIndexColOrder].Content}
 						VarLenIndexColOrder++
 					}
