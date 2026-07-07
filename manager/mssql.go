@@ -95,7 +95,7 @@ func (PM *ProcessManager) SetShowCarve(showcarve bool) {
 func (PM *ProcessManager) ProcessBAKFiles(bakPayloads []string) int {
 	var database db.Database
 	totalProcessedPages := 0
-
+	PM.Databases = make(map[string]db.Database)
 	for _, bakPayload := range bakPayloads {
 		database = db.Database{BakName: bakPayload}
 		processedPages, err := database.ProcessBAK(false)
