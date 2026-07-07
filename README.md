@@ -54,10 +54,10 @@ Responders who require immediate access to a SQL Server database, may either sto
 When low level access is used, MDF file and LDF files are copied *locally*, before  processing (defaut location is MDF folder). Responders must understand how logging works behind the scenes to avoid misinterpreting missing data or incomplete data—for example, committed rows that have not yet been written to the data file (MDF file) and therefore do not appear in the table.
 
 
- Digital forensics examiners can access SQL database by reading mdf, ldf, bak files directly from images. Supported images include dd, EWF (E01), vmdk (including sparse variant). No third-party dependencies are required to read expert witness format files (E01) or the NTFS file system. Both capabilities are provided by external libraries developed by the same author. Any files discovered are copied locally (default location MDF folder) before processing. 
+ Digital forensics examiners can access SQL database by reading mdf, ldf, bak files directly from disk images. Supported image formats include dd, EWF (E01), VMDK (including sparse variants), and VHDX virtual hard disk images, including differencing VHDX files. No third-party dependencies are required to read expert witness format files (E01) or the NTFS file system. Both capabilities are provided by external libraries developed by the same author. Any files discovered are copied locally (default location MDF folder) before processing. 
 
 
-A GUI is under development, which  communicates via rpc calls (protobufs) to the backend. It will be offered under a paid license. 
+A GUI is under development, and a protobuf-based gRPC service is also available for remote processing and export workflows via the `-rpc` flag. It will be offered under a paid license. 
 
 Additional features will be introduced over time, but no specific time release schedule can be provided. 
 
@@ -255,13 +255,24 @@ Usage instructions have been grouped so as to help the user.
         get system table info about user table
 
 
+### Volume and Verification Options
+
+  -verifysignatures
+        verify BAK/TAPE file signatures during processing
+
+  -password string
+        password for BitLocker-protected volumes
+
+  -recoverykey string
+        recovery key for BitLocker-protected volumes
+
 ### Export Options
 
   -export string
         export tables to selected path
 
   -format string
-        select format to export (csv or html)
+        select format to export (csv, html, or xlsx)
 
   -exportschema
         export table schema
@@ -270,7 +281,7 @@ Usage instructions have been grouped so as to help the user.
         export table indexes
 
   -exportblob
-        export blobs (will be exported to a folder images under the database name, file extension is blob)
+        export blobs (will be exported to a folder named blobs under the database name, file extension is blob)
  
 
  ### Log Options
@@ -363,6 +374,9 @@ Show transaction log data changes ***("LOP_INSERT_ROW", "LOP_DELETE_ROW", "LOP_M
 
 Show basic database metadata from file header (database information category)
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -showdbinfo
+
+Process a BitLocker-protected volume or image and provide either the password or recovery key so the tool can access the contained database files
+> .\MSSQLParser.exe -evidence C:\Evidence\disk.E01 -location MyDBs -password "YourPassword" -processtables -export MyExport -format csv
 
 Show system tables metadata (system tables category)
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -systemtables sysschobjs
