@@ -96,24 +96,31 @@ func (indexRow *IndexRow) Parse(data []byte, offset int, fixedColsLen uint16) {
 	}
 	if indexRow.HasVarLenCols() && int(currOffset) < len(data) {
 
-		indexRow.ProcessVaryingCols(data[currOffset:], int(currOffset))
+		indexRow.ProcessVaryingCols(data, int(currOffset))
 	}
 
 }
 
 func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
-	indexRow.NumberOfVarLengthCols = utils.ToUint16(data[0:2])
+
+	indexRow.NumberOfVarLengthCols = utils.ToUint16(data[offset : offset+2])
+
+	baseOffset := offset + 2 + 2*int(indexRow.NumberOfVarLengthCols) // move offset to the start of varying len cols
+	if baseOffset > len(data) {
+		logger.Mslogger.Warning(fmt.Sprintf("base offset %d exceeds buffer length %d", baseOffset, len(data)))
+		return
+	}
 	for i := 0; i < int(indexRow.NumberOfVarLengthCols); i++ {
 		if 4+2*i > len(data) {
 			logger.Mslogger.Warning(fmt.Sprintf("var len %d col exceeds buffer by %d", i, 4+2*i-len(data)))
 			break
 		}
-		varLenColOffset := utils.ToInt16(data[2+2*i : 4+2*i])
+		varLenColOffset := utils.ToInt16(data[offset+2+2*i : offset+4+2*i])
 		indexRow.VarLengthColOffsets = append(indexRow.VarLengthColOffsets, varLenColOffset)
 	}
 
 	var datacols datac.DataCols
-	baseOffset := 2 + 2*int(indexRow.NumberOfVarLengthCols) // move offset to the start of varying len cols
+
 	for idx, varLenColOffset := range indexRow.VarLengthColOffsets {
 
 		//varlencoloffset is the offset to the end of the varying length column,
@@ -121,12 +128,18 @@ func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 		if varLenColOffset <= int16(baseOffset) {
 			logger.Mslogger.Warning("var len column offset is after the base offset")
 			break
+		} else if varLenColOffset > int16(len(data)) {
+			logger.Mslogger.Warning(fmt.Sprintf("var len column offset %d exceeds buffer length %d", varLenColOffset, len(data)))
+			break
+		} else if varLenColOffset <= 0 {
+			logger.Mslogger.Warning(fmt.Sprintf("var len column offset %d is less than or equal to 0", varLenColOffset))
+			break
 		}
 		dst := make([]byte, int(varLenColOffset)-baseOffset) //buffer for varying le cols
-		copy(dst, data[baseOffset:int(varLenColOffset)-offset])
+		copy(dst, data[baseOffset:int(varLenColOffset)])
 		datacols = append(datacols,
 			datac.DataCol{Id: idx, Content: dst, Offset: uint16(baseOffset + offset)})
-		baseOffset = int(varLenColOffset) - offset // move offset to the end of the current varying len col
+		baseOffset = int(varLenColOffset) // move offset to the end of the current varying len col
 	}
 	indexRow.VarLenCols = &datacols
 }
