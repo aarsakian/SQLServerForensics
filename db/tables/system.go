@@ -446,6 +446,11 @@ func (columnsStats ColumnsStatistics) Populate(datarows data.DataRows) {
 }
 
 func (sysfiles SysFiles) Populate(datarows data.DataRows) {
+	if len(sysfiles) < len(datarows) {
+		msg := fmt.Sprintf("sysfiles more than default two %d ", len(datarows))
+		mslogger.Mslogger.Warning(msg)
+		sysfiles = make(SysFiles, len(datarows))
+	}
 	for idx, datarow := range datarows {
 		if datarow.Carved {
 			continue
