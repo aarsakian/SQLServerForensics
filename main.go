@@ -337,12 +337,13 @@ func main() {
 		} else {
 			extensions = []string{"MDF"}
 		}
-		flm.Register(filters.ExtensionsFilter{Extensions: extensions})
+
 	}
 
 	if *bakactive {
 		extensions = append(extensions, "BAK")
 	}
+	flm.Register(filters.ExtensionsFilter{Extensions: extensions})
 
 	if mdffile != "" && *ldbfile != "" {
 		flm.Register(filters.PrefixesSuffixesFilter{Prefixes: []string{strings.Split(mdffile, ".")[0], strings.Split(mdffile, ".")[0]},
