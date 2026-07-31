@@ -21,6 +21,8 @@ Index allocation map (IAM) pages keep track of the extents used by a heap or ind
 package main
 
 import (
+	_ "net/http/pprof"
+
 	pb "MSSQLParser/comms"
 	msegrpc "MSSQLParser/grpc-server"
 	mslogger "MSSQLParser/logger"
@@ -280,14 +282,6 @@ func main() {
 	var extensions []string
 	var sgm signatures.SignatureManager
 
-	if *profile {
-
-		go func() {
-			log.Println("pprof listening on :6060")
-			log.Println(http.ListenAndServe("localhost:6060", nil))
-		}()
-	}
-
 	var mdffiles, ldffiles, bakfiles, bakPayloads []string
 
 	var mdffile, basepath string
@@ -295,6 +289,14 @@ func main() {
 	if *stopService {
 		servicer.StopService()
 		defer servicer.StartService()
+	}
+
+	if *profile {
+
+		go func() {
+			log.Println("pprof listening on :6060")
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
 	}
 
 	if *rpc > 1024 && *rpc < 65535 {
@@ -338,12 +340,12 @@ func main() {
 			extensions = []string{"MDF"}
 		}
 
-	}
+		if *bakactive {
+			extensions = append(extensions, "BAK")
+		}
+		flm.Register(filters.ExtensionsFilter{Extensions: extensions})
 
-	if *bakactive {
-		extensions = append(extensions, "BAK")
 	}
-	flm.Register(filters.ExtensionsFilter{Extensions: extensions})
 
 	if mdffile != "" && *ldbfile != "" {
 		flm.Register(filters.PrefixesSuffixesFilter{Prefixes: []string{strings.Split(mdffile, ".")[0], strings.Split(mdffile, ".")[0]},
