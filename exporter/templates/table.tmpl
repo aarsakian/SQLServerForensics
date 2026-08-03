@@ -93,7 +93,23 @@ h2 {justify-content: center; display: flex; color: #333; }
 {{end}}
 
 {{define "row"}}
-<tr data-is-logged="{{.Logged}}" data-is-carved="{{.Carved}}">{{ range .Vals }}<td>{{ . }}</td>{{ end }}</tr>
+<tr data-is-logged="{{.Row.Logged}}" data-is-carved="{{.Row.Carved}}">{{ range .Row.Vals }}<td>{{ . }}</td>{{ end }}
+{{if .IncludeLogInfo}}
+<td>{{.Row.LoggedOperation}}</td>
+{{end}}
+{{if .IncludePageInfo}}
+	<td>
+   {{range $index, $pages:=.Row.PageInfo}}
+    	{{.}}
+	    {{if eq $index 0}}
+			:
+		{{end}}
+	  
+   {{end}}
+    </td>
+{{end}}
+
+</tr>
 {{end}}
 
 {{define "footer"}}
