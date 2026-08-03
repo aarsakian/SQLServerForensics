@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"slices"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -566,6 +567,7 @@ func (table Table) GetHeader(colnames []string) []string {
 		}
 	}
 	names = append(names, "log information")
+	names = append(names, "page Id : Slot Number")
 	return names
 
 }
@@ -614,9 +616,11 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 			}
 
 		}
-		vals = append(vals, row.LoggedOperation)
+
+		pageInfo := []string{strconv.FormatUint(uint64(row.RowId.PageId), 10),
+			strconv.FormatUint(uint64(row.RowId.SlotNumber), 10)}
 		record = utils.Record{Vals: vals, Carved: row.Carved, Logged: row.Logged,
-			LoggedOperation: row.LoggedOperation}
+			LoggedOperation: row.LoggedOperation, PageInfo: pageInfo}
 
 		records <- record
 	}
