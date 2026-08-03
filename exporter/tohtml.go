@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -20,6 +21,12 @@ type HTMLExporter struct {
 	SourceFilename string
 	DatabaseName   string
 	Templates      map[string]*template.Template
+}
+
+type rowTemplateData struct {
+	Row             utils.Record
+	IncludeLogInfo  bool
+	IncludePageInfo bool
 }
 
 type tableTemplateData struct {
@@ -64,14 +71,23 @@ func paginatedPageName(filename string, page int) string {
 }
 
 func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
-	headers []string, filename string) {
+	headers []string, filename string, includePageInfo bool, includeLogInfo bool) {
 	defer wg.Done()
 
 	var paginatedFile *os.File
 
 	msg := fmt.Sprintf("Exporting data from %s to %s", filename, h.Path)
-	fmt.Printf(msg + " \n")
+	fmt.Printf("%s \n", msg)
 	mslogger.Mslogger.Info(msg)
+
+	//last two are page - log related header
+	if !includePageInfo && !includeLogInfo {
+		headers = slices.Delete(headers, len(headers)-2, len(headers))
+	} else if !includeLogInfo && includePageInfo {
+		headers = slices.Delete(headers, len(headers)-2, len(headers)-1)
+	} else if !includePageInfo && includeLogInfo {
+		headers = slices.Delete(headers, len(headers)-1, len(headers))
+	}
 
 	data := tableTemplateData{Headers: headers,
 		Name: filename, SourceFile: h.SourceFilename, Database: h.DatabaseName, IsPaginated: false}
@@ -92,7 +108,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	pageIdx := -1
 	pageRowCount := 0
 	paginationEnabled := false
-	firstPageBuffer := make([]utils.Record, 0, RowsPerPage)
+	firstPageBuffer := make([]rowTemplateData, 0, RowsPerPage)
 
 	openPaginatedPage := func(idx int) {
 		var err error
@@ -148,13 +164,16 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	for record := range records {
 		// Render full HTML row
 		data.IsPaginated = false
-		if err := h.Templates["table"].ExecuteTemplate(file, "row", record); err != nil {
+
+		rowTmpl := rowTemplateData{Row: record, IncludeLogInfo: includeLogInfo, IncludePageInfo: includePageInfo}
+
+		if err := h.Templates["table"].ExecuteTemplate(file, "row", rowTmpl); err != nil {
 			log.Fatal(err)
 		}
 		nofRows++
 
 		if !paginationEnabled {
-			firstPageBuffer = append(firstPageBuffer, record)
+			firstPageBuffer = append(firstPageBuffer, rowTmpl)
 			if nofRows == RowsPerPage {
 				paginationEnabled = true
 				pageIdx = 0
@@ -298,7 +317,7 @@ func (h HTMLExporter) WriteIndexRecords(wg *sync.WaitGroup, tableName string,
 		log.Fatal(err)
 	}
 	msg := fmt.Sprintf("Exporting index %s data from %s to %s", index.Name, tableName, fpath)
-	fmt.Printf(msg + " \n")
+	fmt.Printf("%s \n", msg)
 	mslogger.Mslogger.Info(msg)
 
 	var headers []string
