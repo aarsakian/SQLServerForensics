@@ -193,7 +193,8 @@ func writeFile(zw *zip.Writer, name string, data []byte) error {
 	return err
 }
 
-func (xlsxExporter *XLSXExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record, headers []string, sheetName string) {
+func (xlsxExporter *XLSXExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
+	headers []string, sheetName string, includePageInfo bool, includeLogInfo bool) {
 	defer wg.Done()
 
 	msg := fmt.Sprintf("Exporting data to %s.xlsx", path.Join(xlsxExporter.Path, sheetName))

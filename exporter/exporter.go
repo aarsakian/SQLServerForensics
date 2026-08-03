@@ -17,18 +17,20 @@ import (
 var tmplFS embed.FS
 
 type Writer interface {
-	WriteRecords(*sync.WaitGroup, <-chan utils.Record, []string, string)
+	WriteRecords(*sync.WaitGroup, <-chan utils.Record, []string, string, bool, bool)
 
 	WriteSchema([]tables.Column, string)
 	WriteIndexRecords(*sync.WaitGroup, string, <-chan utils.Record, tables.Index)
 }
 
 type Exporter struct {
-	Format string
-	Blobs  bool
-	Path   string
-	Index  bool
-	Schema bool
+	Format   string
+	Blobs    bool
+	Path     string
+	Index    bool
+	Schema   bool
+	PageInfo bool
+	LogInfo  bool
 }
 
 func exportedRowCount(table *db.Table, selectedTableRow []int) int {
@@ -44,6 +46,14 @@ func exportedRowCount(table *db.Table, selectedTableRow []int) int {
 	}
 
 	return rowCount
+}
+
+func sanitizeDatabaseName(dbfname string) string {
+	vol := filepath.VolumeName(dbfname)
+	if vol != "" {
+		return dbfname[len(vol):]
+	}
+	return dbfname
 }
 
 func sanitizeDatabaseFolder(databaseFolder string) string {
@@ -91,6 +101,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	defer expWg.Done()
 
 	databaseFolder = sanitizeDatabaseFolder(databaseFolder)
+	dbName = sanitizeDatabaseName(dbName)
 
 	var tocTmpl *template.Template
 	var writer Writer
@@ -177,7 +188,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		}
 
 		wg.Add(1)
-		go writer.WriteRecords(wg, records, headers, table.Name)
+		go writer.WriteRecords(wg, records, headers, table.Name, exp.PageInfo, exp.LogInfo)
 
 		if exp.Index {
 			for _, index := range table.Indexes {

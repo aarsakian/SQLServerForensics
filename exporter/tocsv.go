@@ -32,7 +32,7 @@ func (c CSVExporter) writeHeader(headers []string, filename string) {
 }
 
 func (c CSVExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
-	headers []string, filename string) {
+	headers []string, filename string, includePageInfo bool, includeLogInfo bool) {
 	defer wg.Done()
 	var loggedRecords, carvedRecords []utils.Record
 
@@ -48,7 +48,7 @@ func (c CSVExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Recor
 	w := csv.NewWriter(file)
 
 	msg := fmt.Sprintf("Exporting data from %s", filename)
-	fmt.Printf(msg + " ")
+	fmt.Printf("%s \n ", msg)
 	mslogger.Mslogger.Info(msg)
 
 	for record := range records {
