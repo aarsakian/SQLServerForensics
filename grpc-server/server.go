@@ -42,7 +42,8 @@ func (mssqlparser_commsServer *Server) SetConfig(ctx context.Context, config *ms
 		false, false, false, false, false,
 		"", false, false, false, 0, -1, []int{}, config.Carve,
 		false, false, "", false, []string{},
-		"csv", false, config.ExporPath, false, false, "", "", "")
+		"csv", false, config.ExporPath, false, false, false, false,
+		"", "", "")
 
 	mssqlparser_commsServer.pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split("", ","),
@@ -126,7 +127,7 @@ func (mssqlparser_commsServer *Server) Process(
 			defer wgs.Done()
 			for table := range listener1 {
 				msg := fmt.Sprintf("Processing Table %s", table.Name)
-				fmt.Printf(msg + " \n")
+				fmt.Printf("%s  \n", msg)
 				if err = stream.Send(&mssqlparser_comms.TableResponse{
 					MessageType: &mssqlparser_comms.TableResponse_Message{
 						Message: &mssqlparser_comms.Message{Content: msg}}}); err != nil {
