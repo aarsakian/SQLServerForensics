@@ -196,7 +196,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 			pageRowCount = 0
 		}
 
-		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", record); err != nil {
+		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", rowTmpl); err != nil {
 			log.Fatal(err)
 		}
 		pageRowCount++
