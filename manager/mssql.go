@@ -44,7 +44,7 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
 	showLDF bool, tabletype string, raw bool, colnames []string,
 	exportFormat string, exportBlob bool, exportPath string, exportIndex bool,
-	exportSchema bool,
+	exportSchema bool, exportPageInfo bool, exportLogInfo bool,
 	sortByLSN string,
 	walkpageLSN string, walkLSN string) {
 
@@ -80,7 +80,8 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 	}
 
 	PM.Exporter = exporter.Exporter{Format: exportFormat,
-		Blobs: exportBlob, Path: exportPath, Index: exportIndex, Schema: exportSchema}
+		Blobs: exportBlob, Path: exportPath, Index: exportIndex, Schema: exportSchema,
+		PageInfo: exportPageInfo, LogInfo: exportLogInfo}
 
 }
 

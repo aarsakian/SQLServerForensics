@@ -118,7 +118,8 @@ func main() {
 
 	exportIndex := flag.Bool("exportindex", false, "export table indexes")
 	exportSchema := flag.Bool("exportschema", false, "export table schema")
-
+	exportPageInfo := flag.Bool("exportpageinfo", false, "export page info for each row to be used with export format csv, html, xlsx")
+	exportLogInfo := flag.Bool("exportloginfo", false, "export log correlated info for each row to be used with export format csv, html, xlsx")
 	exportBlob := flag.Bool("exportblob", false,
 		"export blobs (will be exported to a folder blobs under the database name, file extension is blob)")
 
@@ -177,6 +178,14 @@ func main() {
 
 	if *exportSchema && *exportPath == "" {
 		log.Fatalf("exportschema flag requires export path to be set")
+	}
+
+	if *exportPageInfo && *exportPath == "" {
+		log.Fatalf("exportpageinfo flag requires export path to be set")
+	}
+
+	if *exportLogInfo && *exportPath == "" {
+		log.Fatalf("exportpageinfo flag requires export path to be set")
 	}
 
 	if *walkLSN != "" && *filterlop == "" {
@@ -487,7 +496,7 @@ func main() {
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportBlob, *exportPath, *exportIndex,
-		*exportSchema,
+		*exportSchema, *exportPageInfo, *exportLogInfo,
 		*sortByLSN, *walkpageLSN, *walkLSN)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
