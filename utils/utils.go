@@ -36,6 +36,7 @@ type Record struct {
 	Carved          bool
 	Logged          bool
 	LoggedOperation string
+	PageInfo        []string
 }
 type Records [][]string
 
