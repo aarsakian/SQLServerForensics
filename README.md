@@ -280,6 +280,12 @@ Usage instructions have been grouped so as to help the user.
   -exportindex
         export table indexes
 
+  -exportpageinfo
+        export page information for each row (works with HTML exports only)
+
+  -exportloginfo
+        export transaction-log correlation information for each row (works with HTML exports only)
+
   -exportblob
         export blobs (will be exported to a folder named blobs under the database name, file extension is blob)
  
@@ -320,6 +326,18 @@ Show  table contents of table ***PersonPhone*** of database file ***AdventureWor
 
 Export table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports*** in ***html***
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables  -export MyExports -tables PersonPhone -format html
+
+Export table contents with row-level page and log correlation details to ***Myexports*** in ***html***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -exportpageinfo -exportloginfo
+
+Export table contents with page-level metadata for each row to ***Myexports*** in ***html***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -exportpageinfo
+
+Export table contents with transaction-log correlation details to ***Myexports*** in ***html***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -exportloginfo
+
+Export blob columns for a table to ***Myexports***
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables ProductPhoto -export MyExports -exportblob
 
 Export all user table contents  of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** to folder ***Myexports*** in ***csv***
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tabletype 'User Table' -export MyExports -format csv
