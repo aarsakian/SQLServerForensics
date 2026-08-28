@@ -2,6 +2,7 @@ package tables
 
 import (
 	"MSSQLParser/data"
+	"MSSQLParser/logger"
 
 	LDF "MSSQLParser/ldf"
 	mslogger "MSSQLParser/logger"
@@ -266,7 +267,12 @@ func (c *Column) AddContent(datarow data.DataRow,
 			if !lobPages.IsEmpty() && len(rowIds) != 0 { //only when there are lobpages proceed
 				var content []byte
 				for _, rowId := range rowIds {
-					lobPage := lobPages.GetFirstPage(rowId.PageId)
+					lobPage, err := lobPages.GetFirstPage(rowId.PageId)
+					if err != nil {
+						logger.Mslogger.Error(err.Error())
+						continue
+					}
+
 					content = append(content,
 						lobPage.GetLobData(lobPages, textLOBPages,
 							uint(rowId.SlotNumber), uint(textTimestamp))...)
