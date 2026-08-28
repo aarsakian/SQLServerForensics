@@ -29,6 +29,8 @@ type ZeroPageHeader string
 
 func (e ZeroPageHeader) Error() string { return string(e) }
 
+var ErrPageNotFound = errors.New("page not found")
+
 var PageTypes = map[uint8]string{
 	1: "DATA", 2: "Index", 3: "LOB", 4: "TEXT", 6: "Work File", 7: "Sort", 8: "GAM", 9: "SGAM",
 	10: "IAM", 11: "PFS", 13: "Boot", 14: "Server Configuration", 15: "File Header",
@@ -88,7 +90,7 @@ type PageKey interface {
 
 type PagesPerIdNode struct {
 	Next     *PagesPerIdNode
-	PagesMap map[uint32]*Page
+	PagesMap map[uint32]int
 	Pages    Pages
 }
 
@@ -119,13 +121,14 @@ func (pagesPerID *PagesPerId[K]) Add(allocUnitID K, page Page) {
 			pagesPerID.list.UpdateNext(pagesPerIDNode)
 		}
 		pagesPerIDNode.Pages = Pages{page}
-		pagesPerIDNode.PagesMap = make(map[uint32]*Page)
-		pagesPerIDNode.PagesMap[page.Header.PageId] = &page
+		pagesPerIDNode.PagesMap = make(map[uint32]int)
+		pagesPerIDNode.PagesMap[page.Header.PageId] = 0
 		pagesPerID.Lookup[allocUnitID] = pagesPerIDNode
 
 	} else {
+		pageIndex := len(pagesPerIDNode.Pages)
 		pagesPerIDNode.Pages = append(pagesPerIDNode.Pages, page)
-
+		pagesPerIDNode.PagesMap[page.Header.PageId] = pageIndex
 	}
 
 }
@@ -140,14 +143,21 @@ func (pagesPerID PagesPerId[K]) GetPages(allocUnitID K) Pages {
 
 }
 
-func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) Page {
+func (pagesPerID PagesPerId[K]) GetFirstPage(allocUnitID K) (Page, error) {
 	node, ok := pagesPerID.Lookup[allocUnitID]
 	if ok {
-		return node.Pages[0]
+		return node.Pages[0], nil
 	} else {
-		return Page{}
+		return Page{}, fmt.Errorf("%w: %d", ErrPageNotFound, allocUnitID)
 	}
+}
 
+func (pagesPerIDNode *PagesPerIdNode) GetPage(pageID uint32) (Page, error) {
+	pageIndex, ok := pagesPerIDNode.PagesMap[pageID]
+	if !ok {
+		return Page{}, fmt.Errorf("%w: %d", ErrPageNotFound, pageID)
+	}
+	return pagesPerIDNode.Pages[pageIndex], nil
 }
 
 type Page struct {
