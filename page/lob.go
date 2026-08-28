@@ -1,6 +1,7 @@
 package page
 
 import (
+	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
 	"errors"
@@ -117,7 +118,11 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 
 	if lob.Type == 2 {
 		for _, dataLob := range lob.Internal.DataPointers { //points to lob type 3
-			lobPage := lobPages.GetFirstPage(dataLob.PageId)
+			lobPage, err := lobPages.GetFirstPage(dataLob.PageId)
+			if err != nil {
+				logger.Mslogger.Error(err.Error())
+				continue
+			}
 			for _, lob := range lobPage.LOBS {
 				if lob.Id != uint64(textTimestamp) {
 					continue
@@ -131,6 +136,7 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 	} else if lob.Type == 5 { // type 5
 		var lobPage Page
 		var internalLobPages Pages
+		var err error
 		for _, internalLob := range lob.Root.InternalPointers { //internal lob type 2 or type 3
 
 			if parentPageId == internalLob.PageId { //cyclic reference protection
@@ -150,7 +156,11 @@ func (lob LOB) walk(lobPages PagesPerId[uint32], textLobPages PagesPerId[uint32]
 			}
 			lobPage = internalLobPages[0]
 			if lobPage.Header.PageId == 0 { // lob Pages does not contains thiss page id
-				lobPage = textLobPages.GetFirstPage(internalLob.PageId)
+				lobPage, err = textLobPages.GetFirstPage(internalLob.PageId)
+			}
+			if err != nil {
+				logger.Mslogger.Error(err.Error())
+				continue
 			}
 
 			for _, lob := range lobPage.LOBS {
