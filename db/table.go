@@ -130,11 +130,11 @@ func (table *Table) AddChangesHistory(correlatedRecords []*correlation.Correlate
 				mslogger.Mslogger.Warning(msg)
 				continue
 			}
-			page := pagesPerIdNode.PagesMap[record.RowId.PageId]
-			if page == nil {
+			pageRecord, err := pagesPerIdNode.GetPage(record.RowId.PageId)
+			if err != nil {
 				continue
 			}
-			partitionIDToMap[record.PartitionId+uint64(record.RowId.PageId)] = page
+			partitionIDToMap[record.PartitionId+uint64(record.RowId.PageId)] = &pageRecord
 		}
 	}
 
