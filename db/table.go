@@ -943,7 +943,7 @@ func (table Table) ProcessRow(datarow data.DataRow,
 			continue //computed cols are not stored
 		}
 		//check only when number of cols equal to nofCols
-		if colnum < int(datarow.NumberOfCols) &&
+		if colnum < int(datarow.NumberOfCols) && bitrepresentation != "" &&
 			utils.HasFlagSet(bitrepresentation, colnum+1-computedCols) { //col is NULL skip when ASCII 49  (1)
 			//computed cols are not stored
 
