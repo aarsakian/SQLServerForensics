@@ -71,6 +71,11 @@ func (lob *LOB) ParseRoot(data []byte) {
 
 	for curLink := uint16(0); curLink < root.CurLinks; curLink++ {
 		var internalBodyPointer *LOBRootBody = new(LOBRootBody)
+		if int(10+12*curLink) > len(data) || int(10+12*(curLink+1)) > len(data) {
+
+			mslogger.Mslogger.Warning("cannot process lob links no buffer avaiable")
+			break
+		}
 		utils.Unmarshal(data[10+12*curLink:10+12*(curLink+1)], internalBodyPointer)
 		internalPointers = append(internalPointers, *internalBodyPointer)
 	}
