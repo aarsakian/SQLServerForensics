@@ -433,6 +433,11 @@ func (page *Page) parseLOB(data []byte) {
 			logger.Mslogger.Warning(fmt.Sprintf("lob length is less than 14 by %d ", 14-lob.Length))
 			continue
 		}
+		if int(slot.Offset)+int(lob.Length) > len(data) {
+			logger.Mslogger.Warning(fmt.Sprintf("lob length exceeds available buffer by %d", int(slot.Offset+lob.Length)-len(data)))
+			break
+		}
+
 		switch lob.Type {
 		case 3: // data leaf
 			content := make([]byte, slot.Offset+lob.Length-(slot.Offset+14))
