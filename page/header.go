@@ -9,42 +9,38 @@ import (
 
 // SQL Server Page Header FlagBits (bitmask)
 const (
-	FlagIsModified              = 0x0001 // Page is dirty
-	FlagIsMixedExtent           = 0x0002 // Allocated from mixed extent
-	FlagHasDifferentOwner       = 0x0004 // Special allocation ownership
-	FlagGhostCleanupPending     = 0x0008 // Ghost cleanup needed
-	FlagHasChecksum             = 0x0010 // Checksum enabled
-	FlagHasTornBits             = 0x0020 // Torn-page detection enabled
-	FlagIsEncrypted             = 0x0040 // TDE encrypted page
-	FlagHasDifferentialChange   = 0x0080 // Changed since last diff backup
-	FlagHasFullLogging          = 0x0100 // Internal logging state
-	FlagHasSparseMapping        = 0x0200 // Snapshot / sparse file mapping
-	FlagIsVersionStore          = 0x0400 // Row versioning page
-	FlagHasGhostVersionRecords  = 0x0800 // Ghost version records present
-	FlagIsCompressionDictionary = 0x1000 // Page stores compression dictionary
-	FlagHasInRowLOBPointers     = 0x2000 // In-row LOB pointers exist
-	FlagIsFileStreamData        = 0x4000 // FILESTREAM data page
-	FlagIsTempdbMetadata        = 0x8000 // Tempdb metadata page
+	FlagIsPacked          = 0x0001 //  packed data row
+	FlagImmediateRollback = 0x0002 //
+	FlagHasGhostRecords   = 0x0004 //
+	FlagIsModified        = 0x0008 // Dirty or tracks an active transactional modification
+	FlagBStat             = 0x0010 // row offset tables or slot allocations match active tracking
+	FlagBulkLogged        = 0x0020 // Bulk methods used
+	FlagHasTornBits       = 0x0100 // Torn page detection
+	FlagHasChecksum       = 0x0200 // Checksum used
+	FlagIsEncrypted       = 0x0400 //
+	FlagMirrored          = 0x0800 // Ghost version records present
+
 )
 
 // Human-readable descriptions
 var flagDescriptions = map[uint16]string{
-	FlagIsModified:              "PAGE_IS_MODIFIED",
-	FlagIsMixedExtent:           "PAGE_IS_MIXED_EXTENT",
-	FlagHasDifferentOwner:       "PAGE_HAS_DIFFERENT_OWNER",
-	FlagGhostCleanupPending:     "PAGE_IS_GHOST_CLEANUP_PENDING",
-	FlagHasChecksum:             "PAGE_HAS_CHECKSUM",
-	FlagHasTornBits:             "PAGE_HAS_TORN_BITS",
-	FlagIsEncrypted:             "PAGE_IS_ENCRYPTED",
-	FlagHasDifferentialChange:   "PAGE_HAS_DIFFERENTIAL_CHANGE",
-	FlagHasFullLogging:          "PAGE_HAS_FULL_LOGGING",
-	FlagHasSparseMapping:        "PAGE_HAS_SPARSE_MAPPING",
-	FlagIsVersionStore:          "PAGE_IS_VERSION_STORE",
-	FlagHasGhostVersionRecords:  "PAGE_HAS_GHOST_VERSION_RECORDS",
-	FlagIsCompressionDictionary: "PAGE_IS_COMPRESSION_DICTIONARY",
-	FlagHasInRowLOBPointers:     "PAGE_HAS_IN_ROW_LOB_POINTERS",
-	FlagIsFileStreamData:        "PAGE_IS_FILESTREAM_DATA",
-	FlagIsTempdbMetadata:        "PAGE_IS_TEMPDB_METADATA",
+	FlagIsModified:        "PAGE_IS_PACKED",
+	FlagImmediateRollback: "PAGE_IMMEDIATE_ROLLBACK",
+	/*	FlagIsMixedExtent:           "PAGE_IS_MIXED_EXTENT",
+		FlagHasDifferentOwner:       "PAGE_HAS_DIFFERENT_OWNER",
+		FlagGhostCleanupPending:     "PAGE_IS_GHOST_CLEANUP_PENDING",*/
+	FlagHasChecksum: "PAGE_HAS_CHECKSUM",
+	FlagHasTornBits: "PAGE_HAS_TORN_BITS",
+	FlagIsEncrypted: "PAGE_IS_ENCRYPTED",
+	/*	FlagHasDifferentialChange:   "PAGE_HAS_DIFFERENTIAL_CHANGE",
+		FlagHasFullLogging:          "PAGE_HAS_FULL_LOGGING",
+		FlagHasSparseMapping:        "PAGE_HAS_SPARSE_MAPPING",
+		FlagIsVersionStore:          "PAGE_IS_VERSION_STORE",
+		FlagHasGhostVersionRecords:  "PAGE_HAS_GHOST_VERSION_RECORDS",
+		FlagIsCompressionDictionary: "PAGE_IS_COMPRESSION_DICTIONARY",
+		FlagHasInRowLOBPointers:     "PAGE_HAS_IN_ROW_LOB_POINTERS",
+		FlagIsFileStreamData:        "PAGE_IS_FILESTREAM_DATA",
+		FlagIsTempdbMetadata:        "PAGE_IS_TEMPDB_METADATA",*/
 }
 
 // DecodeFlagBits returns a list of active flags for a given bitmask.
@@ -85,6 +81,14 @@ type Header struct {
 	TornBits       uint32    //60-64 bit string 1 bit -> sector
 	Checksum       uint32    //checksum for SQL Server 2005+
 	Reserved       [28]byte  //68-96
+}
+
+func (header Header) isTornPageUsed() bool {
+	return header.FlagBits&FlagHasTornBits == FlagHasTornBits
+}
+
+func (header Header) isChecksumUsed() bool {
+	return header.FlagBits&FlagHasChecksum == FlagHasChecksum
 }
 
 func (header Header) isValid() bool {
