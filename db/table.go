@@ -39,7 +39,7 @@ type ByColOrder []tables.Column
 
 func (b ByColOrder) Less(i, j int) bool {
 
-	return b[i].Order < b[j].Order
+	return b[i].Id < b[j].Id
 }
 
 func (b ByColOrder) Swap(i, j int) {
@@ -97,7 +97,7 @@ func (table *Table) udateColIndex(sysiscols tables.SysIsCols) {
 				continue
 			}
 			for idx, col := range table.Schema {
-				if col.Order != uint16(sysiscol.Intprop) {
+				if col.Id != uint16(sysiscol.Intprop) {
 					continue
 
 				}
@@ -192,8 +192,16 @@ func (table *Table) AddLogBasedRecord(record *LDF.Record, pageFlushed bool) {
 }
 
 func (table *Table) addIndex(indexInfo tables.SysIdxStats, hasallocunits bool, sysallocunits []tables.SysAllocUnits) {
-
-	tableIndex := tables.Index{Id: indexInfo.Indid, Name: indexInfo.GetName(), IsClustered: indexInfo.Type == 1}
+	//determine key size
+	keysize := uint32(0)
+	for _, col := range table.Schema {
+		if uint32(col.Id) == indexInfo.Indid {
+			keysize = uint32(col.Size)
+			break
+		}
+	}
+	tableIndex := tables.Index{Id: indexInfo.Indid, Name: indexInfo.GetName(), KeySize: uint32(keysize),
+		IsClustered: indexInfo.Type == 1}
 
 	if hasallocunits {
 		for _, sysallocunit := range sysallocunits {
@@ -208,6 +216,7 @@ func (table *Table) addIndex(indexInfo tables.SysIdxStats, hasallocunits bool, s
 
 func (table *Table) setIndexContent(indexPages page.PagesPerId[uint32]) []uint32 {
 	var indexedDataPages []uint32
+
 	for idx := range table.Indexes {
 		if !table.Indexes[idx].IsClustered {
 			continue
@@ -380,7 +389,7 @@ func (table *Table) addColumns(columns []tables.SysColpars) {
 		if err == nil {
 
 			table.addColumn(tables.Column{Name: col.GetName(), Type: col.GetType(),
-				Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
+				Size: int16(col.Length), Id: col.Colid, CollationId: col.Collationid,
 				Charmap:   utils.LocateWindowsCharmap(codepage),
 				CodePage:  codepage,
 				Precision: col.Prec, Scale: col.Scale,
@@ -396,7 +405,7 @@ func (table *Table) addColumns(columns []tables.SysColpars) {
 
 		} else {
 			table.addColumn(tables.Column{Name: col.GetName(), Type: col.GetType(),
-				Size: col.Length, Order: col.Colid, CollationId: col.Collationid,
+				Size: int16(col.Length), Id: col.Colid, CollationId: col.Collationid,
 				Precision: col.Prec, Scale: col.Scale,
 				OffsetMap: map[uint64]int16{}, IsAnsiPadded: col.IsAnsiPadded(),
 				IsIdentity: col.IsIdentity(), IsRowGUIDCol: col.IsRowGUIDCol(),
@@ -819,6 +828,18 @@ func (table Table) printData(showtorow int, skiprows int,
 
 }
 
+func (table *Table) updateColOffsetsUsingOrder() {
+	offset := int16(4)
+	for cid := range table.Schema {
+		if !table.Schema[cid].IsStatic() {
+			continue
+		}
+
+		table.Schema[cid].OffsetMap[0] = offset
+		offset += table.Schema[cid].Size
+	}
+}
+
 func (table *Table) updateColOffsets(column_id uint32, offset int16, parirtitionId uint64) error {
 	if len(table.Schema) < int(column_id) {
 		msg := fmt.Sprintf("Partition columnd id %d exceeds nof cols %d of table %s", column_id, len(table.Schema), table.Name)
@@ -935,8 +956,8 @@ func (table Table) ProcessRow(datarow data.DataRow,
 
 	for colnum, col := range table.Schema {
 		//schema is sorted by colorder use colnum instead of col.Order
-		if colnum+1 != int(col.Order) {
-			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Order))
+		if colnum+1 != int(col.Id) {
+			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Id))
 		}
 		if col.IsComputed {
 			computedCols++
