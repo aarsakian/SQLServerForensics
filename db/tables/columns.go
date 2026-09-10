@@ -41,7 +41,7 @@ type Column struct {
 	Name         string
 	Type         string
 	Size         int16
-	Order        uint16
+	Id           uint16
 	VarLenOrder  uint16
 	CollationId  uint32
 	Precision    uint8
@@ -255,7 +255,8 @@ func (c Column) ParseTime(data []byte) string {
 }
 
 func (c *Column) AddContent(datarow data.DataRow,
-	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32], partitionId uint64) ([]byte, error) {
+	lobPages page.PagesPerId[uint32], textLOBPages page.PagesPerId[uint32],
+	partitionId uint64) ([]byte, error) {
 
 	if datarow.SystemTable != nil {
 		return utils.FindValueInStruct(c.Name, datarow.SystemTable), nil
@@ -282,8 +283,12 @@ func (c *Column) AddContent(datarow data.DataRow,
 				return nil, fmt.Errorf("lob data not found for col %s", c.Name)
 			}
 		} else {
-
-			return datarow.ProcessData(c.Order, c.Size, c.OffsetMap[partitionId], c.IsStatic(),
+			offset := c.OffsetMap[partitionId]
+			//static col alternative offset calculation
+			if offset == 0 && c.IsStatic() {
+				offset = c.OffsetMap[0]
+			}
+			return datarow.ProcessData(c.Id, c.Size, offset, c.IsStatic(),
 				c.VarLenOrder)
 
 		}
