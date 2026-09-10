@@ -104,13 +104,13 @@ type SysAllocUnits struct {
 
 // syscolpars a contains a row for every column in a table (column definitions)
 type SysColpars struct {
-	Id          int32  //4 -8  //objectID
-	Number      uint16 //8-10
-	Colid       uint16 //10 -12
-	Unknown     [2]byte
-	Xtype       uint8  // 14 sys.sysscalartypes.xtype.
-	Utype       uint32 //15-19 sys.sysscalartypes.id
-	Length      int16  //19-21
+	Id          int32   // -3  //objectID
+	Number      uint16  //4-5
+	Colid       uint16  //6 -7
+	Unknown     [2]byte //8-9
+	Xtype       uint8   // 10 sys.sysscalartypes.xtype.
+	Utype       uint32  //11-14 sys.sysscalartypes.id
+	Length      int16   //15-16
 	Prec        uint8
 	Scale       uint8
 	Collationid uint32
