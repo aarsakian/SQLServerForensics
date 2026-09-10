@@ -13,6 +13,7 @@ type Index struct {
 	Name        string
 	RootPageId  uint32
 	FirstPageId uint32
+	KeySize     uint32
 	IsClustered bool
 	Columns     []*Column
 	Rows        []Row
@@ -118,8 +119,10 @@ func (index *Index) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
 			//remaining is indexnonleaf data
 			if startOffset < len(pages.Pages[0].IndexRows[idx].FixedLenCols) {
 				indexNonLeaf := new(page.IndexNoNLeaf)
-				utils.Unmarshal(pages.Pages[0].IndexRows[idx].FixedLenCols[startOffset:],
+				utils.Unmarshal(pages.Pages[0].IndexRows[idx].FixedLenCols[startOffset+int(index.KeySize):],
 					indexNonLeaf)
+				indexNonLeaf.KeyValue = make([]byte, index.KeySize)
+				copy(indexNonLeaf.KeyValue, pages.Pages[0].IndexRows[idx].FixedLenCols[startOffset:startOffset+int(index.KeySize)])
 
 				//top level index pages point to other index pages until the leaf level is reached, at which point the index rows point to data pages
 				if pages.Pages[0].Header.Level > 1 {
