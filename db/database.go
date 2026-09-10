@@ -212,6 +212,8 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 		switch err.(type) {
 		case page.InvalidPageTypeError:
 			suspisiousOffsets = append(suspisiousOffsets, offset)
+		case page.InvalidDBIVersionError:
+			return -1, []int{}, err
 		}
 
 		if page_.FileHeader != nil {
@@ -369,7 +371,9 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	partitions := db.tablesPartitions[objectid] //objectid ->  sysrowsets
 
 	var table_alloc_pages page.Pages
+	var sysrscols []tables.SysRsCol
 
+	sysrscolsLocated := false
 	for _, partition := range partitions {
 
 		allocationUnits, ok := db.tablesAllocations[partition.Rowsetid] // from sysallocunits PartitionId => page m allocation unit id
@@ -387,10 +391,11 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 			}
 
-			for _, sysrscols := range db.columnsPartitions[partition.Rowsetid] {
+			sysrscols, sysrscolsLocated = db.columnsPartitions[partition.Rowsetid]
 
-				err := table.updateColOffsets(sysrscols.Rscolid,
-					sysrscols.GetLeafOffset(), partition.Rowsetid) //columnd_id ,offset
+			for _, sysrscol := range sysrscols {
+				err := table.updateColOffsets(sysrscol.Rscolid,
+					sysrscol.GetLeafOffset(), partition.Rowsetid) //columnd_id ,offset
 				if err != nil {
 					msg := fmt.Sprintf("error in finding column offset rowsetid %d", partition.Rowsetid)
 					mslogger.Mslogger.Warning(msg)
@@ -400,6 +405,13 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 		}
 
 	}
+
+	//table does not have sysrscols for offsets use alternative way for offset calculation
+	if !sysrscolsLocated {
+		mslogger.Mslogger.Info("Using alternative method to determine column offsets, no sysrscols located")
+		table.updateColOffsetsUsingOrder()
+	}
+
 	sysiscols := db.columnsStatistics[objectid]
 	for _, indexInfo := range db.indexesInfo[objectid] {
 		sysallocunits, ok := db.tablesAllocations[indexInfo.Rowsetid]
