@@ -4,6 +4,21 @@ import (
 	"MSSQLParser/utils"
 )
 
+const (
+	version2025    = 1000
+	version2022    = 957
+	version2019    = 895
+	version2017    = 869
+	version2016    = 852
+	version2014    = 782
+	version2012    = 706
+	version2008SP2 = 665
+	version2008SP1 = 655
+	version2008    = 661
+	version2005    = 611
+	version2000    = 539
+)
+
 type Boot struct {
 	Dbi_Version             uint16
 	Dbi_CreateVersion       uint16
@@ -107,6 +122,42 @@ type Boot struct {
 		  Dbi_verDbOption	0
 		  Dbi_logReplicaQuorumHardenedBlock	0
 		  Dbi_status_2	0x00000000*/
+}
+
+func (boot Boot) GetVersion() string {
+	switch boot.Dbi_Version {
+	case version2025:
+		return "SQL Server 2025"
+	case version2022:
+		return "SQL Server 2022"
+	case version2019:
+		return "SQL Server 2019"
+	case version2017:
+		return "SQL Server 2017"
+	case version2016:
+		return "SQL Server 2016"
+	case version2014:
+		return "SQL Server 2014"
+	case version2012:
+		return "SQL Server 2012"
+	case version2008SP2:
+		return "SQL Server 2008 SP2"
+	case version2008SP1:
+		return "SQL Server 2008 SP1"
+	case version2008:
+		return "SQL Server 2008"
+	case version2005:
+		return "SQL Server 2005"
+	case version2000:
+		return "SQL Server 2000"
+	default:
+		return "unknown version"
+	}
+
+}
+
+func (boot Boot) HasAcceptableVersion() bool {
+	return boot.GetVersion() != "unknown version"
 }
 
 func (boot Boot) GetDBName() string {
