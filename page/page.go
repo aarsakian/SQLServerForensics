@@ -21,6 +21,10 @@ type InvalidPageTypeError string
 
 func (e InvalidPageTypeError) Error() string { return string(e) }
 
+type InvalidDBIVersionError string
+
+func (e InvalidDBIVersionError) Error() string { return string(e) }
+
 type InvalidPageSanityError string
 
 func (e InvalidPageSanityError) Error() string { return string(e) }
@@ -804,14 +808,20 @@ func (page *Page) parseIndex(data []byte, offset int) {
 
 }
 
-func (page *Page) parseBoot(data []byte) {
+func (page *Page) parseBoot(data []byte) error {
 
 	slot := page.Slots[0] //only one slot at boot page
 
 	boot := new(Boot)
 
 	utils.Unmarshal(data[slot.Offset+4:], boot)
+
+	if !boot.HasAcceptableVersion() {
+		return InvalidDBIVersionError(fmt.Sprintf("version does not exist %d", boot.Dbi_Version))
+	}
+
 	page.Boot = boot
+	return nil
 }
 
 func (page *Page) parseFileHeader(data []byte) error {
@@ -843,6 +853,16 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 		return InvalidPageTypeError("Invalid page header")
 	} else if !header.sanityCheck() {
 		return InvalidPageSanityError(fmt.Sprintf("Page %d failed sanity checks", header.PageId))
+	}
+
+	if header.isTornPageUsed() {
+		for pos := 0; pos < int(PAGELEN)/512; pos++ {
+			//two torn bit for each sector
+			originalBits := byte(header.TornBits>>(pos+1)*2) & 0x03
+			unmodifiedBits := data[512*(pos+1)-1] & 0xfc
+			data[512*(pos+1)-1] = unmodifiedBits | originalBits<<6
+
+		}
 	}
 
 	page.Header = header
@@ -881,7 +901,7 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 	case "File Header":
 		err = page.parseFileHeader(data)
 	case "Boot":
-		page.parseBoot(data)
+		err = page.parseBoot(data)
 	case "Bulk Change Map":
 		page.parseBulkMap(data)
 	}
