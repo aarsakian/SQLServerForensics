@@ -15,6 +15,7 @@ type Reporter struct {
 	ShowIAMExtents      bool
 	ShowBCMExtents      bool
 	ShowDiffMapExtents  bool
+	ShowComparisons     bool
 	ShowDataCols        bool
 	ShowPFS             bool
 	ShowHeader          bool
@@ -94,6 +95,44 @@ func (rp Reporter) ShowPageInfo(database db.Database, selectedPages []uint32,
 
 	}
 
+}
+
+func (rp Reporter) ShowComparison(baseFile, targetFile string,
+	added, removed, changed []pages.PageComparison, unchanged int) {
+	fmt.Printf("\nComparison: %s -> %s\n", baseFile, targetFile)
+	fmt.Printf("Added pages: %d, removed pages: %d, changed pages: %d, unchanged pages: %d\n",
+		len(added), len(removed), len(changed), unchanged)
+
+	showPageChanges := func(status pages.ChangeStatus, comparisons []pages.PageComparison) {
+		for _, comparison := range comparisons {
+			fmt.Printf("  %s page %d allocation unit %d\n",
+				status, comparison.PageID, comparison.AllocUnitID)
+			for _, diff := range comparison.HeaderDiffs {
+				fmt.Printf("    header.%s: %v -> %v\n", diff.Field, diff.Before, diff.After)
+			}
+			for _, diff := range comparison.SlotDiffs {
+				if diff.After == nil {
+					fmt.Printf("    slot[%d]: offset %d -> <nil>\n", diff.Index, diff.Before.Offset)
+				} else if diff.Before == nil {
+					fmt.Printf("    slot[%d]: offset  <nil> ->  %d\n", diff.Index, diff.After.Offset)
+				} else {
+					fmt.Printf("    slot[%d]: offset %d -> %d\n", diff.Index, diff.Before.Offset,
+						diff.After.Offset)
+				}
+			}
+
+			for _, diff := range comparison.RowDiffs {
+				fmt.Printf("    row[%d].%s: %v -> %v\n", diff.Index, diff.Field, diff.Before, diff.After)
+			}
+			for _, diff := range comparison.MapDiffs {
+				fmt.Printf("    %s map: %v -> %v\n", diff.Map, diff.Before, diff.After)
+			}
+		}
+	}
+
+	showPageChanges(pages.Added, added)
+	showPageChanges(pages.Removed, removed)
+	showPageChanges(pages.Changed, changed)
 }
 
 func (rp Reporter) ShowPage(page pages.Page, loptype string,
