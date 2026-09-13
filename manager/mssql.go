@@ -24,6 +24,8 @@ type ProcessManager struct {
 	reporter           reporter.Reporter
 	Exporter           exporter.Exporter
 	Databases          map[string]db.Database
+	BaseDatabase       *db.Database
+	Comparisons        map[string]DatabaseComparison
 	TableConfiguration TableProcessorConfiguration
 	BroadcastService   channels.BroadcastServer
 }
@@ -38,7 +40,7 @@ type TableProcessorConfiguration struct {
 func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showSGamExtents bool,
 	showIAMExtents bool,
 	showDataCols bool, showPFS bool, showBCM bool,
-	showDiffMap bool, showHeader bool, showSlots bool, showTableSchema bool,
+	showDiffMap bool, showComparisons bool, showHeader bool, showSlots bool, showTableSchema bool,
 	showTableContent bool, showTableAllocation string,
 	showTableIndex bool, showPageStats bool, showIndex bool, toTableRow int,
 	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
@@ -57,6 +59,7 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 		ShowPFS:             showPFS,
 		ShowBCMExtents:      showBCM,
 		ShowDiffMapExtents:  showDiffMap,
+		ShowComparisons:     showComparisons,
 		ShowHeader:          showHeader,
 		ShowSlots:           showSlots,
 		ShowTableSchema:     showTableSchema,
@@ -127,6 +130,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 		/*processing pages stage */
 		totalProcessedPages, err := database.ProcessMDF(selectedPages, fromPage, toPage, carve)
 		if err != nil {
+			fmt.Printf("Database error %s\n", err.Error())
 			continue
 		}
 
