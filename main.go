@@ -63,6 +63,8 @@ import (
 func main() {
 
 	dbfile := flag.String("db", "", "absolute path to the MDF file")
+	baseMDF := flag.String("base", "", "absolute path to the base MDF file for comparison")
+	compare := flag.Bool("compare", false, "compare processed MDF files with the base MDF")
 	ldbfile := flag.String("ldb", "", "absolute path to the LDF file")
 	mtffile := flag.String("mtf", "", "path to bak file (TAPE format)")
 
@@ -98,6 +100,7 @@ func main() {
 	showGamExtents := flag.Bool("showgam", false, "show GAM extents for each page")
 	showSGamExtents := flag.Bool("showsgam", false, "show SGAM extents for each page")
 	showDiffMapExtents := flag.Bool("showdiffmap", false, "show differential map for each page")
+	showComparisons := flag.Bool("showcomparisons", false, "show page differences against the base MDF")
 	showIAMExtents := flag.Bool("showiam", false, "show IAM extents for each page")
 	showDataCols := flag.Bool("showdatacols", false, "show data cols for each data row")
 	showSlots := flag.Bool("showslots", false, "show page slots")
@@ -237,6 +240,15 @@ func main() {
 	}
 	if dataSourceCount > 1 {
 		log.Fatalf("only one data source can be specified: use either -db, -evidence, -physicaldrive, or -sourcedir")
+	}
+	if *compare && *baseMDF == "" {
+		log.Fatalf("compare flag requires a base MDF file specified with -base")
+	}
+	if *baseMDF != "" && !*compare {
+		log.Fatalf("base MDF requires comparison to be enabled with -compare")
+	}
+	if *showComparisons && !*compare {
+		log.Fatalf("showcomparisons flag requires comparison to be enabled with -compare")
 	}
 
 	// Export path requires format to be specified
@@ -476,6 +488,22 @@ func main() {
 		}
 	}
 
+	if *baseMDF != "" {
+		basePath, err := filepath.Abs(*baseMDF)
+		if err != nil {
+			log.Fatalf("cannot resolve base MDF path %s: %v", *baseMDF, err)
+		}
+		*baseMDF = basePath
+		filteredMDFs := mdffiles[:0]
+		for _, filename := range mdffiles {
+			resolvedFilename, err := filepath.Abs(filename)
+			if err != nil || !strings.EqualFold(resolvedFilename, basePath) {
+				filteredMDFs = append(filteredMDFs, filename)
+			}
+		}
+		mdffiles = filteredMDFs
+	}
+
 	var selectedTableRowsInt []int
 	for _, val := range strings.Split(*selectedTableRows, ",") {
 		val, e := strconv.ParseInt(val, 10, 0)
@@ -489,7 +517,7 @@ func main() {
 	pm := manager.ProcessManager{}
 	//essential if we want reporting & exporting functionality
 	pm.Initialize(*showDBInfo, *showGamExtents, *showSGamExtents, *showIAMExtents,
-		*showDataCols, *showPFS, *showBCM, *showDiffMapExtents, *showHeader, *showSlots, *showTableSchema,
+		*showDataCols, *showPFS, *showBCM, *showDiffMapExtents, *showComparisons, *showHeader, *showSlots, *showTableSchema,
 		*showTableContent, *showTableAllocation,
 		*showTableIndex, *showPageStats, *showIndex, *toTableRows,
 		*skippedTableRows, selectedTableRowsInt,
@@ -507,12 +535,27 @@ func main() {
 	}
 
 	processedPages := 0
+	if *baseMDF != "" {
+		basePages, err := pm.ProcessBaseMDF(*baseMDF,
+			utils.StringsToIntArray(*selectedPages), *fromPage, *toPage, *carve)
+		if err != nil {
+			log.Fatalf("failed to process base MDF %s: %v", *baseMDF, err)
+		}
+		fmt.Printf("Processed %d base MDF pages from %s\n", basePages, *baseMDF)
+	}
 	if len(bakPayloads) > 0 {
 		processedPages = pm.ProcessBAKFiles(bakPayloads)
 	} else {
 		processedPages = pm.ProcessDBFiles(mdffiles, ldffiles,
 			utils.StringsToIntArray(*selectedPages),
 			*fromPage, *toPage, *carve)
+	}
+
+	if *compare {
+		for databaseName := range pm.Databases {
+			pm.CompareWithBase(databaseName)
+		}
+		pm.ShowComparisons()
 	}
 
 	fmt.Printf("Processed %d pages %d MB in %0.2f secs \n",
