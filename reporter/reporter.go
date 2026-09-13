@@ -125,7 +125,11 @@ func (rp Reporter) ShowComparison(baseFile, targetFile string,
 				fmt.Printf("    row[%d].%s: %v -> %v\n", diff.Index, diff.Field, diff.Before, diff.After)
 			}
 			for _, diff := range comparison.MapDiffs {
-				fmt.Printf("    %s map: %v -> %v\n", diff.Map, diff.Before, diff.After)
+				if diff.Map == "PFS" || diff.Map == "GAM" || diff.Map == "SGAM" {
+					fmt.Printf("    %s page[%d].%s: %v -> %v\n", diff.Map, diff.PageID, diff.Field, diff.Before, diff.After)
+					continue
+				}
+				fmt.Printf("    %s[%d].%s: %v -> %v\n", diff.Map, diff.Index, diff.Field, diff.Before, diff.After)
 			}
 		}
 	}
