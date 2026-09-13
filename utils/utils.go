@@ -73,6 +73,13 @@ type PageSlot struct {
 	FileId uint16
 }
 
+func LengthOf[T ~[]E, E any](value *T) int {
+	if value == nil {
+		return 0
+	}
+	return len(*value)
+}
+
 type Blobs []Blob
 
 func (blob Blob) GetFilename() string {
