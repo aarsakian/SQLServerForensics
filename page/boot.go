@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	version2025    = 1000
+	version2025    = 998
 	version2022    = 957
 	version2019    = 895
 	version2017    = 869
