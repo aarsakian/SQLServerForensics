@@ -4,13 +4,13 @@ go 1.25.0
 
 require (
 	github.com/aarsakian/EWF_Reader v0.0.0-20260306182323-6ede308af4dd // indirect
-	github.com/aarsakian/FileSystemForensics v0.5.4-0.20260801202445-92d48cb0ba8d // indirect
+	github.com/aarsakian/FileSystemForensics v0.5.4-0.20260913093544-c257767da9bd // indirect
 	github.com/aarsakian/MTF_Reader v0.0.0-20260726145759-b0b9ba02f117 // indirect
-	github.com/aarsakian/VHD_Reader v0.0.0-20260623095742-34fa1b9fa562 // indirect
+	github.com/aarsakian/VHD_Reader v0.0.0-20260913092507-15d34d837e50 // indirect
 	github.com/aarsakian/VMDK_Reader v0.0.0-20240910071554-9d72aac7f6b9 // indirect
 	golang.org/x/net v0.32.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
 	google.golang.org/grpc v1.70.0 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
