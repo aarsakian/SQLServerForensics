@@ -5,6 +5,7 @@ package page
 import (
 	"MSSQLParser/utils"
 	"fmt"
+	"reflect"
 )
 
 const NOFSLOTS = 8
@@ -32,6 +33,28 @@ type IAMHeader struct {
 	PrevPageId  utils.PageSlot //not used anymore
 	StartPageId utils.PageSlot //42-48
 	SlotArray   []utils.PageSlot
+}
+
+func compareIAM(comparison *PageComparison, base, target *IAM) {
+	if reflect.DeepEqual(base, target) {
+		return
+	}
+	addMapField(comparison, "IAM", 0, "Extents", iamExtents(base), iamExtents(target))
+	addMapField(comparison, "IAM", 0, "Header", iamHeader(base), iamHeader(target))
+}
+
+func iamExtents(value *IAM) any {
+	if value == nil {
+		return nil
+	}
+	return value.Extents
+}
+
+func iamHeader(value *IAM) any {
+	if value == nil {
+		return nil
+	}
+	return value.Header
 }
 
 func (iamHeader *IAMHeader) Parse(data []byte) {

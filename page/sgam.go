@@ -13,6 +13,36 @@ type SGAMExtent struct {
 	mixed  bool
 }
 
+func (sgam SGAMExtent) GetAllocationStatus() string {
+	if sgam.mixed {
+		return "MIXED"
+	}
+	return "NOT MIXED"
+}
+
+func compareSGAM(comparison *PageComparison, base, target *SGAMExtents) {
+	for index := 0; index < utils.LengthOf(base) || index < utils.LengthOf(target); index++ {
+		if base != nil && target != nil && index < len(*base) && index < len(*target) {
+			addMapFieldAtPage(comparison, "SGAM", index, uint32((*target)[index].extent*8), "allocation", (*base)[index].GetAllocationStatus(), (*target)[index].GetAllocationStatus())
+			continue
+		}
+		var before, after any
+		if base != nil && index < len(*base) {
+			before = (*base)[index].GetAllocationStatus()
+		}
+		if target != nil && index < len(*target) {
+			after = (*target)[index].GetAllocationStatus()
+		}
+		pageID := uint32(0)
+		if target != nil && index < len(*target) {
+			pageID = uint32((*target)[index].extent * 8)
+		} else if base != nil && index < len(*base) {
+			pageID = uint32((*base)[index].extent * 8)
+		}
+		addMapFieldAtPage(comparison, "SGAM", index, pageID, "allocation", before, after)
+	}
+}
+
 func (sgamExtents SGAMExtents) ShowAllocations() {
 
 	startPageId := 0

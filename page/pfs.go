@@ -44,6 +44,29 @@ type PFS struct {
 	status uint8
 }
 
+func comparePFS(comparison *PageComparison, base, target *PFSPage) {
+	for index := 0; index < utils.LengthOf(base) || index < utils.LengthOf(target); index++ {
+		if base != nil && target != nil && index < len(*base) && index < len(*target) {
+			addMapFieldAtPage(comparison, "PFS", index, (*target)[index].pageID, "status", (*base)[index].decodeStatus(), (*target)[index].decodeStatus())
+			continue
+		}
+		var before, after any
+		if base != nil && index < len(*base) {
+			before = (*base)[index].decodeStatus()
+		}
+		if target != nil && index < len(*target) {
+			after = (*target)[index].decodeStatus()
+		}
+		pageID := uint32(0)
+		if target != nil && index < len(*target) {
+			pageID = (*target)[index].pageID
+		} else if base != nil && index < len(*base) {
+			pageID = (*base)[index].pageID
+		}
+		addMapFieldAtPage(comparison, "PFS", index, pageID, "status", before, after)
+	}
+}
+
 func (pfsPage PFSPage) ShowAllocations() {
 	prevStatus := ""
 	startPageId := pfsPage[0].pageID

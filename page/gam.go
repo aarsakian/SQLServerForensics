@@ -13,6 +13,36 @@ type GAMExtent struct {
 	allocated bool
 }
 
+func (gam GAMExtent) GetAllocationStatus() string {
+	if gam.allocated {
+		return "ALLOCATED"
+	}
+	return "NOT ALLOCATED"
+}
+
+func compareGAM(comparison *PageComparison, base, target *GAMExtents) {
+	for index := 0; index < utils.LengthOf(base) || index < utils.LengthOf(target); index++ {
+		if base != nil && target != nil && index < len(*base) && index < len(*target) {
+			addMapFieldAtPage(comparison, "GAM", index, uint32((*target)[index].extent*8), "allocation", (*base)[index].GetAllocationStatus(), (*target)[index].GetAllocationStatus())
+			continue
+		}
+		var before, after any
+		if base != nil && index < len(*base) {
+			before = (*base)[index].GetAllocationStatus()
+		}
+		if target != nil && index < len(*target) {
+			after = (*target)[index].GetAllocationStatus()
+		}
+		pageID := uint32(0)
+		if target != nil && index < len(*target) {
+			pageID = uint32((*target)[index].extent * 8)
+		} else if base != nil && index < len(*base) {
+			pageID = uint32((*base)[index].extent * 8)
+		}
+		addMapFieldAtPage(comparison, "GAM", index, pageID, "allocation", before, after)
+	}
+}
+
 func (gamExtents GAMExtents) ShowAllocations() {
 
 	startextent := 0

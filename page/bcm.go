@@ -12,6 +12,17 @@ type BulkChangeMap struct {
 	changed bool
 }
 
+func compareBulkChangeMap(comparison *PageComparison, base, target *BulkChangeMapExtents) {
+	for index := 0; index < utils.LengthOf(base) || index < utils.LengthOf(target); index++ {
+		if base != nil && target != nil && index < len(*base) && index < len(*target) {
+			addMapField(comparison, "BulkChangeMap", index, "extent", (*base)[index].extent, (*target)[index].extent)
+			addMapField(comparison, "BulkChangeMap", index, "changed", (*base)[index].changed, (*target)[index].changed)
+			continue
+		}
+		addMapEntryDiff(comparison, "BulkChangeMap", index, base, target, index)
+	}
+}
+
 func (bcmextents BulkChangeMapExtents) ShowAllocations() {
 
 	startPageId := 0
