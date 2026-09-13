@@ -35,6 +35,9 @@ type RowDiff struct {
 
 type MapDiff struct {
 	Map    string
+	Index  int
+	PageID uint32
+	Field  string
 	Before any
 	After  any
 }
@@ -157,17 +160,35 @@ func compareRows(comparison *PageComparison, base, target datac.DataRows) {
 }
 
 func compareMaps(comparison *PageComparison, base, target Page) {
-	addMap := func(name string, before, after any) {
-		if !reflect.DeepEqual(before, after) {
-			comparison.MapDiffs = append(comparison.MapDiffs,
-				MapDiff{Map: name, Before: before, After: after})
-		}
-	}
-
-	addMap("PFS", base.PFSPage, target.PFSPage)
-	addMap("GAM", base.GAMExtents, target.GAMExtents)
-	addMap("SGAM", base.SGAMExtents, target.SGAMExtents)
-	addMap("IAM", base.IAM, target.IAM)
-	addMap("DifferentialMap", base.DiffMapExtents, target.DiffMapExtents)
-	addMap("BulkChangeMap", base.BulkChangeMapExtents, target.BulkChangeMapExtents)
+	comparePFS(comparison, base.PFSPage, target.PFSPage)
+	compareGAM(comparison, base.GAMExtents, target.GAMExtents)
+	compareSGAM(comparison, base.SGAMExtents, target.SGAMExtents)
+	compareIAM(comparison, base.IAM, target.IAM)
+	compareDiffMap(comparison, base.DiffMapExtents, target.DiffMapExtents)
+	compareBulkChangeMap(comparison, base.BulkChangeMapExtents, target.BulkChangeMapExtents)
 }
+
+func addMapField(comparison *PageComparison, name string, index int, field string, before, after any) {
+	addMapFieldAtPage(comparison, name, index, 0, field, before, after)
+}
+
+func addMapFieldAtPage(comparison *PageComparison, name string, index int, pageID uint32, field string, before, after any) {
+	if !reflect.DeepEqual(before, after) {
+		comparison.MapDiffs = append(comparison.MapDiffs,
+			MapDiff{Map: name, Index: index, PageID: pageID, Field: field, Before: before, After: after})
+	}
+}
+
+func addMapEntryDiff(comparison *PageComparison, name string, index int, before, after any, entryIndex int) {
+	var beforeEntry, afterEntry any
+	if beforeValue := reflect.ValueOf(before); beforeValue.IsValid() && beforeValue.Kind() == reflect.Pointer && !beforeValue.IsNil() && entryIndex < beforeValue.Elem().Len() {
+		beforeEntry = beforeValue.Elem().Index(entryIndex).Interface()
+	}
+	if afterValue := reflect.ValueOf(after); afterValue.IsValid() && afterValue.Kind() == reflect.Pointer && !afterValue.IsNil() && entryIndex < afterValue.Elem().Len() {
+		afterEntry = afterValue.Elem().Index(entryIndex).Interface()
+	}
+	if !reflect.DeepEqual(beforeEntry, afterEntry) {
+		comparison.MapDiffs = append(comparison.MapDiffs, MapDiff{Map: name, Index: index, Field: "Entry", Before: beforeEntry, After: afterEntry})
+	}
+}
+
