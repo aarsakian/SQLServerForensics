@@ -77,6 +77,12 @@ Usage instructions have been grouped so as to help the user.
   -db string
         absolute path to the MDF file
 
+  -base string
+        absolute path to the base MDF file for comparison (requires -compare)
+
+  -compare
+        compare processed MDF files with the base MDF
+
   -ldb string
         absolute path to the LDF file
 
@@ -84,10 +90,7 @@ Usage instructions have been grouped so as to help the user.
         path to bak file (TAPE format)
 
   -evidence string
-        path to image file
-        
-  -vmdk string
-        path to vmdk file (Sparse formats are supported)
+        path to an EWF, VHDX, or raw image file
 
   -physicaldrive int
         select the physical disk number to look for MDF file (requires admin rights!) (default -1)
@@ -129,6 +132,9 @@ Usage instructions have been grouped so as to help the user.
 
   -filterlop string
         filter log records per lop type (values: insert, begin, commit, begin_ckpt, end_ckpt, any)
+
+  -sortbylsn string
+        sort pages by LSN (values: all, allocunit)
 
 ### Output options
 
@@ -421,3 +427,11 @@ Export all tables of backup file ***AdventureWorks2022.bak***, mdf produced file
 ### Working With Evidence
 Export all tables to ***MyExport*** of any database file found in image ***tester-ewf***, database files are exported to ***MyDBs*** (Locating database files is based on extension)
 >.\MSSQLParser.exe -evidence C:\Users\User\Downloads\evidence\tester-ewf.E01 -location MyDBs -processtables -export Myexport -format csv
+
+### Comparing a Database from an AVHDX Image
+
+Compare the MDF found in an AVHDX differencing image with a base MDF. The AVHDX is treated as the evidence image; discovered database files are exported to ***RecoveredDB*** before comparison.
+> .\MSSQLParser.exe -evidence C:\Evidence\sql-checkpoint.avhdx -location RecoveredDB -base C:\Evidence\baseline\AdventureWorks2022.mdf -compare -showcomparisons
+
+To select one database when the AVHDX contains multiple MDF files, add `-filenames` with the MDF filename or a comma-separated list of filenames.
+> .\MSSQLParser.exe -evidence C:\Evidence\sql-checkpoint.avhdx -filenames AdventureWorks2022.mdf -location RecoveredDB -base C:\Evidence\baseline\AdventureWorks2022.mdf -compare -showcomparisons
