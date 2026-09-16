@@ -29,8 +29,8 @@ type Database struct {
 	PagesPerAllocUnitID   page.PagesPerId[uint64] //allocationunitid -> Pages
 	Tables                []*Table
 	LogDB                 *LogDB
-	tablesInfo            tables.TablesInfo
-	columnsinfo           tables.ColumnsInfo
+	tablesInfo            tables.TablesInfo  //objectid -> table info
+	columnsinfo           tables.ColumnsInfo //objectid -> column info
 	tablesPartitions      tables.TablesPartitions
 	tablesAllocations     tables.TablesAllocations
 	columnsPartitions     tables.ColumnsPartitions // rowsetid -> sysrscols
@@ -77,23 +77,23 @@ func (db *Database) ProcessSystemTables() {
 
 			switch pageType {
 			case tables.SystemTablesFlags["sysschobjs"]:
-				db.tablesInfo.Populate(page.DataRows)
+				db.tablesInfo.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["syscolpars"]:
-				db.columnsinfo.Populate(page.DataRows)
+				db.columnsinfo.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["sysallocationunits"]:
-				db.tablesAllocations.Populate(page.DataRows)
+				db.tablesAllocations.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["sysrscols"]:
-				db.columnsPartitions.Populate(page.DataRows)
+				db.columnsPartitions.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["sysrowsets"]:
-				db.tablesPartitions.Populate(page.DataRows)
+				db.tablesPartitions.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["sysiscols"]:
-				db.columnsStatistics.Populate(page.DataRows)
+				db.columnsStatistics.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["sysidxstats"]:
-				db.indexesInfo.Populate(page.DataRows)
+				db.indexesInfo.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["sysfiles"]:
-				db.sysfiles.Populate(page.DataRows)
+				db.sysfiles.Populate(page.DataRows, page.Header.PageId)
 			case tables.SystemTablesFlags["sysobjvalues"]:
-				db.metadataBlobs.Populate(page.DataRows)
+				db.metadataBlobs.Populate(page.DataRows, page.Header.PageId)
 			}
 
 			/*	else if pageType == -0x69 { // view object not reached
@@ -327,6 +327,68 @@ func (db Database) ProcessTables(ctx context.Context, tablenames []string, table
 		}
 
 	}
+
+}
+
+func (db Database) ProcessTablesSystem(tablenames []string, tabletype string) map[string]string {
+	tablesFound := make(map[string]bool)
+	skipUserTables := map[string]struct{}{
+		"trace_xe_event_map":  {},
+		"trace_xe_action_map": {},
+	}
+	tablesInfo := make(map[string]string)
+
+	for _, tablename := range tablenames {
+		tablesFound[tablename] = false
+		for objectid, tableinfo := range db.GetTablesInfo() {
+
+			tname := tableinfo.GetName()
+
+			tableType := tableinfo.GetTableType()
+
+			if tabletype == "User Table" {
+				if _, shouldSkip := skipUserTables[tname]; shouldSkip {
+					msg := fmt.Sprintf("skipping table %s for type %s", tname, tabletype)
+					mslogger.Mslogger.Info(msg)
+					continue
+				}
+			}
+
+			if tablename != "" && tablename != tname || tabletype != "" && tabletype != tableType {
+				msg := fmt.Sprintf("table %s not processed", tname)
+				mslogger.Mslogger.Info(msg)
+				continue
+			}
+			tablesInfo[tname] = tableinfo.GetInfo()
+			tablesFound[tname] = true
+
+			for _, columnInfo := range db.columnsinfo[objectid] {
+				tablesInfo[tname] += columnInfo.GetInfo()
+			}
+
+			for _, partition := range db.tablesPartitions[objectid] {
+				allocationUnits, _ := db.tablesAllocations[partition.Rowsetid]
+
+				for _, allocationUnit := range allocationUnits {
+
+					tablesInfo[tname] += allocationUnit.GetInfo()
+				}
+
+				for _, sysrscol := range db.columnsPartitions[partition.Rowsetid] {
+					tablesInfo[tname] += sysrscol.GetInfo()
+				}
+			}
+
+		}
+
+	}
+	for tablename, found := range tablesFound {
+		if !found && tablename != "" {
+			fmt.Printf("Table %s not found\n", tablename)
+		}
+
+	}
+	return tablesInfo
 
 }
 
