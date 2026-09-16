@@ -222,7 +222,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 }
 
-func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, userTable string) {
+func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string) {
 	for guid, database := range PM.Databases {
 		if pageType != "" {
 			database.FilterPagesByTypeMutable(pageType) //mutable
@@ -234,9 +234,6 @@ func (PM *ProcessManager) FilterDatabases(pageType string, systemTables string, 
 
 		}
 
-		if userTable != "" {
-			database.FilterPagesBySystemTables("sysschobjs")
-		}
 		PM.Databases[guid] = database
 	}
 
@@ -341,7 +338,6 @@ func (PM ProcessManager) ShowInfo(selectedPages []uint32, filterlop string) {
 	for _, database := range PM.Databases {
 		PM.reporter.ShowPageInfo(database, selectedPages, filterlop)
 		PM.reporter.ShowLDFInfo(database, selectedPages, filterlop)
-
 	}
 }
 
