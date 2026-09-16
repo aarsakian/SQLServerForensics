@@ -51,6 +51,7 @@ type SysObjValues struct {
 	Valnum   int32
 	Value    *utils.SqlVariant
 	Imageval []byte
+	PageId   uint32
 }
 
 type SysFile struct {
@@ -58,6 +59,7 @@ type SysFile struct {
 	FileId   uint16
 	Name     [256]byte
 	Filename [256]byte
+	PageId   uint32
 }
 
 type SysObjects struct { //view
@@ -100,6 +102,7 @@ type SysAllocUnits struct {
 	PcUsed     uint64
 	PcData     uint64
 	PcReserved uint64
+	PageId     uint32
 }
 
 // syscolpars a contains a row for every column in a table (column definitions)
@@ -121,6 +124,7 @@ type SysColpars struct {
 	Chk         uint32
 	Idtval      []byte
 	Name        []byte
+	PageId      uint32
 }
 
 // a row for every index or statistics
@@ -136,6 +140,7 @@ type SysIdxStats struct {
 	Dataspace uint32
 	Lobds     uint32
 	Rowsetid  uint64
+	PageId    uint32
 }
 
 type SysIsCol struct {
@@ -148,6 +153,7 @@ type SysIsCol struct {
 	Tinyprop2 uint8
 	Tinyprop3 uint8
 	Tinyprop4 uint8
+	PageId    uint32
 }
 
 // tracks col modifications using Rcmodified as a counter
@@ -165,6 +171,7 @@ type SysRsCol struct {
 	Nullbit     int32
 	Bitpos      int16
 	Olguid      []byte
+	PageId      uint32
 }
 
 // a row for each partition rowset for an index or a heap
@@ -186,6 +193,7 @@ type SysRowSets struct {
 	Rsguid     [16]byte
 	Lockres    [8]byte
 	Scope_id   uint32
+	PageId     uint32
 }
 
 // stores table/ contstraints information
@@ -202,6 +210,7 @@ type Sysschobjs struct {
 	Modified [8]byte //31-39
 	Status2  uint32  //39-43
 	Name     []byte
+	PageId   uint32
 }
 
 func (sysschobjs Sysschobjs) GetTableType() string {
@@ -209,8 +218,8 @@ func (sysschobjs Sysschobjs) GetTableType() string {
 }
 
 func (sysschobjs Sysschobjs) GetInfo() string {
-	return fmt.Sprintf("ObjectID: %d, name: %s, type: %s, created: %s, modified: %s\n",
-		sysschobjs.Id, sysschobjs.GetName(), sysschobjs.GetTableType(),
+	return fmt.Sprintf("PageID: %d, ObjectID: %d, name: %s, type: %s, created: %s, modified: %s\n",
+		sysschobjs.PageId, sysschobjs.Id, sysschobjs.GetName(), sysschobjs.GetTableType(),
 		utils.DateTimeTostr(sysschobjs.Created[:]),
 		utils.DateTimeTostr(sysschobjs.Modified[:]))
 }
@@ -419,13 +428,14 @@ sysconv(bit, c.status & 0x1000000)                               AS is_sparse,--
 sysconv(bit, c.status & 0x2000000)                               AS is_column_set -- CPM_SPARSECOLUMNSET
 */
 
-func (tablesInfo TablesInfo) Populate(datarows data.DataRows) {
+func (tablesInfo TablesInfo) Populate(datarows data.DataRows, pageID uint32) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
 		}
 		sysschobjs := new(Sysschobjs)
 		utils.Unmarshal(datarow.FixedLenCols, sysschobjs)
+		sysschobjs.PageId = pageID
 		if datarow.VarLenCols != nil {
 			for idx, datacol := range *datarow.VarLenCols {
 				if idx == 0 {
@@ -439,7 +449,7 @@ func (tablesInfo TablesInfo) Populate(datarows data.DataRows) {
 
 }
 
-func (columnsStats ColumnsStatistics) Populate(datarows data.DataRows) {
+func (columnsStats ColumnsStatistics) Populate(datarows data.DataRows, pageID uint32) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -447,12 +457,13 @@ func (columnsStats ColumnsStatistics) Populate(datarows data.DataRows) {
 
 		sysiscol := new(SysIsCol)
 		utils.Unmarshal(datarow.FixedLenCols, sysiscol)
+		sysiscol.PageId = pageID
 		columnsStats[sysiscol.Idmajor] = append(columnsStats[sysiscol.Idmajor],
 			*sysiscol)
 	}
 }
 
-func (sysfiles SysFiles) Populate(datarows data.DataRows) {
+func (sysfiles SysFiles) Populate(datarows data.DataRows, pageID uint32) {
 	if len(sysfiles) < len(datarows) {
 		msg := fmt.Sprintf("sysfiles more than default two %d ", len(datarows))
 		mslogger.Mslogger.Warning(msg)
@@ -465,6 +476,7 @@ func (sysfiles SysFiles) Populate(datarows data.DataRows) {
 
 		sysfile := new(SysFile)
 		utils.Unmarshal(datarow.FixedLenCols, sysfile)
+		sysfile.PageId = pageID
 		sysfiles[idx] = *sysfile
 	}
 
@@ -475,24 +487,24 @@ func (sysallocunits SysAllocUnits) GetId() uint64 {
 }
 
 func (sysallocunits SysAllocUnits) GetInfo() string {
-	return fmt.Sprintf("Allocation unit: %d (%s), root page: %d, first page: %d\n",
-		sysallocunits.GetId(), sysallocunits.GetDescription(),
+	return fmt.Sprintf("PageID: %d, allocation unit: %d (%s), root page: %d, first page: %d\n",
+		sysallocunits.PageId, sysallocunits.GetId(), sysallocunits.GetDescription(),
 		sysallocunits.GetRootPageId(), sysallocunits.GetFirstPageId())
 }
 
 func (syscolpars SysColpars) GetInfo() string {
-	return fmt.Sprintf("Column: %d %s %s, length: %d, precision: %d, scale: %d, %s\n",
-		syscolpars.Colid, syscolpars.GetName(), syscolpars.GetType(),
+	return fmt.Sprintf("PageID: %d, column: %d %s %s, length: %d, precision: %d, scale: %d, %s\n",
+		syscolpars.PageId, syscolpars.Colid, syscolpars.GetName(), syscolpars.GetType(),
 		syscolpars.Length, syscolpars.Prec, syscolpars.Scale,
 		syscolpars.GetAdditionalAttributes())
 }
 
 func (sysrscol SysRsCol) GetInfo() string {
-	return fmt.Sprintf("Rowset: %d, column: %d, offset: %d\n",
-		sysrscol.Rsid, sysrscol.Rscolid, sysrscol.GetLeafOffset())
+	return fmt.Sprintf("PageID: %d, rowset: %d, column: %d, offset: %d\n",
+		sysrscol.PageId, sysrscol.Rsid, sysrscol.Rscolid, sysrscol.GetLeafOffset())
 }
 
-func (indexesInfo IndexesInfo) Populate(datarows data.DataRows) {
+func (indexesInfo IndexesInfo) Populate(datarows data.DataRows, pageID uint32) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -500,6 +512,7 @@ func (indexesInfo IndexesInfo) Populate(datarows data.DataRows) {
 
 		sysidxstats := new(SysIdxStats)
 		utils.Unmarshal(datarow.FixedLenCols, sysidxstats)
+		sysidxstats.PageId = pageID
 		if datarow.VarLenCols != nil {
 			for idx, datacol := range *datarow.VarLenCols {
 				if idx == 0 {
@@ -512,7 +525,7 @@ func (indexesInfo IndexesInfo) Populate(datarows data.DataRows) {
 
 }
 
-func (columnsinfo ColumnsInfo) Populate(datarows data.DataRows) {
+func (columnsinfo ColumnsInfo) Populate(datarows data.DataRows, pageID uint32) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
@@ -520,6 +533,7 @@ func (columnsinfo ColumnsInfo) Populate(datarows data.DataRows) {
 
 		syscolpars := new(SysColpars)
 		utils.Unmarshal(datarow.FixedLenCols, syscolpars)
+		syscolpars.PageId = pageID
 		if datarow.VarLenCols != nil {
 			for idx, datacol := range *datarow.VarLenCols {
 				if idx == 0 {
@@ -535,7 +549,7 @@ func (columnsinfo ColumnsInfo) Populate(datarows data.DataRows) {
 
 }
 
-func (tablespartitions TablesPartitions) Populate(datarows data.DataRows) {
+func (tablespartitions TablesPartitions) Populate(datarows data.DataRows, pageID uint32) {
 
 	for _, datarow := range datarows {
 		if datarow.Carved {
@@ -544,12 +558,13 @@ func (tablespartitions TablesPartitions) Populate(datarows data.DataRows) {
 
 		sysrowsets := new(SysRowSets)
 		utils.Unmarshal(datarow.FixedLenCols, sysrowsets)
+		sysrowsets.PageId = pageID
 		tablespartitions[sysrowsets.Idmajor] = append(tablespartitions[sysrowsets.Idmajor],
 			*sysrowsets)
 	}
 }
 
-func (tablesallocations TablesAllocations) Populate(datarows data.DataRows) {
+func (tablesallocations TablesAllocations) Populate(datarows data.DataRows, pageID uint32) {
 
 	for _, datarow := range datarows {
 		if datarow.Carved {
@@ -558,12 +573,13 @@ func (tablesallocations TablesAllocations) Populate(datarows data.DataRows) {
 
 		sysallocunits := new(SysAllocUnits)
 		utils.Unmarshal(datarow.FixedLenCols, sysallocunits)
+		sysallocunits.PageId = pageID
 		tablesallocations[sysallocunits.OwnerId] = append(tablesallocations[sysallocunits.OwnerId],
 			*sysallocunits)
 	}
 }
 
-func (columnsPartitions ColumnsPartitions) Populate(datarows data.DataRows) {
+func (columnsPartitions ColumnsPartitions) Populate(datarows data.DataRows, pageID uint32) {
 
 	for _, datarow := range datarows {
 		if datarow.Carved {
@@ -572,6 +588,7 @@ func (columnsPartitions ColumnsPartitions) Populate(datarows data.DataRows) {
 
 		sysrscol := new(SysRsCol)
 		utils.Unmarshal(datarow.FixedLenCols, sysrscol)
+		sysrscol.PageId = pageID
 		if datarow.VarLenCols != nil {
 			for idx, datacol := range *datarow.VarLenCols {
 				if idx == 0 {
@@ -586,13 +603,14 @@ func (columnsPartitions ColumnsPartitions) Populate(datarows data.DataRows) {
 	}
 }
 
-func (metadataBlobs MetadataBlobs) Populate(datarows data.DataRows) {
+func (metadataBlobs MetadataBlobs) Populate(datarows data.DataRows, pageID uint32) {
 	for _, datarow := range datarows {
 		if datarow.Carved {
 			continue
 		}
 		sysobjvalues := new(SysObjValues)
 		utils.Unmarshal(datarow.FixedLenCols, sysobjvalues)
+		sysobjvalues.PageId = pageID
 		// Validate valclass
 		if sysobjvalues.Valclass > 7 {
 			msg := fmt.Sprintf("sysobjvalues valclass %d not valid", sysobjvalues.Valclass)
