@@ -208,6 +208,13 @@ func (sysschobjs Sysschobjs) GetTableType() string {
 	return TableType[strings.TrimSpace(string(sysschobjs.Type[:]))]
 }
 
+func (sysschobjs Sysschobjs) GetInfo() string {
+	return fmt.Sprintf("ObjectID: %d, name: %s, type: %s, created: %s, modified: %s\n",
+		sysschobjs.Id, sysschobjs.GetName(), sysschobjs.GetTableType(),
+		utils.DateTimeTostr(sysschobjs.Created[:]),
+		utils.DateTimeTostr(sysschobjs.Modified[:]))
+}
+
 func (sysallocunits SysAllocUnits) GetData() (any, any) {
 	return sysallocunits.OwnerId, utils.ToUint64(sysallocunits.Auid[:]) //partition id, allocunitid
 }
@@ -465,6 +472,24 @@ func (sysfiles SysFiles) Populate(datarows data.DataRows) {
 
 func (sysallocunits SysAllocUnits) GetId() uint64 {
 	return utils.ToUint64(sysallocunits.Auid[:])
+}
+
+func (sysallocunits SysAllocUnits) GetInfo() string {
+	return fmt.Sprintf("Allocation unit: %d (%s), root page: %d, first page: %d\n",
+		sysallocunits.GetId(), sysallocunits.GetDescription(),
+		sysallocunits.GetRootPageId(), sysallocunits.GetFirstPageId())
+}
+
+func (syscolpars SysColpars) GetInfo() string {
+	return fmt.Sprintf("Column: %d %s %s, length: %d, precision: %d, scale: %d, %s\n",
+		syscolpars.Colid, syscolpars.GetName(), syscolpars.GetType(),
+		syscolpars.Length, syscolpars.Prec, syscolpars.Scale,
+		syscolpars.GetAdditionalAttributes())
+}
+
+func (sysrscol SysRsCol) GetInfo() string {
+	return fmt.Sprintf("Rowset: %d, column: %d, offset: %d\n",
+		sysrscol.Rsid, sysrscol.Rscolid, sysrscol.GetLeafOffset())
 }
 
 func (indexesInfo IndexesInfo) Populate(datarows data.DataRows) {
