@@ -117,7 +117,7 @@ func (index *Index) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
 
 			}
 			//remaining is indexnonleaf data
-			if startOffset < len(pages.Pages[0].IndexRows[idx].FixedLenCols) {
+			if int(index.KeySize) < len(pages.Pages[0].IndexRows[idx].FixedLenCols) {
 				indexNonLeaf := new(page.IndexNoNLeaf)
 				utils.Unmarshal(pages.Pages[0].IndexRows[idx].FixedLenCols[int(index.KeySize):],
 					indexNonLeaf)
