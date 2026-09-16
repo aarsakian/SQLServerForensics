@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"log"
 	"os"
@@ -524,10 +525,15 @@ func MoneyToStr(data []byte) string {
 func DecimalToStr(data []byte, precision uint8, scale uint8) string {
 	//reverse bytes
 	//Decimal 10.3 allocate bytes to accomodate for precision e.g. 1.7 = 1700 = a406  (Little Endian) 4 bytes mini length
+	if len(data) < 5 {
+		logger.Mslogger.Warning("bytes less than four for decimal conversion")
+		return ""
+	}
 	sign := ""
 	if uint(data[0]) == 0 { // 1 = positive
 		sign = "-"
 	}
+
 	val := strconv.FormatUint(uint64(ToInt32(data[1:])), 10)
 
 	dotPos := len(val) - int(scale)
