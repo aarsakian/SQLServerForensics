@@ -883,6 +883,9 @@ func Unmarshal(data []byte, v any) (int, error) {
 			idx += 4
 
 		case reflect.Uint32:
+			if name == "PageId" && i == structValPtr.Elem().NumField()-1 {
+				continue
+			}
 			if idx+4 > lenData {
 				msg := fmt.Sprintf("datarow available size exceed at %s by %d",
 					name, idx+4-lenData)
