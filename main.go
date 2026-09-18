@@ -60,6 +60,22 @@ import (
 	VMDKLogger "github.com/aarsakian/VMDK_Reader/logger"
 )
 
+func validateLDFFlags(dbfile string, ldbfile string, evidencefile string, physicalDrive int, sourcedir string,
+	showLDF bool, showTableLDF bool, filterlop string, walkLSN string, walkpageLSN string, sortByLSN string) error {
+	ldfFlagsSet := showLDF || showTableLDF || filterlop != "" || walkLSN != "" || walkpageLSN != "" || sortByLSN != ""
+	if !ldfFlagsSet {
+		return nil
+	}
+
+	ldfSourceAvailable := evidencefile != "" || physicalDrive != -1 || sourcedir != "" ||
+		(dbfile != "" && ldbfile != "")
+	if !ldfSourceAvailable {
+		return fmt.Errorf("LDF-related flags require -db and -ldb, or an evidence, physical drive, or source directory input")
+	}
+
+	return nil
+}
+
 func main() {
 
 	dbfile := flag.String("db", "", "absolute path to the MDF file")
@@ -76,12 +92,14 @@ func main() {
 		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export MDF/LDF files")
 	carve := flag.Bool("carve", false, "Carve data records and try to interpret")
+
 	selectedPages := flag.String("pages", "", "select pages to parse (use comma for each page id, other pages will be ignored)")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
-	pageType := flag.String("type", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
+	pageType := flag.String("pagetype", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
 
-	systemTables := flag.String("systemtables", "", "show information about system tables sysschobjs sysrowsets syscolpars")
+	systemPages := flag.String("systempages", "", "filter pages used by system tables  (sysschobjs, sysrowsets, syscolpars)")
+
 	showHeader := flag.Bool("showheader", false, "show page header")
 	showPages := flag.String("showpages", "", "select specific pages to show info (use comma for each page id)")
 	showPageStats := flag.Bool("showpagestats", false,
@@ -108,13 +126,16 @@ func main() {
 	showIndex := flag.Bool("showindex", false, "show index contents")
 	showLDF := flag.Bool("showldf", false, "show vlf, log blocks and records of ldf files")
 	showBCM := flag.Bool("showbcm", false, "show bulk difference map")
+
 	showTableLDF := flag.Bool("showtableldf", false, "show table log record info (must be used with table)")
 	showTableAllocation := flag.String("showtableallocation", "",
 		"show pages that the table has been allocated write 'simple', 'sorted' or 'links' to see the linked page structure")
+
 	toTableRows := flag.Int("torow", -1, "show only the first rows (Default is all)")
 	skippedTableRows := flag.Int("fromrow", 0, "show only the last rows (Default is all)")
 	selectedTableRows := flag.String("rows", "", "use comma to select rows")
-	userTable := flag.String("usertable", "", "get system table info about user table")
+
+	userTableSystemInfo := flag.Bool("systeminfo", false, "get table info from system tables")
 
 	exportPath := flag.String("export", "", "export tables to selected path")
 	exportFormat := flag.String("format", "", "select format to export (csv|html|xlsx)")
@@ -199,22 +220,15 @@ func main() {
 		log.Fatalf("walk page lsn flag requires filterlop to be set")
 	}
 
-	if *showTableLDF && *tablenames == "" {
-		log.Fatalf("showtableldf flag requires tables to be set")
-	}
-
 	if *showTableAllocation != "" && *tablenames == "" {
 		log.Fatalf("showtableallocation flag requires tables to be set")
 	} else if *showTableAllocation != "" && *showTableAllocation != "simple" && *showTableAllocation != "sorted" && *showTableAllocation != "links" {
 		log.Fatalf("invalid show table allocation value %s allowed values are simple|sorted|links", *showTableAllocation)
 	}
 
-	if *showLDF && (*ldbfile == "" || *dbfile == "") {
-		log.Fatalf("showldf flag requires db and ldb files to be set")
-	}
-
-	if *showTableLDF && (*ldbfile == "" || *dbfile == "") {
-		log.Fatalf("showtableldf flag requires db and ldb files to be set")
+	if err := validateLDFFlags(*dbfile, *ldbfile, *evidencefile, *physicalDrive, *sourcedir,
+		*showLDF, *showTableLDF, *filterlop, *walkLSN, *walkpageLSN, *sortByLSN); err != nil {
+		log.Fatal(err)
 	}
 
 	if *exportBlob && *exportPath == "" {
@@ -262,8 +276,8 @@ func main() {
 	}
 
 	// Table-specific display flags should be used with table processing
-	if (*showTableContent || *showTableIndex || *showTableSchema || *showDataCols || *showSlots) && !*processTables && *showTableAllocation == "" && !*showTableLDF {
-		log.Fatalf("table display flags (-showcontent, -showtableindex, -showschema, -showdatacols, -showslots) require -processtables or -showtableldf or -showtableallocation to be set")
+	if (*showTableContent || *showTableIndex || *showTableSchema) && !*processTables && *showTableAllocation == "" && !*showTableLDF {
+		log.Fatalf("table display flags (-showcontent, -showtableindex, -showschema, ) require -processtables or -showtableldf or -showtableallocation to be set")
 	}
 
 	// Table row selection flags require table processing or showtableallocation
@@ -287,7 +301,7 @@ func main() {
 	}
 
 	// User table info requires DB input
-	if *userTable != "" && *dbfile == "" && *evidencefile == "" && *physicalDrive == -1 {
+	if *userTableSystemInfo && *dbfile == "" && *evidencefile == "" && *physicalDrive == -1 {
 		log.Fatalf("usertable flag requires a database file to be specified (-db, -evidence, -physicaldrive)")
 	}
 
@@ -561,7 +575,7 @@ func main() {
 	fmt.Printf("Processed %d pages %d MB in %0.2f secs \n",
 		processedPages, processedPages*8192/1000/1024, time.Since(now).Seconds())
 
-	pm.FilterDatabases(*pageType, *systemTables, *userTable)
+	pm.FilterDatabases(*pageType, *systemPages)
 
 	if *processTables {
 
@@ -570,6 +584,10 @@ func main() {
 		pm.ExportTables(selectedTableRowsInt)
 
 		fmt.Printf("Finished in %0.2f secs\n", time.Since(now).Seconds())
+	}
+
+	if *userTableSystemInfo {
+		pm.ProcessTablesSystemInfo()
 	}
 
 	pm.ShowInfo(utils.StringsToUint32Array(*showPages), *filterlop)
