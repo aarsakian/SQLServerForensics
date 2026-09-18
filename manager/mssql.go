@@ -284,6 +284,16 @@ func (PM *ProcessManager) ProcessTables() {
 
 }
 
+func (PM ProcessManager) ProcessTablesSystemInfo() {
+	for _, database := range PM.Databases {
+		TablesSystemInfo := database.ProcessTablesSystem(PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType)
+		fmt.Printf("Database %s Tables System Info:\n", database.Name)
+		for tablename, info := range TablesSystemInfo {
+			fmt.Printf("\nTable: %s\nInfo: %s", tablename, info)
+		}
+	}
+}
+
 func (PM *ProcessManager) ExportTables(selectedTableRows []int) {
 	if PM.Exporter.Path == "" {
 		return
