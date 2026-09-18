@@ -177,6 +177,11 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string,
 
 	if rp.ShowDBInfo && page.FileHeader != nil {
 		page.FileHeader.ShowInfo()
+
+	}
+
+	if rp.ShowDBInfo && page.Boot != nil {
+		page.Boot.ShowInfo()
 	}
 
 	if rp.ShowDataCols {
