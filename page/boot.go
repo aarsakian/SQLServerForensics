@@ -2,6 +2,7 @@ package page
 
 import (
 	"MSSQLParser/utils"
+	"fmt"
 )
 
 const (
@@ -163,4 +164,8 @@ func (boot Boot) HasAcceptableVersion() bool {
 func (boot Boot) GetDBName() string {
 	return utils.CleanUTF16LE(utils.DecodeUTF16(boot.Dbi_dbname[:]))
 
+}
+
+func (boot Boot) ShowInfo() {
+	fmt.Printf("DB name %s version %s \n", boot.GetDBName(), boot.GetVersion())
 }
