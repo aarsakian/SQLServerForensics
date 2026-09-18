@@ -461,7 +461,7 @@ func main() {
 			mtf_s := mtf.MTF{Fname: bakfile}
 			mtf_s.Process()
 			mtf_s.Export(*location)
-			bakPayloads = append(bakPayloads, filepath.Join("MDF", mtf_s.GetExportFileName()))
+			bakPayloads = append(bakPayloads, filepath.Join(*location, mtf_s.GetExportFileName()))
 		}
 
 	}

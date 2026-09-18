@@ -10,6 +10,7 @@ import (
 	"MSSQLParser/utils"
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"sort"
@@ -186,6 +187,9 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 
 	for offset := 0; offset < int(fsize.Size()); offset += PAGELEN {
 		_, err := file.ReadAt(bs, int64(offset))
+		if err == io.EOF { // incomplete last page, e.g. a truncated backup
+			break
+		}
 
 		if err != nil {
 			fmt.Printf("error reading file --->%s prev offset %d  mod %d",
