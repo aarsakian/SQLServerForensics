@@ -845,14 +845,20 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 	var err error
 	var header Header
 	if utils.IsZeroed(data[:HEADERLEN]) {
-		return ZeroPageHeader("Zero page header")
+		msg := fmt.Sprintf("zero page header at %d ", offset)
+		logger.Mslogger.Warning(msg)
+		return ZeroPageHeader(msg)
 	}
 	utils.Unmarshal(data[0:HEADERLEN], &header)
 
 	if !header.isValid() {
-		return InvalidPageTypeError("Invalid page header")
+		msg := fmt.Sprintf("Invalid page header %d at %d page? %d", header.PageId, offset, offset/int(PAGELEN))
+		logger.Mslogger.Warning(msg)
+		return InvalidPageTypeError(msg)
 	} else if !header.sanityCheck() {
-		return InvalidPageSanityError(fmt.Sprintf("Page %d failed sanity checks", header.PageId))
+		msg := fmt.Sprintf("Page %d failed sanity checks at %d page? %g", header.PageId, offset, offset/int(PAGELEN))
+		logger.Mslogger.Warning(msg)
+		return InvalidPageSanityError(msg)
 	}
 
 	if header.isTornPageUsed() {
@@ -871,6 +877,7 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 
 	err = page.PopulateSlots(data[PAGELEN-2*header.SlotCnt:])
 	if err != nil {
+		logger.Mslogger.Error(err.Error())
 		return err
 	}
 
