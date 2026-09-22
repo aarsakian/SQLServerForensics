@@ -78,6 +78,8 @@ const ValidFlags uint8 = FlagFirstInSector | FlagLastInSector | FlagFirstInBlock
 
 var LOGBLOCKMINSIZE int = 512
 
+const DefaultVLFLogBlockOffset int64 = 8192
+
 type VLFs []VLF
 
 type VLF struct {
@@ -113,12 +115,22 @@ type VLFHeader struct {
 // log block is integer multiple of 512 <60KB
 // The first block always has a block offset that points past the first 8 KB in the VLF
 type LogBlockHeader struct {
-	FlagBit  uint8
-	Unknown1 uint8
-	NofSlots uint16 //2-4number of live log records
-	Size     uint16 //4-6 in-use area within from the beginnign of the log blocks to the end of array of record offsets
-	Unknown2 [6]byte
-	FirstLSN utils.LSN // 12-
+	FlagBit           uint8
+	Unknown1          uint8
+	NofSlots          uint16    //2-4number of live log records
+	Size              uint16    //4-6 in-use area within from the beginnign of the log blocks to the end of array of record offsets
+	BlockSectorCount  uint16    //6-8 number of 512-byte sectors in the log block
+	Checksum          uint32    //8-12
+	FirstLSN          utils.LSN // 12-22
+	Padding           [6]byte
+	BlockSeqNum       uint32              //28	-32
+	SlotCapacity      uint32              //32-36
+	FirstRecordOffset uint32              //36-40
+	PrevBlockOffset   uint32              //40-44
+	VLFSequenceNum    uint32              //44-48
+	GenerationTag     uint32              //48-52
+	TransactionId     utils.TransactionID //52-58
+	HeaderSize        uint32              //52-56
 }
 
 // The fifth bit indicates whether the block is the first block
@@ -129,6 +141,10 @@ func (logblockheader LogBlockHeader) IsFirst() bool {
 // the fourth bit indicates whether it is the last block.
 func (logblockheader LogBlockHeader) IsLast() bool {
 	return logblockheader.FlagBit&0x08 == 0x08
+}
+
+func (logblockheader LogBlockHeader) IsUnwritten() bool {
+	return logblockheader.FlagBit&0xc0 == 0xc0
 }
 
 // exclude non valid flags
@@ -157,7 +173,6 @@ func (vlfs *VLFs) Process(file os.File, carve bool) int {
 
 		bs := make([]byte, 72)
 		_, err := file.ReadAt(bs, offset)
-		defer file.Close()
 
 		if err != nil {
 			fmt.Printf("error reading at %d \n", offset)
@@ -175,11 +190,11 @@ func (vlfs *VLFs) Process(file os.File, carve bool) int {
 		if vlfheader.FSeqNo > 0 {
 			vlf.Header = vlfheader
 
-			mslogger.Mslogger.Info(fmt.Sprintf("Located VLF at %d", offset))
+			mslogger.Mslogger.Info(fmt.Sprintf("Located VLF at %d length %0.2f MB First LSN %s",
+				offset,
+				float64(vlfheader.FileSize)/1024/1024, vlfheader.CreateLSN.ToStr()))
 
-			logBlockoffset := int64(8192)
-			// 22 to take into account log block header
-			recordsProcessed += vlf.Process(file, offset+logBlockoffset, carve)
+			recordsProcessed += vlf.Process(file, vlfheader.FirstLogBlockOffset(), carve)
 
 			*vlfs = append(*vlfs, *vlf)
 		} else {
@@ -194,16 +209,26 @@ func (vlfs *VLFs) Process(file os.File, carve bool) int {
 }
 
 func (vlf *VLF) Process(file os.File, offset int64, carve bool) int {
-
 	recordsProcessed := 0
 	logBlockoffset := int64(0)
-	for logBlockoffset <= int64(vlf.Header.FileSize) {
+	maxOffset := offset + int64(vlf.Header.FileSize)
+	if maxOffset <= offset {
+		maxOffset = offset + DefaultVLFLogBlockOffset
+	}
+	for currentOffset := offset; currentOffset < maxOffset; {
+		//log block always align to 512 bytes
+		if currentOffset%512 != 0 {
+			msg := fmt.Sprintf("log block offset %d not aligned to 512 bytes, skipping to next 512 byte boundary", currentOffset)
+			mslogger.Mslogger.Warning(msg)
+			currentOffset += 512 - (currentOffset % 512)
+		}
+
 		//log block header
 		bs := make([]byte, 72)
 
-		_, err := file.ReadAt(bs, offset+logBlockoffset)
+		_, err := file.ReadAt(bs, currentOffset)
 		if err != nil {
-			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
+			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", currentOffset)
 			mslogger.Mslogger.Error(msg)
 			return recordsProcessed
 		}
@@ -212,41 +237,44 @@ func (vlf *VLF) Process(file os.File, offset int64, carve bool) int {
 		logBlock.ProcessHeader(bs)
 
 		if logBlock.Header.Size == 0 {
-			msg := fmt.Sprintf("LogBlock header size is zero at offset %d continuing", offset+logBlockoffset)
+			msg := fmt.Sprintf("LogBlock header size is zero at offset %d continuing", currentOffset)
 			mslogger.Mslogger.Warning(msg)
-			logBlockoffset += int64(LOGBLOCKMINSIZE)
+			currentOffset += int64(LOGBLOCKMINSIZE)
 			continue
 		} else if !logBlock.Header.IsValid() {
-			msg := fmt.Sprintf("LogBlock header invalid at offset %d continuing", offset+logBlockoffset)
+			msg := fmt.Sprintf("LogBlock header invalid at offset %d continuing", currentOffset)
 			mslogger.Mslogger.Warning(msg)
-			logBlockoffset += int64(LOGBLOCKMINSIZE)
+			currentOffset += int64(LOGBLOCKMINSIZE)
 			continue
 		}
 		mslogger.Mslogger.Info(fmt.Sprintf("Located log block at %d Nof Slots %d",
-			offset+logBlockoffset, logBlock.Header.NofSlots))
+			currentOffset, logBlock.Header.NofSlots))
 		//logBlock size
 
 		bs = make([]byte, logBlock.Header.Size)
 
-		_, err = file.ReadAt(bs, offset+logBlockoffset)
+		_, err = file.ReadAt(bs, currentOffset)
 		if err != nil {
-			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", offset+logBlockoffset)
+			msg := fmt.Sprintf("error reading log while parsing logblock at %d\n", currentOffset)
 			mslogger.Mslogger.Error(msg)
 			return recordsProcessed
 		}
 
-		recordsProcessed += logBlock.ProcessRecords(bs, offset+logBlockoffset, carve)
+		recordsProcessed += logBlock.ProcessRecords(bs, currentOffset, carve)
 
-		if logBlock.Header.NofSlots < 500 {
+		if logBlock.Header.NofSlots < 500 && logBlock.Header.NofSlots > 0 {
 			vlf.Blocks = append(vlf.Blocks, *logBlock)
 		} else {
 			msg := fmt.Sprintf("number of log records %d exceeds expected at offset %d continuing",
-				logBlock.Header.NofSlots, offset+logBlockoffset)
+				logBlock.Header.NofSlots, currentOffset)
 			mslogger.Mslogger.Warning(msg)
 		}
 
-		logBlockoffset += int64(logBlock.GetSize())
-
+		currentOffset += int64(logBlock.GetSize())
+		logBlockoffset = currentOffset - offset
+		if logBlockoffset >= int64(vlf.Header.FileSize) {
+			break
+		}
 	}
 	return recordsProcessed
 
@@ -275,6 +303,10 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 	currentLSN := logBlock.Header.FirstLSN
 
 	for _, recordOffset := range recordOffsets {
+		if recordOffset == 0 {
+			mslogger.Mslogger.Warning("record offset is zero")
+			continue
+		}
 		if len(bs) <= int(recordOffset)+4 {
 			msg := fmt.Sprintf("log record offset exceeds buffer at %d", recordOffset)
 			mslogger.Mslogger.Warning(msg)
@@ -360,7 +392,8 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 
 		logBlock.Records = append(logBlock.Records, record)
 
-		mslogger.Mslogger.Info(fmt.Sprintf("Record %s at %d", record.GetOperationType(),
+		mslogger.Mslogger.Info(fmt.Sprintf("Record LSN %s type %s at %d",
+			record.CurrentLSN.ToStr(), record.GetOperationType(),
 			int64(recordOffset)+baseOffset))
 
 	}
@@ -375,6 +408,13 @@ func (logBlock *LogBlock) ProcessHeader(bs []byte) {
 
 func (logBlockHeader *LogBlockHeader) Process(bs []byte) {
 	utils.Unmarshal(bs, logBlockHeader)
+}
+
+func (vlfheader VLFHeader) FirstLogBlockOffset() int64 {
+	if vlfheader.StartOffset > 0 {
+		return int64(vlfheader.StartOffset) + int64(LOGBLOCKMINSIZE)
+	}
+	return DefaultVLFLogBlockOffset
 }
 
 func (logBlockHeader LogBlockHeader) FirstToStr() string {
