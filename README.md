@@ -72,6 +72,17 @@ Read license file.
 ## Usage Instructions 
 Usage instructions have been grouped so as to help the user. 
 
+### Quick Start
+
+Run the tool directly from source:
+
+> go run . -help
+
+Build a binary and then run it:
+
+> go build -o MSSQLParser.exe
+> .\MSSQLParser.exe -help
+
 ### Input Options
 
   -db string
@@ -87,75 +98,75 @@ Usage instructions have been grouped so as to help the user.
         absolute path to the LDF file
 
   -mtf string
-        path to bak file (TAPE format)
+        path to a BAK/TAPE file
 
   -evidence string
-        path to an EWF, VHDX, or raw image file
+        path to an EWF/VHDX/raw image file; exported MDF/LDF files discovered in the image are processed automatically
 
   -physicaldrive int
-        select the physical disk number to look for MDF file (requires admin rights!) (default -1)
+        select the physical disk number to look for MDF files (requires admin rights!) (default -1)
 
   -partition int
         select the partition number to look for MDF files (requires admin rights!) (default -1)
 
   -filenames string
-        select mdf files to filter use comma for each file (to be used with evidence)
+        select MDF files by filename; comma-separated values are allowed
 
-  -sourcedir string 
-        process all mdf and ldf files found in source directory
+  -sourcedir string
+        process all MDF and LDF files found under the given directory
 
   -location string
-        the path to export MDF/LDF files (default "MDF")
-      
-### Processing options
+        export location for recovered MDF/LDF files (default "MDF")
+
+### Processing Options
 
   -processtables
-        process tables
+        process table metadata and records
 
   -carve
-        Carve data records and try to interpret
+        carve data records and try to interpret them
 
   -bak
-        parse bak files found in images
+        parse BAK files found in images
 
   -from int
-        select page id to start parsing (default 0)
+        select the page ID to start parsing (default 0)
 
   -to int
-        select page id to end parsing (default -1)
+        select the page ID to end parsing (default -1)
 
   -pages string
-        select pages to parse (use comma for each page id, other pages will be ignored)
+        select pages to parse; use a comma-separated list of page IDs
 
-  -type string
+  -pagetype string
         filter by page type (IAM, GAM, SGAM, PFS, DATA)
 
   -filterlop string
-        filter log records per lop type (values: insert, begin, commit, begin_ckpt, end_ckpt, any)
+        filter log records per LOP type (insert, begin, commit, begin_ckpt, end_ckpt, any)
 
   -sortbylsn string
-        sort pages by LSN (values: all, allocunit)
+        sort pages by LSN (all or allocunit)
 
-### Output options
+  -systempages string
+        filter pages used by system tables (sysschobjs, sysrowsets, syscolpars)
+
+### Output Options
 
 #### Database Information
 
   -showdbinfo
-        show database information parsed from fileheader (page 0)
+        show database information parsed from file header (page 0)
 
-#### Page related
+#### Page Inspection
 
   -showheader
         show page header
 
   -showpages string
-        select specific pages to show info (use comma for each page id)
+        select specific pages to show; comma-separated page IDs
 
   -showpagestats
-        show page statistics (SGAM, GAM, PFS, IAM for selected pages)
-
-  -type string
-        filter by page type (IAM, GAM, SGAM, PFS, DATA)
+        show page statistics for SGAM, GAM, PFS, and IAM pages
 
   -showgam
         show GAM extents for each page
@@ -167,7 +178,7 @@ Usage instructions have been grouped so as to help the user.
         show IAM extents for each page
 
   -showpfs
-        show pfs page allocation
+        show PFS page allocation
 
   -showdiffmap
         show differential map for each page
@@ -179,48 +190,33 @@ Usage instructions have been grouped so as to help the user.
         show page slots
 
   -showdatacols
-        show data cols for each data row
+        show data columns for each data row
 
   -showindex
         show index contents
 
-  -walklsn string
-        follow log records LSN (values: any, backward, forward)
-        requires -filterlop
-
-  -walkpagelsn string
-        follow log records associated with page (values: any, backward, forward)
-        requires -filterlop
-
-  -sortbylsn string
-        sort pages (values: all, allocunit)
-
-#### Log related Options
-
   -showldf
-        show vlf, log blocks and records of ldf files
+        show VLFs, log blocks, and log records from LDF files
 
   -showtableldf
         show table log record info (must be used with -tables)
 
   -walklsn string
-        follow log records LSN (values: any, backward, forward)
-        requires -filterlop
+        follow log records by LSN (values: any, backward, forward); requires -filterlop
 
   -walkpagelsn string
-        follow log records associated with page (values: any, backward, forward)
-        requires -filterlop
+        follow log records associated with a page (values: any, backward, forward); requires -filterlop
 
-#### Table Filtering Options
+#### Table Filtering and Display
 
   -tables string
-        select the tables to process (use comma for each table name)
+        select the tables to process; comma-separated names
 
   -tabletype string
-        filter tables by type (e.g. 'User Table' for user tables, 'View' for views)
+        filter tables by type, for example 'User Table' or 'View'
 
   -tablepages string
-        filter rows by pages (use comma)
+        filter rows by page; comma-separated IDs
 
   -fromrow int
         show only rows starting from this row number (default 0)
@@ -229,15 +225,10 @@ Usage instructions have been grouped so as to help the user.
         show only the first N rows (default -1 for all)
 
   -rows string
-        use comma to select specific rows (e.g. 1,5,10)
+        select specific rows using a comma-separated list (for example 1,5,10)
 
   -colnames string
-        the columns to display (use comma for each column name)
-
-#### Table Related Options
-
-  -processtables
-        process tables
+        the columns to display; comma-separated names
 
   -showcontent
         show table contents
@@ -249,15 +240,79 @@ Usage instructions have been grouped so as to help the user.
         show table index contents
 
   -showtableallocation string
-        show pages that the table has been allocated (values: simple, sorted, links)
+        show allocated pages for a table (values: simple, sorted, links)
 
   -showraw
-        show row data for each column in a table in raw (hex) format
+        show row data for each column in raw (hex) format
 
-  -systemtables string
-        show information about system tables (sysschobjs, sysrowsets, syscolpars)
+  -systeminfo
+        get system table info about user tables
 
-  -usertable string
+### Volume and Verification Options
+
+  -verifysignatures
+        verify BAK/TAPE file signatures during processing
+
+  -password string
+        password for BitLocker-protected volumes
+
+  -recoverykey string
+        recovery key for BitLocker-protected volumes
+
+### Export Options
+
+  -export string
+        export tables to the selected path
+
+  -format string
+        select export format (csv, html, xlsx)
+
+  -exportschema
+        export table schema
+
+  -exportindex
+        export table indexes
+
+  -exportpageinfo
+        export page information for each row (works with CSV/HTML/XLSX exports)
+
+  -exportloginfo
+        export log-correlation information for each row (works with CSV/HTML/XLSX exports)
+
+  -exportblob
+        export blobs into a folder named blobs under the database name
+
+### Log Options
+
+  -log
+        log activity
+
+### Misc Options
+
+  -stopservice
+        stop the SQL Server service (requires admin rights!)
+
+  -rpc uint
+        use gRPC to communicate on the selected port (1024 and upwards)
+
+  -profile
+        profile memory usage
+
+### Supported Data Sources
+
+The current CLI supports reading MDF, LDF, and BAK/TAPE files directly, as well as evidence containers and physical disk sources:
+
+- MDF/LDF files
+- Full backup files (BAK/TAPE via -mtf or -bak)
+- Raw images, EWF, VMDK, and VHDX evidence containers via -evidence
+- Physical disks via -physicaldrive
+- Directory scans via -sourcedir
+
+> Note: the implementation validates compatibility between flags before processing, so some options are only valid when a matching data source or analysis mode is enabled.
+
+### Notes
+
+This project is a Go CLI. The expected entry point is the main package, and it can be run with `go run .` or with a built executable such as `.\MSSQLParser.exe`.
         get system table info about user table
 
 
@@ -402,11 +457,11 @@ Show basic database metadata from file header (database information category)
 Process a BitLocker-protected volume or image and provide either the password or recovery key so the tool can access the contained database files
 > .\MSSQLParser.exe -evidence C:\Evidence\disk.E01 -location MyDBs -password "YourPassword" -processtables -export MyExport -format csv
 
-Show system tables metadata (system tables category)
-> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -systemtables sysschobjs
+Show metadata from the SQL Server system tables for a database
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -systeminfo
 
-Get system-table details for a specific user table (user table metadata category)
-> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -usertable PersonPhone
+Get system-table details for a specific user table using the table-processing pipeline
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -tables PersonPhone -systeminfo
 
 Export blob columns for a table (export blob category)
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables ProductPhoto -exportblob -export MyExports
