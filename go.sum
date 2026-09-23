@@ -152,6 +152,8 @@ github.com/aarsakian/MTF_Reader v0.0.0-20260623115552-316d64a120e8 h1:WO99iJw7H6
 github.com/aarsakian/MTF_Reader v0.0.0-20260623115552-316d64a120e8/go.mod h1:H4lDtodU1rKkPZEJXUQLaYqdCJmPWuK0cD6+qj/tD7A=
 github.com/aarsakian/MTF_Reader v0.0.0-20260726145759-b0b9ba02f117 h1:BkYW2Xz8/yXBshIqv0wKO+wJpezleRV+j/rRBicpJsA=
 github.com/aarsakian/MTF_Reader v0.0.0-20260726145759-b0b9ba02f117/go.mod h1:H4lDtodU1rKkPZEJXUQLaYqdCJmPWuK0cD6+qj/tD7A=
+github.com/aarsakian/MTF_Reader v0.0.0-20260918075732-2eccec4440e0 h1:YZHUhnRDf+16RC7ZXA9Ykwwg10lvqg144+NMhrxYKQc=
+github.com/aarsakian/MTF_Reader v0.0.0-20260918075732-2eccec4440e0/go.mod h1:H4lDtodU1rKkPZEJXUQLaYqdCJmPWuK0cD6+qj/tD7A=
 github.com/aarsakian/VHD_Reader v0.0.0-20260623095742-34fa1b9fa562 h1:cpFSIpYTNzxvrTF39x4E5W9RqeZ2nrcecTdt+HlNqdc=
 github.com/aarsakian/VHD_Reader v0.0.0-20260623095742-34fa1b9fa562/go.mod h1:+xUCzmV5Vt4FfMyGwIHnDqdBJeVgFqmA3K2pDhE8nbY=
 github.com/aarsakian/VHD_Reader v0.0.0-20260913092507-15d34d837e50 h1:n8fQL1qWYcSaSNbXbXvloPzMQd1wrf6Bj+IETfaq4yA=

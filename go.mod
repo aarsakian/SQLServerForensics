@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/aarsakian/EWF_Reader v0.0.0-20260306182323-6ede308af4dd // indirect
 	github.com/aarsakian/FileSystemForensics v0.5.4-0.20260913093544-c257767da9bd // indirect
-	github.com/aarsakian/MTF_Reader v0.0.0-20260726145759-b0b9ba02f117 // indirect
+	github.com/aarsakian/MTF_Reader v0.0.0-20260918075732-2eccec4440e0 // indirect
 	github.com/aarsakian/VHD_Reader v0.0.0-20260913092507-15d34d837e50 // indirect
 	github.com/aarsakian/VMDK_Reader v0.0.0-20240910071554-9d72aac7f6b9 // indirect
 	golang.org/x/net v0.32.0 // indirect
