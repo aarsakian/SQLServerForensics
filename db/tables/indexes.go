@@ -119,10 +119,13 @@ func (index *Index) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
 			//remaining is indexnonleaf data
 			if int(index.KeySize) < len(pages.Pages[0].IndexRows[idx].FixedLenCols) {
 				indexNonLeaf := new(page.IndexNoNLeaf)
-				utils.Unmarshal(pages.Pages[0].IndexRows[idx].FixedLenCols[int(index.KeySize):],
+				rawdata := pages.Pages[0].IndexRows[idx].FixedLenCols[:]
+				//unmarshal the index non leaf data from the remaining bytes of the fixed length columns
+				utils.Unmarshal(rawdata[len(rawdata)-6:],
 					indexNonLeaf)
 				indexNonLeaf.KeyValue = make([]byte, index.KeySize)
-				copy(indexNonLeaf.KeyValue, pages.Pages[0].IndexRows[idx].FixedLenCols[:int(index.KeySize)])
+				//omit the first byte of the fixed length columns as it is the status bits and not part of the index key value
+				copy(indexNonLeaf.KeyValue, pages.Pages[0].IndexRows[idx].FixedLenCols[1:1+int(index.KeySize)])
 
 				//top level index pages point to other index pages until the leaf level is reached, at which point the index rows point to data pages
 				if pages.Pages[0].Header.Level > 1 {
