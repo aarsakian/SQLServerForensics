@@ -529,7 +529,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 
 		if actualDataRowSize != allocatedDataRowSize {
 			msg := fmt.Sprintf(" actual row size %d is less than allocated %d", actualDataRowSize, allocatedDataRowSize)
-			logger.Mslogger.Warning(msg)
+			logger.Mslogger.Info(msg)
 		}
 
 	}
@@ -856,7 +856,7 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 		logger.Mslogger.Warning(msg)
 		return InvalidPageTypeError(msg)
 	} else if !header.sanityCheck() {
-		msg := fmt.Sprintf("Page %d failed sanity checks at %d page? %g", header.PageId, offset, offset/int(PAGELEN))
+		msg := fmt.Sprintf("Page %d failed sanity checks at %d page? %d", header.PageId, offset, offset/int(PAGELEN))
 		logger.Mslogger.Warning(msg)
 		return InvalidPageSanityError(msg)
 	}
