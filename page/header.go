@@ -109,17 +109,18 @@ func (header Header) GetMetadataAllocUnitId() uint64 {
 func (header Header) sanityCheck() bool {
 	if header.Version != 1 {
 
-		mslogger.Mslogger.Warning(fmt.Sprintf("Issue with header version %d \n", header.Version))
+		mslogger.Mslogger.Warning(fmt.Sprintf("Invalid page header version %d", header.Version))
 		return false
 	}
 	if header.LSN.IsZeroed() {
-		mslogger.Mslogger.Warning("LSN is zero")
+		mslogger.Mslogger.Warning(fmt.Sprintf("LSN is zero at pageId %d", header.PageId))
 		return false
 	}
 
-	if header.IndexId > 255 {
-		mslogger.Mslogger.Warning("Index Id > 255")
-
+	if header.IndexId >= 251 && header.IndexId <= 255 ||
+		header.IndexId > 271 {
+		mslogger.Mslogger.Warning(fmt.Sprintf("Invalid Index Id %d at pageId %d",
+			header.IndexId, header.PageId))
 	}
 
 	if header.SlotCnt > 4048 { //8192-96/2
