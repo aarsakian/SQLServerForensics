@@ -33,6 +33,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 
 	"flag"
@@ -74,6 +75,18 @@ func validateLDFFlags(dbfile string, ldbfile string, evidencefile string, physic
 	}
 
 	return nil
+}
+
+func normalizeLogFlagArgs(args []string) []string {
+	normalized := make([]string, 0, len(args))
+	for index, arg := range args {
+		if arg == "-log" && (index+1 == len(args) || strings.HasPrefix(args[index+1], "-")) {
+			normalized = append(normalized, "-log", "info")
+			continue
+		}
+		normalized = append(normalized, arg)
+	}
+	return normalized
 }
 
 func main() {
@@ -147,7 +160,7 @@ func main() {
 	exportBlob := flag.Bool("exportblob", false,
 		"export blobs (will be exported to a folder blobs under the database name, file extension is blob)")
 
-	logactive := flag.Bool("log", false, "log activity")
+	loglevel := flag.String("log", "", "log activity at this minimum level (info|warning|error)")
 	bakactive := flag.Bool("bak", false, "parse bak files found in images")
 	tabletype := flag.String("tabletype", "", "filter tables by type e.g. 'User Table' for user tables 'View' for views")
 
@@ -169,7 +182,12 @@ func main() {
 	password := flag.String("password", "", "password for Bitlocker volumes")
 	recoverykey := flag.String("recoverykey", "", "recovery key for Bitlocker volumes")
 
+	os.Args = normalizeLogFlagArgs(os.Args)
 	flag.Parse()
+
+	if *loglevel != "" && !mslogger.ValidLevel(*loglevel) {
+		log.Fatalf("invalid log level %s allowed values are info|warning|error", *loglevel)
+	}
 
 	if *filterlop != "" && *filterlop != "any" && *filterlop != "insert" && *filterlop != "begin" && *filterlop != "commit" && *filterlop != "begin_ckpt" && *filterlop != "end_ckpt" {
 		log.Fatalf("invalid lop type filter %s allowed values are insert|begin|commit|begin_ckpt|end_ckpt|any", *filterlop)
@@ -308,11 +326,12 @@ func main() {
 	now := time.Now()
 
 	logfilename := "logs" + now.Format("2006-01-02T15_04_05") + ".txt"
-	mslogger.InitializeLogger(*logactive, logfilename)
-	FSLogger.InitializeLogger(*logactive, logfilename)
-	VMDKLogger.InitializeLogger(*logactive, logfilename)
-	mtfLogger.InitializeLogger(*logactive, logfilename)
-	VHDXLogger.InitializeLogger(*logactive, logfilename)
+	mslogger.InitializeLogger(*loglevel, logfilename)
+	dependencyLogging := *loglevel != ""
+	FSLogger.InitializeLogger(dependencyLogging, logfilename)
+	VMDKLogger.InitializeLogger(dependencyLogging, logfilename)
+	mtfLogger.InitializeLogger(dependencyLogging, logfilename)
+	VHDXLogger.InitializeLogger(dependencyLogging, logfilename)
 
 	var extensions []string
 	var sgm signatures.SignatureManager
