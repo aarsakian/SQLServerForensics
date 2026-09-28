@@ -29,9 +29,14 @@ SIMPLE recovery model, the active part of transaction log starts with VLF, which
 
     OR replication/truncation markers
 
-MinLSN=min⁡(OldestActiveTransactionLSN, CheckpointBeginLSN)
+MinLSN=min⁡(OldestActiveTransactionLSN, CheckpointBeginLSN, UnreplicatedLSN)
 MinLSN == dbi_checkptLSN in the database boot page
 No active transactions
+
+unreplicatedLSN (or the oldest unreplicated transaction LSN) is the starting
+Log Sequence Number of the oldest committed transaction that has not yet been processed by SQL
+ Server replication tools
+ (Transactional Replication, Change Data Capture (CDC), or Change Tracking).
 
 Checkpoint completed
 dbi_checkptLSN > MinLSN (open transactions that started after the checkpoint began)
@@ -304,7 +309,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 
 	for _, recordOffset := range recordOffsets {
 		if recordOffset == 0 {
-			mslogger.Mslogger.Warning("record offset is zero")
+			mslogger.Mslogger.Warning("log record offset is zero")
 			continue
 		}
 		if len(bs) <= int(recordOffset)+4 {
