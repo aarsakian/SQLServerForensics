@@ -126,7 +126,7 @@ func (indexRow *IndexRow) ProcessVaryingCols(data []byte, offset int) {
 		//varlencoloffset is the offset to the end of the varying length column,
 		// so we need to calculate the length of the column by subtracting the base offset from the varlencoloffset
 		if varLenColOffset <= int16(baseOffset) {
-			logger.Mslogger.Warning("var len column offset is after the base offset")
+			logger.Mslogger.Warning("Index var len column offset is before the base offset")
 			break
 		} else if varLenColOffset > int16(len(data)) {
 			logger.Mslogger.Warning(fmt.Sprintf("var len column offset %d exceeds buffer length %d", varLenColOffset, len(data)))
