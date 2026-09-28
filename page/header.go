@@ -78,7 +78,7 @@ type Header struct {
 	XdeslDPart2    uint32    //52-54
 	XdeslIDPart1   uint16    //54-58
 	GhostRecCnt    uint16    //58-60
-	TornBits       uint32    //60-64 bit string 1 bit -> sector
+	TornBits       int32     //60-64 bit string 1 bit -> sector
 	Checksum       uint32    //checksum for SQL Server 2005+
 	Reserved       [28]byte  //68-96
 }
@@ -117,7 +117,7 @@ func (header Header) sanityCheck() bool {
 		return false
 	}
 
-	if header.IndexId >= 251 && header.IndexId <= 255 ||
+	if header.IndexId >= 251 && header.IndexId < 255 ||
 		header.IndexId > 271 {
 		mslogger.Mslogger.Warning(fmt.Sprintf("Invalid Index Id %d at pageId %d",
 			header.IndexId, header.PageId))
