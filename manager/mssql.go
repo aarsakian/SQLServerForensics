@@ -5,6 +5,7 @@ import (
 	"MSSQLParser/correlation"
 	"MSSQLParser/db"
 	"MSSQLParser/exporter"
+	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/reporter"
 	"context"
@@ -185,6 +186,8 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		//located db sharing the same binding id and directory with the ldf file
 		if ok {
+			logger.Mslogger.Info(fmt.Sprintf("Located ldf file %s with matching dbkey %s",
+				inputFile, dbkey))
 
 			database.UpdateState(minLsn)
 
