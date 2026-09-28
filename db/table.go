@@ -917,12 +917,6 @@ func (table *Table) setContentFromPage(page page.Page,
 			continue
 		}
 
-		if int(datarow.NumberOfCols) != nofCols { // mismatch data page and table schema!
-			msg := fmt.Sprintf("Mismatch in number of data cols %d in row %d,  page %d and schema cols %d table %s",
-				int(datarow.NumberOfCols), pageRows, pageId, nofCols, table.Name)
-			mslogger.Mslogger.Warning(msg)
-			//continue
-		}
 		if datarow.VarLenCols != nil && int(datarow.NumberOfVarLengthCols) != len(*datarow.VarLenCols) {
 			msg := fmt.Sprintf("Mismatch in number of declared data var cols %d in row %d,  page %d and with actual cols %d table %s",
 				int(datarow.NumberOfVarLengthCols), pageRows, pageId, len(*datarow.VarLenCols), table.Name)
@@ -933,7 +927,7 @@ func (table *Table) setContentFromPage(page page.Page,
 		if datarow.HasVersionTag() {
 			msg := fmt.Sprintf("Datarow %d at pageId %d has versioning enabled. Table %s",
 				pageRows, pageId, table.Name)
-			mslogger.Mslogger.Warning(msg)
+			mslogger.Mslogger.Info(msg)
 
 		}
 
@@ -957,7 +951,7 @@ func (table Table) ProcessRow(datarow data.DataRow,
 	for colnum, col := range table.Schema {
 		//schema is sorted by colorder use colnum instead of col.Order
 		if colnum+1 != int(col.Id) {
-			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column %s deletion %d order %d !", col.Name, colnum+1, col.Id))
+			mslogger.Mslogger.Warning(fmt.Sprintf("Discrepancy possible column deletion %s %d order %d !", col.Name, colnum+1, col.Id))
 		}
 		if col.IsComputed {
 			computedCols++
@@ -966,10 +960,11 @@ func (table Table) ProcessRow(datarow data.DataRow,
 		//check only when number of cols equal to nofCols
 		if colnum < int(datarow.NumberOfCols) && bitrepresentation != "" &&
 			utils.HasFlagSet(bitrepresentation, colnum+1-computedCols) { //col is NULL skip when ASCII 49  (1)
-			//computed cols are not stored
 
-			//msg := fmt.Sprintf(" %s SKIPPED  %d  type %s ", col.Name, col.Order, col.Type)
-			//mslogger.Mslogger.Error(msg)
+			msg := fmt.Sprintf("Col id %d is null, table %s",
+				int(datarow.NumberOfCols), table.Name)
+			mslogger.Mslogger.Info(msg)
+			//continue
 
 			continue
 		}
