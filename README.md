@@ -284,8 +284,10 @@ Build a binary and then run it:
 
 ### Log Options
 
-  -log
-        log activity
+  -log string
+        log activity at the minimum level (info|warning|error)
+
+        If the flag is provided without a value, it defaults to info.
 
 ### Misc Options
 
@@ -466,11 +468,11 @@ Get system-table details for a specific user table using the table-processing pi
 Export blob columns for a table (export blob category)
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables ProductPhoto -exportblob -export MyExports
 
-Enable file logging while exporting table data (log option category)
+Enable file logging while exporting table data at the warning level (log option category)
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -showcontent -log warning -export MyExports -format csv
+
+Use the bare flag to enable logging with the default minimum level of info
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -showcontent -log -export MyExports -format csv
-
-
-
 
 ### Full Archive Backup (BAK)
 You can apply all operations of database file mdf to bak files, for instance see below:
