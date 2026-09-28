@@ -113,7 +113,7 @@ type SysColpars struct {
 	Unknown     [2]byte //8-9
 	Xtype       uint8   // 10 sys.sysscalartypes.xtype.
 	Utype       uint32  //11-14 sys.sysscalartypes.id
-	Length      int16   //15-16
+	Length      uint16  //15-16
 	Prec        uint8
 	Scale       uint8
 	Collationid uint32
