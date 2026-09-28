@@ -826,12 +826,16 @@ func Unmarshal(data []byte, v any) (int, error) {
 		return -1, errors.New("must be a struct")
 	}
 	for i := 0; i < structValPtr.Elem().NumField(); i++ {
-		if idx >= reflect.ValueOf(data).Len() {
-			mslogger.Mslogger.Error("data exhausted no remaining data to parse")
-			return idx, errors.New("no data to parse")
-		}
+
 		field := structValPtr.Elem().Field(i) //StructField type
 		name := structType.Elem().Field(i).Name
+
+		if idx >= reflect.ValueOf(data).Len() {
+			msg := fmt.Sprintf("no remaining data to parse field %s", name)
+			mslogger.Mslogger.Error(msg)
+			return idx, errors.New(msg)
+		}
+
 		switch field.Kind() {
 
 		case reflect.Uint8:
