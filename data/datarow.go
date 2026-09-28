@@ -245,8 +245,8 @@ func (dataRow *DataRow) ProcessVaryingCols(data []byte, offset int) int { // dat
 		if endVarColOffset < 0 {
 			negativeOffset = true
 			endVarColOffset = utils.RemoveSignBit(endVarColOffset)
-			msg := fmt.Sprintf("invalid %d negative offset %d var col at %d", idx, endVarColOffset, offset+int(startVarColOffset))
-			mslogger.Mslogger.Warning(msg)
+			msg := fmt.Sprintf("colid %d negative offset %d var col at %d", idx, endVarColOffset, offset+int(startVarColOffset))
+			mslogger.Mslogger.Info(msg)
 
 		}
 
