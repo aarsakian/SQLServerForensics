@@ -306,8 +306,21 @@ func (records Records) DetermineMinLSN() utils.LSN {
 }
 
 func (records Records) DetermineLastActiveTransactionLSN() (utils.LSN, error) {
-	oldestActiveLSN := utils.LSN{}
+	lop_begin_ckpt_records := records.FilterByOperation("LOP_BEGIN_CKPT")
+	if len(lop_begin_ckpt_records) == 0 {
+		return utils.LSN{}, errors.New("no LOP_BEGIN_CKPT found")
+	}
+
+	oldestActiveLSN := lop_begin_ckpt_records[0].CurrentLSN
+	for _, record := range lop_begin_ckpt_records[1:] {
+		if record.CurrentLSN.IsGreaterEqual(oldestActiveLSN) {
+			oldestActiveLSN = record.CurrentLSN
+		}
+	}
+
 	activeRecords := make(map[string]utils.LSN)
+	//filter out records that are older than  oldestActiveLSN
+	records = records.FilterByGreaterLSN(oldestActiveLSN)
 	lop_begin_records := records.FilterByOperation("LOP_BEGIN_XACT")
 	lop_commit_xact_records := records.FilterByOperation("LOP_COMMIT_XACT")
 	lop_abort_xact_records := records.FilterByOperation("LOP_ABORT_XACT")
@@ -324,12 +337,14 @@ func (records Records) DetermineLastActiveTransactionLSN() (utils.LSN, error) {
 
 	if len(activeRecords) == 0 {
 		return oldestActiveLSN, fmt.Errorf("no active transactions found")
-	} else {
-		for _, lsn := range activeRecords {
+	}
+
+	for _, lsn := range activeRecords {
+		if lsn.IsGreaterEqual(oldestActiveLSN) {
 			oldestActiveLSN = lsn
-			break
 		}
 	}
+
 	return oldestActiveLSN, nil
 }
 
