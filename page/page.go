@@ -475,12 +475,12 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		forwardingPointer := new(datac.ForwardingPointer)
 		dataRow := &datac.DataRow{Carved: false}
 
-		msg := fmt.Sprintf("%d datarow at %d", slot.Order, offset+int(slot.Offset))
+		msg := fmt.Sprintf("%d datatow slot offset %d", slot.Order, slot.Offset)
 		logger.Mslogger.Info(msg)
 
 		//heuristics
 		if slot.Offset == 0 {
-			msg := "slot.Offset is zero  potential deleted datarow"
+			msg := "slot.Offset is zero potential deleted datarow"
 			logger.Mslogger.Info(msg)
 			page.Slots[slotnum].Deleted = true
 			if slotnum > 0 {
@@ -500,7 +500,7 @@ func (page *Page) parseDATA(data []byte, offset int, carve bool) {
 		}
 
 		if page.Header.FreeData < uint16(slot.Offset) {
-			msg := fmt.Sprintf(" slot offset %d exceeds free area  %d ", slot.Offset, page.Header.FreeData)
+			msg := fmt.Sprintf(" slot %d offset %d exceeds free area  %d ", slotnum, slot.Offset, page.Header.FreeData)
 			logger.Mslogger.Warning(msg)
 			break
 		}
@@ -862,11 +862,12 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 	}
 
 	if header.isTornPageUsed() {
+		//modifies the lowest 2 bits
 		for pos := 0; pos < int(PAGELEN)/512; pos++ {
 			//two torn bit for each sector
-			originalBits := byte(header.TornBits>>(pos+1)*2) & 0x03
+			originalBits := byte(uint32(header.TornBits)>>(pos*2)) & 0x03
 			unmodifiedBits := data[512*(pos+1)-1] & 0xfc
-			data[512*(pos+1)-1] = unmodifiedBits | originalBits<<6
+			data[512*(pos+1)-1] = unmodifiedBits | originalBits
 
 		}
 	}
