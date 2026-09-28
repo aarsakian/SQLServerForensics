@@ -5,6 +5,7 @@ import (
 	"MSSQLParser/data"
 	tables "MSSQLParser/db/tables"
 	LDF "MSSQLParser/ldf"
+	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
@@ -459,7 +460,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 				err := table.updateColOffsets(sysrscol.Rscolid,
 					sysrscol.GetLeafOffset(), partition.Rowsetid) //columnd_id ,offset
 				if err != nil {
-					msg := fmt.Sprintf("error in finding column offset rowsetid %d", partition.Rowsetid)
+					msg := fmt.Sprintf("%s determining column offset rowsetid %d", err.Error(), partition.Rowsetid)
 					mslogger.Mslogger.Warning(msg)
 				}
 			}
@@ -547,8 +548,10 @@ func (db *Database) GetLogRecords() LDF.Records {
 func (db *Database) UpdateState(minLsn utils.LSN) {
 	db.MinLSN = minLsn
 	if minLsn.IsLess(db.DbiCheckptLSN) {
-		fmt.Printf("Database has open transactions that started after the checkpoint began minLSN %s checkpoint begin LSN %s\n",
+		msg := fmt.Sprintf("Database has open transactions that started after the checkpoint began minLSN %s checkpoint begin LSN %s",
 			minLsn.ToStr(), db.DbiCheckptLSN.ToStr())
+		logger.Mslogger.Warning(msg)
+		fmt.Printf("%s\n", msg)
 
 		db.State = "dirty"
 
