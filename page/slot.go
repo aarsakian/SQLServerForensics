@@ -55,7 +55,7 @@ func retrieveSlots(data []byte) (Slots, error) {
 	for idx := 0; idx < binary.Size(data); idx += 2 {
 		offset := utils.ToUint16(data[idx : idx+2])
 		if offset >= PAGELEN {
-			msg := fmt.Sprintf("Slot offset %d exceeds page size", offset)
+			msg := fmt.Sprintf("Slot %d offset %d exceeds page size", idx, offset)
 			logger.Mslogger.Warning(msg)
 			return slots, errors.New(msg)
 		}
