@@ -339,8 +339,9 @@ func (records Records) DetermineLastActiveTransactionLSN() (utils.LSN, error) {
 		return oldestActiveLSN, fmt.Errorf("no active transactions found")
 	}
 
+	//compare the LSNs of the active transactions to find the oldest one
 	for _, lsn := range activeRecords {
-		if lsn.IsGreaterEqual(oldestActiveLSN) {
+		if lsn.IsLess(oldestActiveLSN) {
 			oldestActiveLSN = lsn
 		}
 	}
