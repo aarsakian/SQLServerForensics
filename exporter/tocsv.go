@@ -32,7 +32,7 @@ func (c CSVExporter) writeHeader(headers []string, filename string) {
 }
 
 func (c CSVExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
-	headers []string, filename string, includePageInfo bool, includeLogInfo bool) {
+	headers []string, filename string) {
 	defer wg.Done()
 	var loggedRecords, carvedRecords []utils.Record
 

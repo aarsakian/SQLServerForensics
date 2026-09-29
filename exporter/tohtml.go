@@ -11,16 +11,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 )
 
 type HTMLExporter struct {
-	Path           string
-	SourceFilename string
-	DatabaseName   string
-	Templates      map[string]*template.Template
+	Path            string
+	SourceFilename  string
+	DatabaseName    string
+	IncludePageInfo bool
+	IncludeLogInfo  bool
+	Templates       map[string]*template.Template
 }
 
 type rowTemplateData struct {
@@ -71,7 +72,7 @@ func paginatedPageName(filename string, page int) string {
 }
 
 func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Record,
-	headers []string, filename string, includePageInfo bool, includeLogInfo bool) {
+	headers []string, filename string) {
 	defer wg.Done()
 
 	var paginatedFile *os.File
@@ -79,15 +80,6 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	msg := fmt.Sprintf("Exporting data from %s to %s", filename, h.Path)
 	fmt.Printf("%s \n", msg)
 	mslogger.Mslogger.Info(msg)
-
-	//last two are page - log related header
-	if !includePageInfo && !includeLogInfo {
-		headers = slices.Delete(headers, len(headers)-2, len(headers))
-	} else if !includeLogInfo && includePageInfo {
-		headers = slices.Delete(headers, len(headers)-2, len(headers)-1)
-	} else if !includePageInfo && includeLogInfo {
-		headers = slices.Delete(headers, len(headers)-1, len(headers))
-	}
 
 	data := tableTemplateData{Headers: headers,
 		Name: filename, SourceFile: h.SourceFilename, Database: h.DatabaseName, IsPaginated: false}
@@ -165,7 +157,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 		// Render full HTML row
 		data.IsPaginated = false
 
-		rowTmpl := rowTemplateData{Row: record, IncludeLogInfo: includeLogInfo, IncludePageInfo: includePageInfo}
+		rowTmpl := rowTemplateData{Row: record, IncludeLogInfo: h.IncludeLogInfo, IncludePageInfo: h.IncludePageInfo}
 
 		if err := h.Templates["table"].ExecuteTemplate(file, "row", rowTmpl); err != nil {
 			log.Fatal(err)

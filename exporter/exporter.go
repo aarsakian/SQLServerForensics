@@ -17,7 +17,7 @@ import (
 var tmplFS embed.FS
 
 type Writer interface {
-	WriteRecords(*sync.WaitGroup, <-chan utils.Record, []string, string, bool, bool)
+	WriteRecords(*sync.WaitGroup, <-chan utils.Record, []string, string)
 
 	WriteSchema([]tables.Column, string)
 	WriteIndexRecords(*sync.WaitGroup, string, <-chan utils.Record, tables.Index)
@@ -31,6 +31,51 @@ type Exporter struct {
 	Schema   bool
 	PageInfo bool
 	LogInfo  bool
+}
+
+func (exp Exporter) exportHeaders(headers []string) []string {
+	if len(headers) < 2 {
+		return headers
+	}
+
+	result := append([]string(nil), headers[:len(headers)-2]...)
+	if exp.LogInfo {
+		result = append(result, "log information")
+	}
+	if exp.PageInfo {
+		result = append(result, "page Id : Slot Number")
+	}
+	return result
+}
+
+func (exp Exporter) exportedRecordValues(record utils.Record) []string {
+	values := append([]string(nil), record.Vals...)
+	if exp.LogInfo {
+		values = append(values, record.LoggedOperation)
+	}
+	if exp.PageInfo {
+		pageSlot := ""
+		if len(record.PageInfo) >= 2 {
+			pageSlot = record.PageInfo[0] + ":" + record.PageInfo[1]
+		}
+		values = append(values, pageSlot)
+	}
+	return values
+}
+
+func (exp Exporter) prepareExportRecords(wg *sync.WaitGroup,
+	records <-chan utils.Record) <-chan utils.Record {
+	preparedRecords := make(chan utils.Record)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(preparedRecords)
+		for record := range records {
+			record.Vals = exp.exportedRecordValues(record)
+			preparedRecords <- record
+		}
+	}()
+	return preparedRecords
 }
 
 func exportedRowCount(table *db.Table, selectedTableRow []int) int {
@@ -154,10 +199,17 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		records := make(chan utils.Record, 1000)
 
 		headers := table.GetHeader(colnames)
+		headers = exp.exportHeaders(headers)
 
 		switch exp.Format {
 		case "html":
-			hTMLExporter := HTMLExporter{Path: expPath, SourceFilename: sourceFilename, DatabaseName: databaseName}
+			hTMLExporter := HTMLExporter{
+				Path:            expPath,
+				SourceFilename:  sourceFilename,
+				DatabaseName:    databaseName,
+				IncludePageInfo: exp.PageInfo,
+				IncludeLogInfo:  exp.LogInfo,
+			}
 			hTMLExporter.InitalizeTemplates()
 
 			writer = hTMLExporter
@@ -174,6 +226,14 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 		wg.Add(1)
 		go table.GetRecords(wg, selectedTableRow, colnames, records)
+		if exp.Format == "csv" || exp.Format == "xlsx" {
+			preparedRecords := exp.prepareExportRecords(wg, records)
+			wg.Add(1)
+			go writer.WriteRecords(wg, preparedRecords, headers, table.Name)
+		} else {
+			wg.Add(1)
+			go writer.WriteRecords(wg, records, headers, table.Name)
+		}
 
 		if exp.Index {
 			for _, index := range table.Indexes {
@@ -186,9 +246,6 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		if exp.Schema {
 			writer.WriteSchema(table.Schema, table.Name)
 		}
-
-		wg.Add(1)
-		go writer.WriteRecords(wg, records, headers, table.Name, exp.PageInfo, exp.LogInfo)
 
 		if exp.Index {
 			for _, index := range table.Indexes {
