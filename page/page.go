@@ -181,7 +181,7 @@ type Page struct {
 	IndexRows            IndexRows
 	Boot                 *Boot
 	FileHeader           *FileHeader
-	LDFRecord            *LDF.Record
+	LDFRecords           LDF.Records
 }
 
 type AllocationMaps interface {
