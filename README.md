@@ -233,6 +233,9 @@ Build a binary and then run it:
   -showcontent
         show table contents
 
+      -showrowpageinfo
+        show page and slot information for each displayed table row (requires -showcontent)
+
   -showschema
         show table schema
 
