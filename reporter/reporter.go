@@ -25,6 +25,7 @@ type Reporter struct {
 	ShowTableAllocation string
 	ShowTableIndex      bool
 	ShowPageStats       bool
+	ShowRowPageInfo     bool
 	ShowIndex           bool
 	ToTableRow          int
 	SkippedTableRows    int
@@ -156,11 +157,11 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string,
 
 	if rp.ShowHeader {
 		page.PrintHeader(rp.ShowSlots)
-		if page.LDFRecord != nil {
+		for _, record := range page.LDFRecords {
 			fmt.Printf("LOP INFO \t")
-			page.LDFRecord.ShowLOPInfo(loptype)
-			if rp.WalkPageLSN != "" {
-				page.LDFRecord.WalkInfo(rp.WalkPageLSN, loptype)
+			record.ShowLOPInfo(loptype)
+			if rp.WalkPageLSN != "" && record.CurrentLSN.Equals(page.Header.LSN) {
+				record.WalkInfo(rp.WalkPageLSN, loptype)
 			}
 		}
 	}
@@ -209,7 +210,7 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan *db.Table) {
 		table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation, rp.ShowTableIndex,
 			rp.TableType, rp.ToTableRow, rp.SkippedTableRows,
 			rp.SelectedTableRows, rp.ShowCarved, rp.ShowTableLDF,
-			rp.ShowColNames, rp.Raw)
+			rp.ShowColNames, rp.Raw, rp.ShowRowPageInfo)
 
 	}
 }
