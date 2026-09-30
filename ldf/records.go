@@ -36,7 +36,7 @@ type Record struct {
 	Context           uint8               //20
 	Lop_Insert_Delete *LOP_INSERT_DELETE
 	Lop_Modify        *LOP_MODIFY
-	Lop_Begin         *LOP_BEGIN
+	Lop_Begin         *LOP_BEGIN_XACT
 	Lop_Commit        *LOP_COMMIT
 	Lop_Begin_CKPT    *LOP_BEGIN_CKPT
 	Lop_End_CKPT      *LOP_END_CKPT
