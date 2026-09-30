@@ -25,6 +25,7 @@ type Reporter struct {
 	ShowTableAllocation string
 	ShowTableIndex      bool
 	ShowPageStats       bool
+	ShowPageLDF         bool
 	ShowRowPageInfo     bool
 	ShowIndex           bool
 	ToTableRow          int
@@ -217,16 +218,22 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan *db.Table) {
 
 func (rp Reporter) ShowLDFInfo(database db.Database, pagesId []uint32,
 	filterlop string) {
+	if database.LogDB == nil {
+		fmt.Printf("No log database found for %s\n", database.Name)
+		return
+	}
+
 	if rp.ShowLDF {
-		if database.LogDB == nil {
-			fmt.Printf("No log database found for %s\n", database.Name)
-			return
-		}
+
 		database.LogDB.ShowLDF(filterlop)
-		database.LogDB.ShowPagesLDF(pagesId)
 
 		direction := rp.WalkLSN
 		database.LogDB.WalkLSN(filterlop, direction)
 
+	}
+
+	if rp.ShowPageLDF {
+
+		database.LogDB.ShowPagesLDF(pagesId)
 	}
 }
