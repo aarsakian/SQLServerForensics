@@ -49,7 +49,7 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 	exportFormat string, exportBlob bool, exportPath string, exportIndex bool,
 	exportSchema bool, exportPageInfo bool, exportLogInfo bool,
 	sortByLSN string,
-	walkpageLSN string, walkLSN string, showRowPageInfo bool) {
+	walkpageLSN string, walkLSN string, showRowPageInfo bool, showPageLDF bool) {
 
 	PM.reporter = reporter.Reporter{
 		ShowDBInfo:          showDBInfo,
@@ -68,6 +68,7 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 		ShowTableAllocation: showTableAllocation,
 		ShowTableIndex:      showTableIndex,
 		ShowPageStats:       showPageStats,
+		ShowPageLDF:         showPageLDF,
 		ShowRowPageInfo:     showRowPageInfo,
 		ShowIndex:           showIndex,
 		ToTableRow:          toTableRow,
