@@ -374,7 +374,7 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 			}
 
 		case "LOP_BEGIN_XACT":
-			lop_begin_xact := new(LOP_BEGIN)
+			lop_begin_xact := new(LOP_BEGIN_XACT)
 			lop_begin_xact.Process(bs[recordOffset:])
 			record.Lop_Begin = lop_begin_xact
 		case "LOP_COMMIT_XACT":
