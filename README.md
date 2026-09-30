@@ -165,6 +165,9 @@ Build a binary and then run it:
   -showpages string
         select specific pages to show; comma-separated page IDs
 
+  -showpageldf
+        show LDF records for pages selected with -showpages (requires an LDF source)
+
   -showpagestats
         show page statistics for SGAM, GAM, PFS, and IAM pages
 
