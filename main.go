@@ -62,8 +62,8 @@ import (
 )
 
 func validateLDFFlags(dbfile string, ldbfile string, evidencefile string, physicalDrive int, sourcedir string,
-	showLDF bool, showTableLDF bool, filterlop string, walkLSN string, walkpageLSN string, sortByLSN string) error {
-	ldfFlagsSet := showLDF || showTableLDF || filterlop != "" || walkLSN != "" || walkpageLSN != "" || sortByLSN != ""
+	showLDF bool, showTableLDF bool, showPageLDF bool, filterlop string, walkLSN string, walkpageLSN string, sortByLSN string) error {
+	ldfFlagsSet := showLDF || showTableLDF || showPageLDF || filterlop != "" || walkLSN != "" || walkpageLSN != "" || sortByLSN != ""
 	if !ldfFlagsSet {
 		return nil
 	}
@@ -115,6 +115,7 @@ func main() {
 
 	showHeader := flag.Bool("showheader", false, "show page header")
 	showPages := flag.String("showpages", "", "select specific pages to show info (use comma for each page id)")
+	showPageLDF := flag.Bool("showpageldf", false, "show LDF records for selected pages")
 	showRowPageInfo := flag.Bool("showrowpageinfo", false, "show page and slot information for each table row")
 	showPageStats := flag.Bool("showpagestats", false,
 		"show page statistics sgam, gam, pfs iam for pages")
@@ -234,6 +235,9 @@ func main() {
 	if *showRowPageInfo && !*showTableContent {
 		log.Fatalf("showrowpageinfo flag requires showcontent to be set")
 	}
+	if *showPageLDF && *showPages == "" {
+		log.Fatalf("showpageldf flag requires showpages to be set")
+	}
 
 	if *walkLSN != "" && *filterlop == "" {
 		log.Fatalf("walk lsn flag requires filterlop to be set")
@@ -250,7 +254,7 @@ func main() {
 	}
 
 	if err := validateLDFFlags(*dbfile, *ldbfile, *evidencefile, *physicalDrive, *sourcedir,
-		*showLDF, *showTableLDF, *filterlop, *walkLSN, *walkpageLSN, *sortByLSN); err != nil {
+		*showLDF, *showTableLDF, *showPageLDF, *filterlop, *walkLSN, *walkpageLSN, *sortByLSN); err != nil {
 		log.Fatal(err)
 	}
 
@@ -294,8 +298,8 @@ func main() {
 	}
 
 	// filterlop only makes sense with LDF processing
-	if *filterlop != "" && !*showLDF && *walkLSN == "" && *walkpageLSN == "" {
-		log.Fatalf("filterlop flag is set but none of -showldf, -walklsn, or -walkpagelsn are enabled")
+	if *filterlop != "" && !*showLDF && !*showPageLDF && *walkLSN == "" && *walkpageLSN == "" {
+		log.Fatalf("filterlop flag is set but none of -showldf, -showpageldf, -walklsn, or -walkpagelsn are enabled")
 	}
 
 	// Table-specific display flags should be used with table processing
@@ -563,7 +567,7 @@ func main() {
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportBlob, *exportPath, *exportIndex,
 		*exportSchema, *exportPageInfo, *exportLogInfo,
-		*sortByLSN, *walkpageLSN, *walkLSN, *showRowPageInfo)
+		*sortByLSN, *walkpageLSN, *walkLSN, *showRowPageInfo, *showPageLDF)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
