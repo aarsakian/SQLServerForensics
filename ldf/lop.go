@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-type LOP_BEGIN struct {
+type LOP_BEGIN_XACT struct {
 	SPID                      uint16
 	Unknown                   [2]byte
 	BeginlogStatus            uint32
@@ -184,7 +184,7 @@ func (lop_modify *LOP_MODIFY) Process(bs []byte) error {
 	return nil
 }
 
-func (lop_begin *LOP_BEGIN) Process(bs []byte) {
+func (lop_begin *LOP_BEGIN_XACT) Process(bs []byte) {
 
 	utils.Unmarshal(bs, lop_begin)
 	if 60+int(lop_begin.TransactionNameLen) > len(bs) {
@@ -193,7 +193,7 @@ func (lop_begin *LOP_BEGIN) Process(bs []byte) {
 	lop_begin.TransactionName = utils.DecodeUTF16(bs[60 : 60+lop_begin.TransactionNameLen])
 }
 
-func (lop_begin *LOP_BEGIN) ShowInfo() {
+func (lop_begin *LOP_BEGIN_XACT) ShowInfo() {
 	fmt.Printf("BegTime %s Xact ID %d Trans Name %s Trans SID %d\n",
 		utils.DateTimeTostr(lop_begin.BeginTime[:]),
 		lop_begin.XactID, lop_begin.TransactionName, lop_begin.TransactionSID)
