@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -588,14 +589,25 @@ func (db Database) GetLDFName() string {
 }
 
 func (db Database) CorrelateLDFToPages() {
-	//correlate using LSN
+	correlationEngine := new(correlation.CorrelationEngine)
+	correlationEngine.CorrelateRecords(db.LogDB.GetRecords(), db.PartitionIdToObjectID)
+
 	node := db.PagesPerAllocUnitID.GetHeadNode()
 	for node != nil {
 		for idx := range node.Pages {
-			record, ok := db.LogDB.LSNToRecords[node.Pages[idx].Header.LSN]
-			if ok {
-				node.Pages[idx].LDFRecord = record
-				break
+			page := &node.Pages[idx]
+			page.LDFRecords = nil
+			for _, correlatedRecord := range correlationEngine.ByPage[page.Header.PageId] {
+				if correlatedRecord.LogRecord != nil {
+					page.LDFRecords = append(page.LDFRecords, correlatedRecord.LogRecord)
+				}
+			}
+
+			if record, ok := db.LogDB.LSNToRecords[page.Header.LSN]; ok {
+				found := slices.Contains(page.LDFRecords, record)
+				if !found {
+					page.LDFRecords = append(page.LDFRecords, record)
+				}
 			}
 		}
 		node = node.Next
