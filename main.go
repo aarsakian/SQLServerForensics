@@ -115,6 +115,7 @@ func main() {
 
 	showHeader := flag.Bool("showheader", false, "show page header")
 	showPages := flag.String("showpages", "", "select specific pages to show info (use comma for each page id)")
+	showRowPageInfo := flag.Bool("showrowpageinfo", false, "show page and slot information for each table row")
 	showPageStats := flag.Bool("showpagestats", false,
 		"show page statistics sgam, gam, pfs iam for pages")
 
@@ -228,6 +229,10 @@ func main() {
 
 	if *exportLogInfo && *exportPath == "" {
 		log.Fatalf("exportpageinfo flag requires export path to be set")
+	}
+
+	if *showRowPageInfo && !*showTableContent {
+		log.Fatalf("showrowpageinfo flag requires showcontent to be set")
 	}
 
 	if *walkLSN != "" && *filterlop == "" {
@@ -558,7 +563,7 @@ func main() {
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportBlob, *exportPath, *exportIndex,
 		*exportSchema, *exportPageInfo, *exportLogInfo,
-		*sortByLSN, *walkpageLSN, *walkLSN)
+		*sortByLSN, *walkpageLSN, *walkLSN, *showRowPageInfo)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
