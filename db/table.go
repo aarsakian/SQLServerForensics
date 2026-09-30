@@ -459,7 +459,8 @@ func (table Table) printTableInfo() {
 
 func (table Table) Show(showSchema bool, showContent bool,
 	showAllocation string, showIndex bool, tabletype string, showtorow int, skiprows int,
-	showrows []int, showcarved bool, showtableldf bool, showcolnames []string, showrawdata bool) {
+	showrows []int, showcarved bool, showtableldf bool, showcolnames []string, showrawdata bool,
+	showRowPageInfo bool) {
 
 	if showSchema || showContent || showtableldf || showAllocation != "" {
 		fmt.Printf("Table %s\n", table.Name)
@@ -470,8 +471,9 @@ func (table Table) Show(showSchema bool, showContent bool,
 	if showContent {
 
 		fmt.Printf("(l) - logged (c) - carved\n")
-		table.printHeader(showcolnames, showtableldf)
-		table.printData(showtorow, skiprows, showrows, showcarved, showtableldf, showcolnames, showrawdata)
+		table.printHeader(showcolnames, showtableldf, showRowPageInfo)
+		table.printData(showtorow, skiprows, showrows, showcarved, showtableldf, showcolnames, showrawdata,
+			showRowPageInfo)
 		table.cleverPrintData()
 	}
 	if showtableldf {
@@ -494,7 +496,7 @@ func (table Table) Show(showSchema bool, showContent bool,
 }
 
 func (table Table) printLog() {
-
+	fmt.Printf("Table %s log records\n", table.Name)
 	for _, record := range table.logRecords {
 		record.ShowLOPInfo("any")
 	}
@@ -653,7 +655,7 @@ func (table Table) GetBlobs(wg *sync.WaitGroup, blobs chan<- utils.Blob) {
 
 }
 
-func (table Table) printHeader(showcolnames []string, showldf bool) {
+func (table Table) printHeader(showcolnames []string, showldf bool, showRowPageInfo bool) {
 	for _, c := range table.Schema {
 		if len(showcolnames) == 0 {
 			fmt.Printf("%s ", c.Name)
@@ -669,6 +671,9 @@ func (table Table) printHeader(showcolnames []string, showldf bool) {
 	}
 	if showldf {
 		fmt.Printf("log information ")
+	}
+	if showRowPageInfo {
+		fmt.Printf("page Id : Slot Number ")
 	}
 	fmt.Printf("\n")
 }
@@ -752,7 +757,8 @@ func (table Table) cleverPrintData() {
 }
 
 func (table Table) printData(showtorow int, skiprows int,
-	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool) {
+	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool,
+	showRowPageInfo bool) {
 	for idx, row := range table.Rows { // when no rder check?
 		locatedRow := true
 
@@ -820,6 +826,9 @@ func (table Table) printData(showtorow int, skiprows int,
 
 		if showldf && row.Logged {
 			fmt.Printf(" %s ", row.LoggedOperation)
+		}
+		if showRowPageInfo {
+			fmt.Printf("%d:%d ", row.RowId.PageId, row.RowId.SlotNumber)
 		}
 
 		fmt.Printf("\n")
