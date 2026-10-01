@@ -199,6 +199,7 @@ func (rp Reporter) ShowPage(page pages.Page, loptype string,
 	}
 
 	if rp.ShowCarved && rp.ShowDataCols {
+		fmt.Printf("\nCarved data rows:\n")
 		page.ShowCarvedDataRows()
 	}
 }
