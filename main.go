@@ -104,7 +104,7 @@ func main() {
 	partitionNum := flag.Int("partition", -1,
 		"select the partition number to look for MDF files  (requires admin rights!)")
 	location := flag.String("location", "MDF", "the path to export MDF/LDF files")
-	carve := flag.Bool("carve", false, "Carve data records and try to interpret")
+	carve := flag.Bool("carve", false, "Carve data recordsf")
 
 	selectedPages := flag.String("pages", "", "select pages to parse (use comma for each page id, other pages will be ignored)")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
@@ -310,11 +310,6 @@ func main() {
 	// Table row selection flags require table processing or showtableallocation
 	if (*selectedTableRows != "" || *toTableRows != -1 || *skippedTableRows != 0) && !*processTables && *showTableAllocation == "" {
 		log.Fatalf("row selection flags (-rows, -torow, -fromrow) require -processtables or -showtableallocation to be set")
-	}
-
-	// Carve flag requires some form of table processing
-	if *carve && !*processTables && *showTableAllocation == "" && !*showTableLDF && !*showTableContent {
-		log.Fatalf("carve flag requires -processtables, -showtableallocation, -showtableldf, or -showcontent to be set")
 	}
 
 	// Table type filter requires some form of table processing
