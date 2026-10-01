@@ -38,6 +38,9 @@ h2 {justify-content: center; display: flex; color: #333; }
 .page-nav a:hover { background: #eaeaea; }
 .page-nav .page-nav-disabled { color: #999; border-color: #ddd; background: #fafafa; }
 .page-nav .page-nav-current { font-weight: 700; letter-spacing: 0.02em; margin: 0 12px; }
+.page-jump { display: flex; align-items: center; gap: 6px; }
+.page-jump input { width: 4.5em; padding: 4px 6px; }
+.page-jump button { padding: 4px 10px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; color: #333; cursor: pointer; }
 .row-legend {
 	display: flex;
 	justify-content: center;
@@ -77,6 +80,10 @@ h2 {justify-content: center; display: flex; color: #333; }
 {{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
 {{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{end}}
 {{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
+<form class="page-jump" data-page-prefix="{{.Name}}">
+<label>Go to page <input type="number" name="page" min="1" step="1" value="{{.CurPage}}" required></label>
+<button type="submit">Go</button>
+</form>
 </nav>
 {{end}}
 
@@ -126,6 +133,10 @@ h2 {justify-content: center; display: flex; color: #333; }
 {{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
 {{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{end}}
 {{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
+<form class="page-jump" data-page-prefix="{{.Name}}">
+<label>Go to page <input type="number" name="page" min="1" step="1" value="{{.CurPage}}" required></label>
+<button type="submit">Go</button>
+</form>
 </nav>
 {{end}}
 
@@ -251,6 +262,18 @@ h2 {justify-content: center; display: flex; color: #333; }
 
 	applyFilters();
 })();
+</script>
+{{end}}
+{{if .IsPaginated}}
+<script>
+document.querySelectorAll(".page-jump").forEach((form) => {
+	form.addEventListener("submit", (event) => {
+		event.preventDefault();
+		const page = form.querySelector('input[name="page"]')?.valueAsNumber;
+		if (!Number.isInteger(page) || page < 1) return;
+		window.location.href = `${form.dataset.pagePrefix}_${page - 1}.html`;
+	});
+});
 </script>
 {{end}}
 </body>
