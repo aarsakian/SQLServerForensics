@@ -422,15 +422,10 @@ func (vlfheader VLFHeader) FirstLogBlockOffset() int64 {
 	return DefaultVLFLogBlockOffset
 }
 
-func (logBlockHeader LogBlockHeader) FirstToStr() string {
-	return logBlockHeader.FirstLSN.ToStr()
-}
-
 func (logBlock LogBlock) ShowInfo(filterloptype string) {
-	if filterloptype == "" {
-		fmt.Printf("Log Block Header Slots %d size %d FirstLSN %s\n",
-			logBlock.Header.NofSlots, logBlock.Header.Size, logBlock.Header.FirstToStr())
-	}
+
+	fmt.Printf("Log Block Header Slots %d size %d FirstLSN %s\n",
+		logBlock.Header.NofSlots, logBlock.Header.Size, logBlock.Header.FirstLSN.ToStr())
 
 	for _, record := range logBlock.Records {
 		record.ShowLOPInfo(filterloptype)
