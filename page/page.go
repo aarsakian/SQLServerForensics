@@ -724,8 +724,8 @@ func (page Page) ShowSlotInfo() {
 
 	fmt.Printf("Slots info page %d\n", page.Header.PageId)
 	for slotnum, slot := range page.Slots {
-		fmt.Printf("%d: offset %d slack area %d\n", slotnum,
-			slot.Offset, slot.AllocatedDataRowSize-slot.ActualDataRowSize)
+		fmt.Printf("%d: offset %d (%x) slack area %d\n", slotnum,
+			slot.Offset, slot.Offset, slot.AllocatedDataRowSize-slot.ActualDataRowSize)
 	}
 }
 
