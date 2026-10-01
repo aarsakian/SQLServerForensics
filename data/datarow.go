@@ -217,10 +217,10 @@ func (dataRow DataRow) ShowData() {
 	msg := fmt.Sprintf("Fixed len cols end at %d  : %x",
 		4+reflect.ValueOf(dataRow.FixedLenCols).Len(), dataRow.FixedLenCols)
 	mslogger.Mslogger.Info(msg)
-	fmt.Printf(msg + "\nVar len info cols: \n")
+	fmt.Printf("%s", msg+"\nVar len info cols: \n")
 	if dataRow.VarLenCols == nil {
 		msg := "No Var Len cols found"
-		fmt.Printf(msg + "\n")
+		fmt.Printf("%s", msg+"\n")
 		mslogger.Mslogger.Warning(msg)
 		return
 	}
