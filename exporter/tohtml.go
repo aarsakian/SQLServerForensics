@@ -1,10 +1,7 @@
 package exporter
 
 import (
-	"MSSQLParser/db"
-	"MSSQLParser/db/tables"
-	mslogger "MSSQLParser/logger"
-	"MSSQLParser/utils"
+	"bytes"
 	"fmt"
 	"html/template"
 	"log"
@@ -13,6 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"MSSQLParser/db"
+	"MSSQLParser/db/tables"
+	mslogger "MSSQLParser/logger"
+	"MSSQLParser/utils"
 )
 
 type HTMLExporter struct {
@@ -75,7 +77,8 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	headers []string, filename string) {
 	defer wg.Done()
 
-	var paginatedFile *os.File
+	var paginatedRows bytes.Buffer
+	pageOpen := false
 
 	msg := fmt.Sprintf("Exporting data from %s to %s", filename, h.Path)
 	fmt.Printf("%s \n", msg)
@@ -103,30 +106,12 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	firstPageBuffer := make([]rowTemplateData, 0, RowsPerPage)
 
 	openPaginatedPage := func(idx int) {
-		var err error
-		fpath := filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename, idx))
-		paginatedFile, err = os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		pageData := data
-		pageData.IsPaginated = true
-		pageData.CurPage = fmt.Sprintf("%d", idx+1)
-		if idx == 0 {
-			pageData.PrevPage = ""
-		} else {
-			pageData.PrevPage = paginatedPageName(filename, idx-1)
-		}
-		pageData.NextPage = ""
-
-		if err = h.Templates["table"].ExecuteTemplate(paginatedFile, "header", pageData); err != nil {
-			log.Fatal(err)
-		}
+		paginatedRows.Reset()
+		pageOpen = true
 	}
 
 	closePaginatedPage := func(hasNext bool) {
-		if paginatedFile == nil {
+		if !pageOpen {
 			return
 		}
 
@@ -144,13 +129,24 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 			pageData.NextPage = ""
 		}
 
+		fpath := filepath.Join(h.Path, fmt.Sprintf("%s_%d.html", filename, pageIdx))
+		paginatedFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "header", pageData); err != nil {
+			log.Fatal(err)
+		}
+		if _, err := paginatedFile.Write(paginatedRows.Bytes()); err != nil {
+			log.Fatal(err)
+		}
 		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "footer", pageData); err != nil {
 			log.Fatal(err)
 		}
 		if err := paginatedFile.Close(); err != nil {
 			log.Fatal(err)
 		}
-		paginatedFile = nil
+		pageOpen = false
 	}
 
 	for record := range records {
@@ -171,7 +167,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 				pageIdx = 0
 				openPaginatedPage(pageIdx)
 				for _, bufferedRecord := range firstPageBuffer {
-					if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", bufferedRecord); err != nil {
+					if err := h.Templates["table"].ExecuteTemplate(&paginatedRows, "row", bufferedRecord); err != nil {
 						log.Fatal(err)
 					}
 				}
@@ -188,7 +184,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 			pageRowCount = 0
 		}
 
-		if err := h.Templates["table"].ExecuteTemplate(paginatedFile, "row", rowTmpl); err != nil {
+		if err := h.Templates["table"].ExecuteTemplate(&paginatedRows, "row", rowTmpl); err != nil {
 			log.Fatal(err)
 		}
 		pageRowCount++
