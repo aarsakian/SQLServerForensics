@@ -6,10 +6,19 @@ import (
 )
 
 const (
-	version2025    = 998
-	version2022    = 957
-	version2019    = 895
-	version2017    = 869
+	version2025RTM = 998
+	version2025CTP = 997
+
+	version2022RTM = 957
+	version2022RC1 = 950
+
+	version2019RTM   = 904
+	version2019CTP30 = 902
+	version2019CTP20 = 895
+
+	version2017Max = 894
+	version2017Min = 869
+
 	version2016    = 852
 	version2014    = 782
 	version2012    = 706
@@ -126,30 +135,31 @@ type Boot struct {
 }
 
 func (boot Boot) GetVersion() string {
-	switch boot.Dbi_Version {
-	case version2025:
+	switch {
+	case boot.Dbi_Version == version2025RTM || boot.Dbi_Version == version2025CTP:
 		return "SQL Server 2025"
-	case version2022:
+	case boot.Dbi_Version == version2022RC1 || boot.Dbi_Version == version2022RTM:
 		return "SQL Server 2022"
-	case version2019:
+	case boot.Dbi_Version == version2019CTP20 || boot.Dbi_Version == version2019CTP30 ||
+		boot.Dbi_Version == version2019RTM:
 		return "SQL Server 2019"
-	case version2017:
+	case boot.Dbi_Version >= version2017Min || boot.Dbi_Version <= version2017Max:
 		return "SQL Server 2017"
-	case version2016:
+	case boot.Dbi_Version == version2016:
 		return "SQL Server 2016"
-	case version2014:
+	case boot.Dbi_Version == version2014:
 		return "SQL Server 2014"
-	case version2012:
+	case boot.Dbi_Version == version2012:
 		return "SQL Server 2012"
-	case version2008SP2:
+	case boot.Dbi_Version == version2008SP2:
 		return "SQL Server 2008 SP2"
-	case version2008SP1:
+	case boot.Dbi_Version == version2008SP1:
 		return "SQL Server 2008 SP1"
-	case version2008:
+	case boot.Dbi_Version == version2008:
 		return "SQL Server 2008"
-	case version2005:
+	case boot.Dbi_Version == version2005:
 		return "SQL Server 2005"
-	case version2000:
+	case boot.Dbi_Version == version2000:
 		return "SQL Server 2000"
 	default:
 		return "unknown version"
