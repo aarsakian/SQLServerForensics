@@ -375,6 +375,23 @@ func (records Records) DetermineBeginLSNOfCheckpoint() (utils.LSN, error) {
 
 	for _, record := range lop_begin_ckpt_records[1:] {
 		if record.CurrentLSN.IsGreaterEqual(currentLSN) {
+			currentLSN = record.CurrentLSN
+		}
+	}
+
+	return currentLSN, nil
+}
+
+func (records Records) DetermineEndLSNOfCheckpoint() (utils.LSN, error) {
+	lop_end_ckpt_records := records.FilterByOperation("LOP_END_CKPT")
+	if len(lop_end_ckpt_records) == 0 {
+		return utils.LSN{}, errors.New("no LOP_END_CKPT found")
+	}
+
+	currentLSN := lop_end_ckpt_records[0].CurrentLSN
+
+	for _, record := range lop_end_ckpt_records[1:] {
+		if record.CurrentLSN.IsGreaterEqual(currentLSN) {
 
 			currentLSN = record.CurrentLSN
 		}
