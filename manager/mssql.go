@@ -171,15 +171,15 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		}
 
-		calculatedDbiCheckptLsn, err2 := logdb.GetDbiCheckptLSN()
+		beginLSN, endLSN, err2 := logdb.GetDbiCheckptLSNRange()
 		if err2 != nil {
 			fmt.Printf("skipping processing of ldf file %s due to error getting calculated DbiCheckpt LSN %s \n", inputFile, err2)
 			continue
 		}
 
-		minLsn, _ := logdb.GetMinLSN(calculatedDbiCheckptLsn)
+		minLsn, _ := logdb.GetMinLSN(beginLSN)
 
-		keyb := append([]byte(dir), calculatedDbiCheckptLsn.ToBytes()...)
+		keyb := append([]byte(dir), endLSN.ToBytes()...)
 		sum := md5.Sum(keyb)
 
 		dbkey = fmt.Sprintf("%s_%s", logdb.GetBindingID(), hex.EncodeToString(sum[:]))

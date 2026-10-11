@@ -87,13 +87,18 @@ func (logdb LogDB) GetBindingID() string {
 	return utils.StringifyGUID(logdb.LogPage.FileHeader.BindingID[:])
 }
 
-func (logdb LogDB) GetDbiCheckptLSN() (utils.LSN, error) {
+func (logdb LogDB) GetDbiCheckptLSNRange() (utils.LSN, utils.LSN, error) {
 	records := logdb.GetRecords()
 	beginLSN, err2 := records.DetermineBeginLSNOfCheckpoint()
-	if err2 != nil {
-		return utils.LSN{}, err2
+	endLSN, err3 := records.DetermineEndLSNOfCheckpoint()
+	if err2 != nil && err3 != nil {
+		return utils.LSN{}, utils.LSN{}, err2
+	} else if err2 != nil && err3 == nil {
+		return endLSN, utils.LSN{}, nil
+	} else if err2 == nil && err3 != nil {
+		return beginLSN, utils.LSN{}, nil
 	} else {
-		return beginLSN, nil
+		return beginLSN, endLSN, nil
 	}
 
 }
