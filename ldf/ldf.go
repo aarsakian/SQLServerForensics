@@ -3,6 +3,7 @@ package LDF
 import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/utils"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -74,12 +75,12 @@ const (
 	FlagCommit        uint8 = 0x10
 	FlagCLR           uint8 = 0x20
 	FlagBeginXact     uint8 = 0x40
-	FlagReserverd     uint8 = 0x80
+	FlagReserved      uint8 = 0x80
 )
 
 const ValidFlags uint8 = FlagFirstInSector | FlagLastInSector | FlagFirstInBlock | FlagLastInBlock |
 	FlagCommit |
-	FlagCLR | FlagBeginXact | FlagReserverd
+	FlagCLR | FlagBeginXact | FlagReserved
 
 var LOGBLOCKMINSIZE int = 512
 
@@ -153,8 +154,8 @@ func (logblockheader LogBlockHeader) IsUnwritten() bool {
 }
 
 // exclude non valid flags
-func (logblockheadr LogBlockHeader) IsValid() bool {
-	return (logblockheadr.FlagBit & ^ValidFlags) == 0
+func (logblockheadr LogBlockHeader) IsFlagValid() bool {
+	return (logblockheadr.FlagBit & ^ValidFlags) == 0 && logblockheadr.FlagBit&0xc0 != 0xc0
 }
 
 func (logBlock LogBlock) GetSize() int64 {
@@ -241,13 +242,29 @@ func (vlf *VLF) Process(file os.File, offset int64, carve bool) int {
 		logBlock := new(LogBlock)
 		logBlock.ProcessHeader(bs)
 
-		if logBlock.Header.Size == 0 {
+		if logBlock.Header.FirstLSN.IsZeroed() {
+			msg := fmt.Sprintf("LogBlock header first LSN is zero at offset %d continuing", currentOffset)
+			mslogger.Mslogger.Warning(msg)
+			currentOffset += int64(LOGBLOCKMINSIZE)
+			continue
+		} else if logBlock.Header.FirstLSN.P1 != vlf.Header.FSeqNo {
+			msg := fmt.Sprintf("LogBlock header first LSN P1 %d does not match VLF FSeqNo %d at offset %d continuing",
+				logBlock.Header.FirstLSN.P1, vlf.Header.FSeqNo, currentOffset)
+			mslogger.Mslogger.Warning(msg)
+			currentOffset += int64(LOGBLOCKMINSIZE)
+			continue
+		} else if logBlock.Header.Size == 0 {
 			msg := fmt.Sprintf("LogBlock header size is zero at offset %d continuing", currentOffset)
 			mslogger.Mslogger.Warning(msg)
 			currentOffset += int64(LOGBLOCKMINSIZE)
 			continue
-		} else if !logBlock.Header.IsValid() {
+		} else if !logBlock.Header.IsFlagValid() {
 			msg := fmt.Sprintf("LogBlock header invalid at offset %d continuing", currentOffset)
+			mslogger.Mslogger.Warning(msg)
+			currentOffset += int64(LOGBLOCKMINSIZE)
+			continue
+		} else if logBlock.Header.NofSlots == 0 || logBlock.Header.NofSlots > 500 {
+			msg := fmt.Sprintf("LogBlock header NofSlots is invalid at offset %d continuing", currentOffset)
 			mslogger.Mslogger.Warning(msg)
 			currentOffset += int64(LOGBLOCKMINSIZE)
 			continue
@@ -265,15 +282,15 @@ func (vlf *VLF) Process(file os.File, offset int64, carve bool) int {
 			return recordsProcessed
 		}
 
-		recordsProcessed += logBlock.ProcessRecords(bs, currentOffset, carve)
-
-		if logBlock.Header.NofSlots < 500 && logBlock.Header.NofSlots > 0 {
-			vlf.Blocks = append(vlf.Blocks, *logBlock)
-		} else {
-			msg := fmt.Sprintf("number of log records %d exceeds expected at offset %d continuing",
-				logBlock.Header.NofSlots, currentOffset)
-			mslogger.Mslogger.Warning(msg)
+		recordsProcessedAtThisRound, err := logBlock.ProcessRecords(bs, currentOffset, carve)
+		if err != nil {
+			currentOffset += int64(LOGBLOCKMINSIZE)
+			continue
 		}
+
+		recordsProcessed += recordsProcessedAtThisRound
+
+		vlf.Blocks = append(vlf.Blocks, *logBlock)
 
 		currentOffset += int64(logBlock.GetSize())
 		logBlockoffset = currentOffset - offset
@@ -290,30 +307,52 @@ func (vlf *VLF) Process(file os.File, offset int64, carve bool) int {
 // the only log record that contains the date and time when the transaction started,
 //user SID
 
-func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool) int {
+func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool) (int, error) {
 	recordOffsets := make(RecordOffsets, logBlock.Header.NofSlots)
 
 	LSN_to_Record := make(map[utils.LSN]*Record)
+	allRecordOffsetsAreZero := true
 
 	for recordId := range recordOffsets {
 		if len(bs) < 2*(recordId+1) {
-			msg := fmt.Sprintf("log record id exceeds buffer at %d", recordId)
+			msg := fmt.Sprintf("log record id exceeds buffer at %d", baseOffset+int64(recordId))
 			mslogger.Mslogger.Warning(msg)
 			break
 		}
-		recordOffsets[recordId] = utils.ToUint16(bs[len(bs)-2*(recordId+1) : len(bs)-2*recordId])
+		recordOffset := utils.ToUint16(bs[len(bs)-2*(recordId+1) : len(bs)-2*recordId])
+		if recordOffset != 0 {
+			recordOffsets[recordId] = recordOffset
+			allRecordOffsetsAreZero = false
+		}
 
 	}
 
+	if allRecordOffsetsAreZero {
+		msg := fmt.Sprintf("all log record offsets are zero at offset %d", baseOffset)
+		mslogger.Mslogger.Warning(msg)
+		return 0, errors.New(msg)
+	}
+
 	currentLSN := logBlock.Header.FirstLSN
+	if currentLSN.IsZeroed() {
+		msg := fmt.Sprintf("log block first LSN is zero at offset %d", baseOffset)
+		mslogger.Mslogger.Warning(msg)
+		return 0, errors.New(msg)
+	} else if currentLSN.P1 == 0xc0c0c0c0 && currentLSN.P2 == 0xc0c0c0c0 && currentLSN.P3 == 0xc0c0 {
+		msg := fmt.Sprintf("log block first LSN is not in use at offset %d", baseOffset)
+		mslogger.Mslogger.Warning(msg)
+		return 0, errors.New(msg)
+	}
 
 	for _, recordOffset := range recordOffsets {
 		if recordOffset == 0 {
-			mslogger.Mslogger.Warning("log record offset is zero")
+			msg := fmt.Sprintf("log record offset is zero at offset %d", baseOffset)
+			mslogger.Mslogger.Warning(msg)
 			continue
 		}
 		if len(bs) <= int(recordOffset)+4 {
-			msg := fmt.Sprintf("log record offset exceeds buffer at %d", recordOffset)
+			msg := fmt.Sprintf("log record offset exceeds buffer at %d",
+				baseOffset+int64(recordOffset))
 			mslogger.Mslogger.Warning(msg)
 			break
 		}
@@ -329,6 +368,16 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 		record.CurrentLSN = currentLSN
 
 		prevRecord := LSN_to_Record[record.PreviousLSN]
+
+		//within the same vlf P1 of LSN must be the same
+		if prevRecord != nil && prevRecord.CurrentLSN.P1 != record.CurrentLSN.P1 {
+			msg := fmt.Sprintf("log record previous LSN %s does not match current LSN %s at offset %d",
+				prevRecord.CurrentLSN.ToStr(), record.CurrentLSN.ToStr(),
+				baseOffset+int64(recordOffset))
+			mslogger.Mslogger.Warning(msg)
+			return 0, errors.New(msg)
+		}
+
 		//currentLSN must differ
 		if prevRecord != nil && prevRecord.CurrentLSN != record.CurrentLSN {
 			prevRecord.NextRecord = record
@@ -399,10 +448,10 @@ func (logBlock *LogBlock) ProcessRecords(bs []byte, baseOffset int64, carve bool
 
 		mslogger.Mslogger.Info(fmt.Sprintf("Record LSN %s type %s at %d",
 			record.CurrentLSN.ToStr(), record.GetOperationType(),
-			int64(recordOffset)+baseOffset))
+			int64(recordOffset)+baseOffset-24))
 
 	}
-	return len(logBlock.Records)
+	return len(logBlock.Records), nil
 }
 
 func (logBlock *LogBlock) ProcessHeader(bs []byte) {
