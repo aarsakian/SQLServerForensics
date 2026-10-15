@@ -4,6 +4,7 @@ import (
 	"MSSQLParser/logger"
 	mslogger "MSSQLParser/logger"
 	"log"
+	"math/big"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -534,7 +535,16 @@ func DecimalToStr(data []byte, precision uint8, scale uint8) string {
 		sign = "-"
 	}
 
-	val := strconv.FormatUint(uint64(ToInt32(data[1:])), 10)
+	dataPayalod := Bytereverse(data[1:])
+	scaledInt := new(big.Int).SetBytes(dataPayalod)
+
+	val := scaledInt.String()
+
+	//apply padding if necessary
+	if len(val) < int(scale) {
+		padding := int(scale) - len(val) + 1
+		val = strings.Repeat("0", padding) + val
+	}
 
 	dotPos := len(val) - int(scale)
 	if dotPos < 0 {
