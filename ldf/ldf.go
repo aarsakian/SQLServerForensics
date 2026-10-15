@@ -34,8 +34,7 @@ SIMPLE recovery model, the active part of transaction log starts with VLF, which
     OR replication/truncation markers
 
 MinLSN=min⁡(OldestActiveTransactionLSN, CheckpointBeginLSN, UnreplicatedLSN)
-MinLSN == dbi_checkptLSN in the database boot page
-No active transactions
+
 
 unreplicatedLSN (or the oldest unreplicated transaction LSN) is the starting
 Log Sequence Number of the oldest committed transaction that has not yet been processed by SQL
@@ -48,6 +47,8 @@ The oldest active transaction began before the checkpoint.
 MinLSN = OldestActiveXactLSN
 → this is earlier than Dbi_checkptLSN.
 
+***No active transactions OR no replication OR no backup ***
+minLSN = first log record of the first active VLF
 
 All dirty pages flushed
 the oldest LSN of the oldest active transaction or the last CHECKPOINT
