@@ -347,7 +347,7 @@ func (syscolpars SysColpars) GetType() string {
 
 }
 
-func (c SysColpars) isColNullable() bool {
+func (c SysColpars) IsNullable() bool {
 	// 0x01 is the NOT NULL bit.
 	// If (status & 1) == 0, the column IS nullable.
 	return c.Status&0x01 == 0
@@ -393,7 +393,7 @@ func (syscolpars SysColpars) GetAdditionalAttributes() string {
 	if syscolpars.IsComputed() {
 		attributes.WriteString("Computed ")
 	}
-	if syscolpars.isColNullable() {
+	if syscolpars.IsNullable() {
 		attributes.WriteString("Nullable ")
 	}
 

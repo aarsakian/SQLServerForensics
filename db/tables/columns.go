@@ -49,7 +49,7 @@ type Column struct {
 	Charmap      *charmap.Charmap
 	CodePage     string
 	OffsetMap    map[uint64]int16 //partitionId -> offset
-	IslNullable  bool
+	IsNullable   bool
 	IsAnsiPadded bool
 	IsIdentity   bool
 	IsRowGUIDCol bool
@@ -185,6 +185,8 @@ func (c Column) ToString(data []byte) string {
 		return utils.Decode(data, c.Charmap, c.CodePage)
 
 	case "nvarchar", "ntext", "nchar": //n = number of byte pairs (10=10x2 20bytes in Latin1_Gen.... SC_UTF8)
+		return utils.DecodeUTF16(data)
+	case "xml":
 		return utils.DecodeUTF16(data)
 	case "datetime2":
 		return utils.DateTime2Tostr(data)
