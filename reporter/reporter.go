@@ -220,7 +220,7 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan *db.Table) {
 func (rp Reporter) ShowLDFInfo(database db.Database, pagesId []uint32,
 	filterlop string) {
 	if database.LogDB == nil {
-		fmt.Printf("No log database found for %s\n", database.Name)
+		fmt.Printf("No log file found for database %s\n", database.Name)
 		return
 	}
 
