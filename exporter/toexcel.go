@@ -273,7 +273,7 @@ func (xlsxExporter *XLSXExporter) WriteSchema(columns []tables.Column, sheetName
 		cells = append(cells, cell{
 			R: excelCellRef(colIndex+2, 4),
 			T: "str",
-			V: fmt.Sprintf("%t", col.IslNullable),
+			V: fmt.Sprintf("%t", col.IsNullable),
 		})
 		cells = append(cells, cell{
 			R: excelCellRef(colIndex+2, 5),

@@ -203,7 +203,7 @@ func (c CSVExporter) WriteSchema(schema []tables.Column, filename string) {
 	for _, col := range schema {
 		var record []string
 		record = append(record, col.Name, col.Type, fmt.Sprintf("%d", col.Size),
-			fmt.Sprintf("%t", col.IslNullable), fmt.Sprintf("%t", col.IsAnsiPadded),
+			fmt.Sprintf("%t", col.IsNullable), fmt.Sprintf("%t", col.IsAnsiPadded),
 			fmt.Sprintf("%t", col.IsIdentity), fmt.Sprintf("%t", col.IsComputed),
 			fmt.Sprintf("%t", col.IsPersisted), fmt.Sprintf("%d", col.CollationId))
 		w.Write(record)
