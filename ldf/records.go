@@ -305,28 +305,18 @@ func (records Records) DetermineMinLSN() utils.LSN {
 	return lop_end_records[recordId].Lop_End_CKPT.MinLSN
 }
 
-func (records Records) DetermineLastActiveTransactionLSN() (utils.LSN, error) {
-	lop_begin_ckpt_records := records.FilterByOperation("LOP_BEGIN_CKPT")
-	if len(lop_begin_ckpt_records) == 0 {
-		return utils.LSN{}, errors.New("no LOP_BEGIN_CKPT found")
-	}
-
-	oldestActiveLSN := lop_begin_ckpt_records[0].CurrentLSN
-	for _, record := range lop_begin_ckpt_records[1:] {
-		if record.CurrentLSN.IsGreaterEqual(oldestActiveLSN) {
-			oldestActiveLSN = record.CurrentLSN
-		}
-	}
-
+func (records Records) DetermineOldestActiveTransactionLSN() (utils.LSN, error) {
+	var oldestActiveLSN utils.LSN
 	activeRecords := make(map[string]utils.LSN)
 	//filter out records that are older than  oldestActiveLSN
-	records = records.FilterByGreaterLSN(oldestActiveLSN)
+
 	lop_begin_records := records.FilterByOperation("LOP_BEGIN_XACT")
 	lop_commit_xact_records := records.FilterByOperation("LOP_COMMIT_XACT")
 	lop_abort_xact_records := records.FilterByOperation("LOP_ABORT_XACT")
 
 	for _, record := range lop_begin_records {
 		activeRecords[record.TransactionID.ToStr()] = record.CurrentLSN
+		oldestActiveLSN = record.CurrentLSN
 	}
 	for _, record := range lop_commit_xact_records {
 		delete(activeRecords, record.TransactionID.ToStr())
