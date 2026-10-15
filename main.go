@@ -97,7 +97,7 @@ func main() {
 	ldbfile := flag.String("ldb", "", "absolute path to the LDF file")
 	mtffile := flag.String("mtf", "", "path to bak file (TAPE format)")
 
-	sourcedir := flag.String("sourcedir", "", "process all mdf and ldf files found in source directory")
+	sourcedir := flag.String("srcdir", "", "process all mdf and ldf files found in source directory")
 	physicalDrive := flag.Int("physicaldrive", -1,
 		"select the physical disk number to look for MDF file (requires admin rights!)")
 	evidencefile := flag.String("evidence", "", "path to image file (EWF/VHDX/Raw formats are supported)")
