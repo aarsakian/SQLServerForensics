@@ -9,6 +9,7 @@ import (
 	mslogger "MSSQLParser/logger"
 	"MSSQLParser/page"
 	"MSSQLParser/utils"
+	"cmp"
 	"errors"
 	"fmt"
 	"reflect"
@@ -36,6 +37,8 @@ type Table struct {
 type ByRowId []tables.ColMap
 
 type ByColOrder []tables.Column
+
+type ByOffsetOrder []tables.Column
 
 func (b ByColOrder) Less(i, j int) bool {
 
@@ -74,21 +77,33 @@ func (table Table) sortByColOrder() {
 	sort.Sort(ByColOrder(table.Schema))
 }
 
+func (table *Table) sortByOffsetOrder(partitionId uint64) error {
+	for _, c := range table.Schema {
+		if c.OffsetMap == nil {
+			return errors.New("nil offsetmap")
+		}
+	}
+	slices.SortFunc(table.Schema, func(c1, c2 tables.Column) int {
+		c1_offset := c1.OffsetMap[uint64(partitionId)]
+		c2_offset := c2.OffsetMap[uint64(partitionId)]
+
+		return cmp.Compare(c1_offset, c2_offset)
+
+	})
+	return nil
+
+}
+
 type OrderedRows []tables.Row
 
-/*func (byrowid ByRowId) Len() int {
-	return len(byrowid)
-
+func (table Table) doesNotHaveVarLenCols() bool {
+	for _, c := range table.Schema {
+		if !c.IsStatic() {
+			return false
+		}
+	}
+	return true
 }
-
-func (byrowid ByRowId) Less(i, j int) bool {
-	return byrowid[i] < byrowid[j]
-}
-
-func (byrowid ByRowId) Swap(i, j int) {
-
-	byrowid[i], byrowid[j] = byrowid[j], byrowid[i]
-}*/
 
 func (table *Table) udateColIndex(sysiscols tables.SysIsCols) {
 	for _, sysiscol := range sysiscols {
@@ -394,6 +409,7 @@ func (table *Table) addColumns(columns []tables.SysColpars) {
 				CodePage:  codepage,
 				Precision: col.Prec, Scale: col.Scale,
 				OffsetMap:    map[uint64]int16{},
+				IsNullable:   col.IsNullable(),
 				IsAnsiPadded: col.IsAnsiPadded(),
 				IsIdentity:   col.IsIdentity(),
 				IsRowGUIDCol: col.IsRowGUIDCol(),
@@ -407,7 +423,8 @@ func (table *Table) addColumns(columns []tables.SysColpars) {
 			table.addColumn(tables.Column{Name: col.GetName(), Type: col.GetType(),
 				Size: int16(col.Length), Id: col.Colid, CollationId: col.Collationid,
 				Precision: col.Prec, Scale: col.Scale,
-				OffsetMap: map[uint64]int16{}, IsAnsiPadded: col.IsAnsiPadded(),
+				IsNullable: col.IsNullable(),
+				OffsetMap:  map[uint64]int16{}, IsAnsiPadded: col.IsAnsiPadded(),
 				IsIdentity: col.IsIdentity(), IsRowGUIDCol: col.IsRowGUIDCol(),
 				IsComputed: col.IsComputed(), IsColumnSet: col.IsColumnSet(),
 				IsFilestream: col.IsFilestream(), IsPersisted: col.IsPersisted()})
@@ -461,6 +478,8 @@ func (table Table) Show(showSchema bool, showContent bool,
 	showAllocation string, showIndex bool, tabletype string, showtorow int, skiprows int,
 	showrows []int, showcarved bool, showtableldf bool, showcolnames []string, showrawdata bool,
 	showRowPageInfo bool) {
+	//the order of presentation
+	table.sortByColOrder()
 
 	if showSchema || showContent || showtableldf || showAllocation != "" {
 		fmt.Printf("Table %s\n", table.Name)
@@ -588,7 +607,7 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 	defer wg.Done()
 
 	locatedRow := true
-
+	table.sortByColOrder()
 	for rowidx, row := range table.Rows {
 		var record utils.Record
 		var vals []string
@@ -849,26 +868,25 @@ func (table *Table) updateColOffsetsUsingOrder() {
 	}
 }
 
-func (table *Table) updateColOffsets(column_id uint32, offset int16, parirtitionId uint64) error {
-	if len(table.Schema) < int(column_id) {
-		msg := fmt.Sprintf("Partition columnd id %d exceeds nof cols %d of table %s", column_id, len(table.Schema), table.Name)
-		mslogger.Mslogger.Warning(msg)
-		return errors.New(msg)
-	} else if column_id < 1 {
+func (table *Table) updateColOffsets(column_id uint32, offset int16, partitionId uint64) error {
+	if column_id < 1 {
 		msg := fmt.Sprintf("Column Id is less than one %d,\n", column_id)
 		mslogger.Mslogger.Warning(msg)
 		return errors.New(msg)
-	} else if offset < 4 {
-		msg := fmt.Sprintf("Offset %d of col %s of table %s is less than the minimum allowed offset of 4", offset,
-			table.Schema[column_id-1].Name, table.Name)
+	} else {
+		for colid := range table.Schema {
+			if uint32(table.Schema[colid].Id) == column_id {
+				table.Schema[colid].OffsetMap[partitionId] = offset
+				msg := fmt.Sprintf("Updated offset %d of col %s of table %s", offset,
+					table.Schema[colid].Name, table.Name)
+				mslogger.Mslogger.Info(msg)
+				return nil
+			}
+		}
+		msg := fmt.Sprintf("did not locate colid %d ", column_id)
 		mslogger.Mslogger.Warning(msg)
 		return errors.New(msg)
-	} else {
-		msg := fmt.Sprintf("Updated offset %d of col %s of table %s", offset,
-			table.Schema[column_id-1].Name, table.Name)
-		mslogger.Mslogger.Info(msg)
-		table.Schema[column_id-1].OffsetMap[parirtitionId] = offset
-		return nil
+
 	}
 
 }
@@ -914,6 +932,10 @@ func (table *Table) setContentFromPage(page page.Page,
 	table.indexType = page.GetIndexType()
 	pageAllocationUnitId := page.Header.GetMetadataAllocUnitId()
 	partitionId := table.AllocationUnitIdTopartitionId[pageAllocationUnitId]
+
+	if table.doesNotHaveVarLenCols() {
+		table.sortByOffsetOrder(partitionId)
+	}
 
 	nofCols := len(table.Schema)
 	pageRows := 0
@@ -970,8 +992,8 @@ func (table Table) ProcessRow(datarow data.DataRow,
 		if colnum < int(datarow.NumberOfCols) && bitrepresentation != "" &&
 			utils.HasFlagSet(bitrepresentation, colnum+1-computedCols) { //col is NULL skip when ASCII 49  (1)
 
-			msg := fmt.Sprintf("Col id %d is null, table %s",
-				int(datarow.NumberOfCols), table.Name)
+			msg := fmt.Sprintf("Col %s is null, table %s",
+				col.Name, table.Name)
 			mslogger.Mslogger.Info(msg)
 			//continue
 
