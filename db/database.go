@@ -419,7 +419,7 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	if colsinfo != nil {
 
 		table.addColumns(colsinfo)
-		table.sortByColOrder()
+
 		table.setVarLenCols()
 
 	} else {
