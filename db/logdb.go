@@ -105,7 +105,7 @@ func (logdb LogDB) GetDbiCheckptLSNRange() (utils.LSN, utils.LSN, error) {
 
 func (logdb LogDB) GetMinLSN(beginLSN utils.LSN) (utils.LSN, error) {
 	records := logdb.GetRecords()
-	oldestActiveLSN, err1 := records.DetermineLastActiveTransactionLSN()
+	oldestActiveLSN, err1 := records.DetermineOldestActiveTransactionLSN()
 
 	if err1 != nil {
 		return beginLSN, err1
