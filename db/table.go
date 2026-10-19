@@ -552,9 +552,9 @@ func (table Table) printAllocation() {
 		if len(pagesType) == 0 {
 			continue
 		}
-		fmt.Printf("%s", pageType)
+		fmt.Printf("%s:\n", pageType)
 		for _, pageId := range pagesType {
-			fmt.Printf(" %d\n", pageId)
+			fmt.Printf(" %d\t", pageId)
 		}
 		fmt.Print("\n")
 	}
@@ -924,6 +924,7 @@ func (table *Table) setContentFromPage(page page.Page,
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32],
 	forwardPages map[uint32][]uint32) int {
 	pageId := page.Header.PageId
+
 	if page.HasForwardingPointers() {
 		forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
 
@@ -935,6 +936,8 @@ func (table *Table) setContentFromPage(page page.Page,
 
 	if table.doesNotHaveVarLenCols() {
 		table.sortByOffsetOrder(partitionId)
+	} else {
+		table.sortByColOrder()
 	}
 
 	nofCols := len(table.Schema)
