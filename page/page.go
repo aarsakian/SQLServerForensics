@@ -651,8 +651,23 @@ func (page *Page) parseSGAM(data []byte, nofpages int) {
 	sgamExtents := make(SGAMExtents, nofpages/8)
 	SGAMLen := 4
 	pos := 0
+	startOffset := 96
+
+	var endOffset int
+
+	//some databases do not have slotcnt
+	if page.Header.SlotCnt > 1 {
+		startOffset = int(page.Slots[1].Offset)
+	}
+
+	if page.Header.FreeData != 0 {
+		endOffset = int(page.Header.FreeData)
+	} else {
+		endOffset = int(page.Header.FreeCnt)
+	}
+
 outer:
-	for _, entry := range data[int(page.Slots[1].Offset)+SGAMLen : page.Header.FreeData] {
+	for _, entry := range data[startOffset+SGAMLen : endOffset] {
 
 		for i := range 8 {
 			if pos == nofpages/8 {
@@ -862,12 +877,17 @@ func (page *Page) Process(data []byte, offset int, carve bool, nofpages int) err
 	}
 
 	if header.isTornPageUsed() {
+		header.setTornPatternConsistent(data[512:])
 		//modifies the lowest 2 bits
-		for pos := 0; pos < int(PAGELEN)/512; pos++ {
+		for sector := 0; sector < int(PAGELEN)/512; sector++ {
 			//two torn bit for each sector
-			originalBits := byte(uint32(header.TornBits)>>(pos*2)) & 0x03
-			unmodifiedBits := data[512*(pos+1)-1] & 0xfc
-			data[512*(pos+1)-1] = unmodifiedBits | originalBits
+			//skip first sector
+			if sector == 0 {
+				continue
+			}
+			originalBits := byte(uint32(header.TornBits)>>(uint32(sector)*2)) & 0x03
+			unmodifiedBits := data[512*(sector+1)-1] & 0xfc
+			data[512*(sector+1)-1] = unmodifiedBits | originalBits
 
 		}
 	}
