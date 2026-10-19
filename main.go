@@ -77,6 +77,13 @@ func validateLDFFlags(dbfile string, ldbfile string, evidencefile string, physic
 	return nil
 }
 
+func validateRowPageInfo(rowPageInfo bool, showTableContent bool, exportPath string) error {
+	if rowPageInfo && exportPath == "" && !showTableContent {
+		return fmt.Errorf("rowpageinfo requires -showcontent or an export path")
+	}
+	return nil
+}
+
 func normalizeLogFlagArgs(args []string) []string {
 	normalized := make([]string, 0, len(args))
 	for index, arg := range args {
@@ -116,7 +123,6 @@ func main() {
 	showHeader := flag.Bool("showheader", false, "show page header")
 	showPages := flag.String("showpages", "", "select specific pages to show info (use comma for each page id)")
 	showPageLDF := flag.Bool("showpageldf", false, "show LDF records for selected pages")
-	showRowPageInfo := flag.Bool("showrowpageinfo", false, "show page and slot information for each table row")
 	showPageStats := flag.Bool("showpagestats", false,
 		"show page statistics sgam, gam, pfs iam for pages")
 
@@ -157,7 +163,7 @@ func main() {
 
 	exportIndex := flag.Bool("exportindex", false, "export table indexes")
 	exportSchema := flag.Bool("exportschema", false, "export table schema")
-	exportPageInfo := flag.Bool("exportpageinfo", false, "export page info for each row to be used with export format csv, html, xlsx")
+	rowPageInfo := flag.Bool("rowpageinfo", false, "show page and slot information with -showcontent and include it in exports")
 	exportLogInfo := flag.Bool("exportloginfo", false, "export log correlated info for each row to be used with export format csv, html, xlsx")
 	exportBlob := flag.Bool("exportblob", false,
 		"export blobs (will be exported to a folder blobs under the database name, file extension is blob)")
@@ -224,17 +230,14 @@ func main() {
 		log.Fatalf("exportschema flag requires export path to be set")
 	}
 
-	if *exportPageInfo && *exportPath == "" {
-		log.Fatalf("exportpageinfo flag requires export path to be set")
+	if err := validateRowPageInfo(*rowPageInfo, *showTableContent, *exportPath); err != nil {
+		log.Fatal(err)
 	}
 
 	if *exportLogInfo && *exportPath == "" {
-		log.Fatalf("exportpageinfo flag requires export path to be set")
+		log.Fatalf("exportloginfo flag requires export path to be set")
 	}
 
-	if *showRowPageInfo && !*showTableContent {
-		log.Fatalf("showrowpageinfo flag requires showcontent to be set")
-	}
 	if *showPageLDF && *showPages == "" {
 		log.Fatalf("showpageldf flag requires showpages to be set")
 	}
@@ -561,8 +564,8 @@ func main() {
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportBlob, *exportPath, *exportIndex,
-		*exportSchema, *exportPageInfo, *exportLogInfo,
-		*sortByLSN, *walkpageLSN, *walkLSN, *showRowPageInfo, *showPageLDF)
+		*exportSchema, *rowPageInfo, *exportLogInfo,
+		*sortByLSN, *walkpageLSN, *walkLSN, *rowPageInfo, *showPageLDF)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
