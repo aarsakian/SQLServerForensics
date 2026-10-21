@@ -127,11 +127,15 @@ func (index *Index) Populate(indexPages page.PagesPerId[uint32]) []uint32 {
 				//omit the first byte of the fixed length columns as it is the status bits and not part of the index key value
 				copy(indexNonLeaf.KeyValue, pages.Pages[0].IndexRows[idx].FixedLenCols[1:1+int(index.KeySize)])
 
+				childPageId := indexNonLeaf.ChildPageID
+				_, ischildPageIndexPage := indexPages.Lookup[childPageId]
+
 				//top level index pages point to other index pages until the leaf level is reached, at which point the index rows point to data pages
-				if pages.Pages[0].Header.Level > 1 {
-					pagesQueue = append(pagesQueue, indexNonLeaf.ChildPageID)
+				//large tables hold more than two levels top->intermediate->intermediata
+				if pages.Pages[0].Header.Level > 1 || ischildPageIndexPage {
+					pagesQueue = append(pagesQueue, childPageId)
 				} else {
-					indexedDataPages = append(indexedDataPages, indexNonLeaf.ChildPageID)
+					indexedDataPages = append(indexedDataPages, childPageId)
 				}
 				pages.Pages[0].IndexRows[idx].NoNLeaf = indexNonLeaf
 			}
