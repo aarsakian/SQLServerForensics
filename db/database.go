@@ -511,9 +511,6 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	indexPages := table_alloc_pages.FilterByTypeToMap("Index")
 	iamPages := table_alloc_pages.FilterByTypeToMap("IAM")
 
-	table.PageIDsPerType = map[string][]uint32{"DATA": dataPages.GetIDs(), "LOB": lobPages.GetIDs(),
-		"Text": textLobPages.GetIDs(), "Index": indexPages.GetIDs(), "IAM": iamPages.GetIDs()}
-
 	if indexPages.IsEmpty() {
 		msg := fmt.Sprintf("No index pages located for table %s", table.Name)
 		mslogger.Mslogger.Warning(msg)
