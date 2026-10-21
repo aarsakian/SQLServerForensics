@@ -33,14 +33,125 @@ h2 {justify-content: center; display: flex; color: #333; }
 .page-nav { display: flex; gap: 12px; margin: 0 0 16px; font-size: 14px; align-items: center; justify-content: center; }
 .page-nav-bottom { margin: 16px 0 0; }
 .page-nav a,
-.page-nav .page-nav-disabled { padding: 4px 10px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; }
-.page-nav a { text-decoration: none; color: #333; }
-.page-nav a:hover { background: #eaeaea; }
+.page-nav .page-nav-disabled {
+	padding: 6px 12px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.25;
+	text-decoration: none;
+	transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.page-nav .page-nav-prev {
+	border-color: #cbd5e1;
+	background: #f8fafc;
+	color: #334155;
+	box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+.page-nav .page-nav-prev:hover {
+	border-color: #94a3b8;
+	background: #f1f5f9;
+}
+.page-nav .page-nav-next {
+	border-color: #0f766e;
+	background: #0f766e;
+	color: #fff;
+	box-shadow: 0 1px 2px rgb(15 23 42 / 12%);
+}
+.page-nav .page-nav-next:hover {
+	border-color: #115e59;
+	background: #115e59;
+	box-shadow: 0 2px 4px rgb(15 23 42 / 16%);
+}
+.page-nav .page-nav-prev:focus-visible,
+.page-nav .page-nav-next:focus-visible {
+	outline: 2px solid #5eead4;
+	outline-offset: 2px;
+}
+.page-nav .page-nav-prev:active { background: #e2e8f0; }
+.page-nav .page-nav-next:active { background: #134e4a; }
 .page-nav .page-nav-disabled { color: #999; border-color: #ddd; background: #fafafa; }
 .page-nav .page-nav-current { font-weight: 700; letter-spacing: 0.02em; margin: 0 12px; }
 .page-jump { display: flex; align-items: center; gap: 6px; }
-.page-jump input { width: 4.5em; padding: 4px 6px; }
-.page-jump button { padding: 4px 10px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; color: #333; cursor: pointer; }
+.page-picker { position: relative; display: inline-flex; }
+.page-picker input {
+	width: 5em;
+	padding: 6px 8px;
+	border: 1px solid #cbd5e1;
+	border-right: 0;
+	border-radius: 6px 0 0 6px;
+}
+.page-picker-toggle {
+	padding: 6px 9px;
+	border: 1px solid #cbd5e1;
+	border-radius: 0 6px 6px 0;
+	background: #f8fafc;
+	color: #475569;
+	cursor: pointer;
+}
+.page-picker-toggle:hover { background: #e2e8f0; }
+.page-picker-toggle:focus-visible,
+.page-picker input:focus-visible {
+	position: relative;
+	z-index: 1;
+	outline: 2px solid #818cf8;
+	outline-offset: 1px;
+}
+.page-picker-menu {
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 40;
+	display: flex;
+	flex-direction: column;
+	min-width: 100%;
+	max-height: 220px;
+	overflow-y: auto;
+	padding: 4px;
+	border: 1px solid #cbd5e1;
+	border-radius: 6px;
+	background: #fff;
+	box-shadow: 0 8px 16px rgb(15 23 42 / 14%);
+}
+.page-picker-menu[hidden] { display: none; }
+.page-picker-option {
+	padding: 6px 10px;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: #334155;
+	text-align: left;
+	cursor: pointer;
+}
+.page-picker-option:hover,
+.page-picker-option[aria-selected="true"] { background: #eef2ff; color: #3730a3; }
+.page-jump button[type="submit"] {
+	padding: 6px 14px;
+	border: 1px solid #4f46e5;
+	border-radius: 6px;
+	background: #4f46e5;
+	color: #fff;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.25;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+	cursor: pointer;
+	transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.page-jump button[type="submit"]:hover {
+	border-color: #4338ca;
+	background: #4338ca;
+	box-shadow: 0 2px 4px rgb(0 0 0 / 15%);
+}
+.page-jump button[type="submit"]:focus-visible {
+	outline: 2px solid #818cf8;
+	outline-offset: 2px;
+}
+.page-jump button[type="submit"]:active {
+	background: #3730a3;
+}
+.page-jump-error { color: #b00020; }
 .row-legend {
 	display: flex;
 	justify-content: center;
@@ -77,12 +188,19 @@ h2 {justify-content: center; display: flex; color: #333; }
 <h2>Table {{.Name}}</h2>
 {{if and .IsPaginated (or .PrevPage .NextPage)}}
 <nav class="page-nav">
-{{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
+{{if .PrevPage}}<a class="page-nav-prev" href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
 {{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{end}}
-{{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
-<form class="page-jump" data-page-prefix="{{.Name}}">
-<label>Go to page <input type="number" name="page" min="1" step="1" value="{{.CurPage}}" required></label>
+{{if .NextPage}}<a class="page-nav-next" href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
+<form class="page-jump" data-page-prefix="{{.Name}}" data-page-count="{{.PageCount}}">
+<label>Go to page
+<span class="page-picker">
+<input type="text" name="page" inputmode="numeric" value="{{.CurPage}}" required>
+<button class="page-picker-toggle" type="button" aria-label="Show page list" aria-expanded="false">&#9662;</button>
+<span class="page-picker-menu" role="listbox" hidden></span>
+</span>
+</label>
 <button type="submit">Go</button>
+<span class="page-jump-error" role="alert" aria-live="polite"></span>
 </form>
 </nav>
 {{end}}
@@ -130,12 +248,19 @@ h2 {justify-content: center; display: flex; color: #333; }
 </div>
 {{if and .IsPaginated (or .PrevPage .NextPage)}}
 <nav class="page-nav page-nav-bottom">
-{{if .PrevPage}}<a href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
+{{if .PrevPage}}<a class="page-nav-prev" href="{{.PrevPage}}">&lsaquo; Prev</a>{{else}}<span class="page-nav-disabled">&lsaquo; Prev</span>{{end}}
 {{if .CurPage}}<strong class="page-nav-current">Page {{.CurPage}}</strong>{{end}}
-{{if .NextPage}}<a href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
-<form class="page-jump" data-page-prefix="{{.Name}}">
-<label>Go to page <input type="number" name="page" min="1" step="1" value="{{.CurPage}}" required></label>
+{{if .NextPage}}<a class="page-nav-next" href="{{.NextPage}}">Next &rsaquo;</a>{{else}}<span class="page-nav-disabled">Next &rsaquo;</span>{{end}}
+<form class="page-jump" data-page-prefix="{{.Name}}" data-page-count="{{.PageCount}}">
+<label>Go to page
+<span class="page-picker">
+<input type="text" name="page" inputmode="numeric" value="{{.CurPage}}" required>
+<button class="page-picker-toggle" type="button" aria-label="Show page list" aria-expanded="false">&#9662;</button>
+<span class="page-picker-menu" role="listbox" hidden></span>
+</span>
+</label>
 <button type="submit">Go</button>
+<span class="page-jump-error" role="alert" aria-live="polite"></span>
 </form>
 </nav>
 {{end}}
@@ -267,10 +392,63 @@ h2 {justify-content: center; display: flex; color: #333; }
 {{if .IsPaginated}}
 <script>
 document.querySelectorAll(".page-jump").forEach((form) => {
+	const pageInput = form.querySelector('input[name="page"]');
+	const picker = form.querySelector(".page-picker");
+	const toggle = form.querySelector(".page-picker-toggle");
+	const menu = form.querySelector(".page-picker-menu");
+	const pageCount = Number(form.dataset.pageCount);
+	const errorMessage = form.querySelector(".page-jump-error");
+	if (!pageInput || !picker || !toggle || !menu || !Number.isInteger(pageCount) || pageCount < 1) return;
+
+	for (let page = 1; page <= pageCount; page++) {
+		const option = document.createElement("button");
+		option.type = "button";
+		option.className = "page-picker-option";
+		option.setAttribute("role", "option");
+		option.textContent = `Page ${page}`;
+		option.setAttribute("aria-selected", String(page === Number(pageInput.value)));
+		option.addEventListener("click", () => {
+			pageInput.value = String(page);
+			window.location.href = `${form.dataset.pagePrefix}_${page - 1}.html`;
+		});
+		menu.appendChild(option);
+	}
+
+	toggle.addEventListener("click", () => {
+		menu.hidden = !menu.hidden;
+		toggle.setAttribute("aria-expanded", String(!menu.hidden));
+		if (!menu.hidden) {
+			menu.querySelector(`[aria-selected="true"]`)?.scrollIntoView({ block: "nearest" });
+		}
+	});
+
+	document.addEventListener("click", (event) => {
+		if (!picker.contains(event.target)) {
+			menu.hidden = true;
+			toggle.setAttribute("aria-expanded", "false");
+		}
+	});
+
+	pageInput.addEventListener("input", () => {
+		const page = Number(pageInput.value);
+		menu.querySelectorAll(".page-picker-option").forEach((option, index) => {
+			option.setAttribute("aria-selected", String(index + 1 === page));
+		});
+		if (errorMessage) {
+			errorMessage.textContent = Number.isInteger(page) && (page < 1 || page > pageCount)
+				? `Enter a whole page number from 1 to ${pageCount}.`
+				: "";
+		}
+	});
+
 	form.addEventListener("submit", (event) => {
 		event.preventDefault();
-		const page = form.querySelector('input[name="page"]')?.valueAsNumber;
-		if (!Number.isInteger(page) || page < 1) return;
+		const page = Number(pageInput.value);
+		if (!Number.isInteger(page) || page < 1 || page > pageCount) {
+			if (errorMessage) errorMessage.textContent = `Enter a whole page number from 1 to ${pageCount}.`;
+			return;
+		}
+		if (errorMessage) errorMessage.textContent = "";
 		window.location.href = `${form.dataset.pagePrefix}_${page - 1}.html`;
 	});
 });
