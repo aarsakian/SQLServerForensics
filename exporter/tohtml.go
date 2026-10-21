@@ -41,7 +41,10 @@ type tableTemplateData struct {
 	SourceFile  string
 	Database    string
 	IsPaginated bool
+	PageCount   string
 }
+
+const pageCountPlaceholder = "__PAGE_COUNT__"
 
 var funcMap = template.FuncMap{
 	"pathBase":   path.Base,
@@ -118,6 +121,7 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 		pageData := data
 		pageData.IsPaginated = true
 		pageData.CurPage = fmt.Sprintf("%d", pageIdx+1)
+		pageData.PageCount = pageCountPlaceholder
 		if pageIdx == 0 {
 			pageData.PrevPage = ""
 		} else {
@@ -191,7 +195,20 @@ func (h HTMLExporter) WriteRecords(wg *sync.WaitGroup, records <-chan utils.Reco
 	}
 
 	if paginationEnabled {
+		//rewrite page count in all paginated pages
 		closePaginatedPage(false)
+		pageCount := fmt.Sprintf("%d", pageIdx+1)
+		for page := 0; page <= pageIdx; page++ {
+			fpath := filepath.Join(h.Path, paginatedPageName(filename, page))
+			content, err := os.ReadFile(fpath)
+			if err != nil {
+				log.Fatal(err)
+			}
+			content = bytes.ReplaceAll(content, []byte(pageCountPlaceholder), []byte(pageCount))
+			if err := os.WriteFile(fpath, content, 0644); err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
 
 	// Render full HTML footer
