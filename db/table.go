@@ -481,7 +481,7 @@ func (table Table) printTableInfo() {
 func (table Table) Show(showSchema bool, showContent bool,
 	showAllocation string, showIndex bool, tabletype string, showtorow int, skiprows int,
 	showrows []int, showcarved bool, showtableldf bool, showcolnames []string, showrawdata bool,
-	showRowPageInfo bool) {
+	showRowPageInfo bool, showRowLogInfo bool) {
 	//the order of presentation
 	table.sortByColOrder()
 
@@ -494,9 +494,9 @@ func (table Table) Show(showSchema bool, showContent bool,
 	if showContent {
 
 		fmt.Printf("(l) - logged (c) - carved\n")
-		table.printHeader(showcolnames, showtableldf, showRowPageInfo)
+		table.printHeader(showcolnames, showtableldf, showRowPageInfo, showRowLogInfo)
 		table.printData(showtorow, skiprows, showrows, showcarved, showtableldf, showcolnames, showrawdata,
-			showRowPageInfo)
+			showRowPageInfo, showRowLogInfo)
 		table.cleverPrintData()
 	}
 	if showtableldf {
@@ -678,7 +678,7 @@ func (table Table) GetBlobs(wg *sync.WaitGroup, blobs chan<- utils.Blob) {
 
 }
 
-func (table Table) printHeader(showcolnames []string, showldf bool, showRowPageInfo bool) {
+func (table Table) printHeader(showcolnames []string, showldf bool, showRowPageInfo bool, showRowLogInfo bool) {
 	for _, c := range table.Schema {
 		if len(showcolnames) == 0 {
 			fmt.Printf("%s ", c.Name)
@@ -692,7 +692,7 @@ func (table Table) printHeader(showcolnames []string, showldf bool, showRowPageI
 		}
 
 	}
-	if showldf {
+	if showldf || showRowLogInfo {
 		fmt.Printf("log information ")
 	}
 	if showRowPageInfo {
@@ -781,7 +781,7 @@ func (table Table) cleverPrintData() {
 
 func (table Table) printData(showtorow int, skiprows int,
 	showrows []int, showcarved bool, showldf bool, showcolnames []string, showrawdata bool,
-	showRowPageInfo bool) {
+	showRowPageInfo bool, showRowLogInfo bool) {
 	for idx, row := range table.Rows { // when no rder check?
 		locatedRow := true
 
@@ -815,7 +815,7 @@ func (table Table) printData(showtorow int, skiprows int,
 
 		if showcarved && row.Carved && showldf && row.Logged {
 			fmt.Printf("(c)(l) %d: ", idx+1)
-		} else if showldf && row.Logged {
+		} else if (showldf || showRowLogInfo) && row.Logged {
 			fmt.Printf("(l) %d: ", idx+1)
 		} else if !row.Carved {
 			fmt.Printf("%d: ", idx+1)
@@ -847,7 +847,7 @@ func (table Table) printData(showtorow int, skiprows int,
 
 		}
 
-		if showldf && row.Logged {
+		if (showldf || showRowLogInfo) && row.Logged {
 			fmt.Printf(" %s ", row.LoggedOperation)
 		}
 		if showRowPageInfo {
