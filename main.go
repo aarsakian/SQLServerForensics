@@ -84,6 +84,13 @@ func validateRowPageInfo(rowPageInfo bool, showTableContent bool, exportPath str
 	return nil
 }
 
+func validateRowLogInfo(rowLogInfo bool, showTableContent bool, exportPath string) error {
+	if rowLogInfo && exportPath == "" && !showTableContent {
+		return fmt.Errorf("rowloginfo requires -showcontent or an export path")
+	}
+	return nil
+}
+
 func normalizeLogFlagArgs(args []string) []string {
 	normalized := make([]string, 0, len(args))
 	for index, arg := range args {
@@ -164,7 +171,7 @@ func main() {
 	exportIndex := flag.Bool("exportindex", false, "export table indexes")
 	exportSchema := flag.Bool("exportschema", false, "export table schema")
 	rowPageInfo := flag.Bool("rowpageinfo", false, "show page and slot information with -showcontent and include it in exports")
-	exportLogInfo := flag.Bool("exportloginfo", false, "export log correlated info for each row to be used with export format csv, html, xlsx")
+	rowLogInfo := flag.Bool("rowloginfo", false, "show log-correlation information with -showcontent and include it in exports")
 	exportBlob := flag.Bool("exportblob", false,
 		"export blobs (will be exported to a folder blobs under the database name, file extension is blob)")
 
@@ -234,8 +241,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if *exportLogInfo && *exportPath == "" {
-		log.Fatalf("exportloginfo flag requires export path to be set")
+	if err := validateRowLogInfo(*rowLogInfo, *showTableContent, *exportPath); err != nil {
+		log.Fatal(err)
 	}
 
 	if *showPageLDF && *showPages == "" {
@@ -564,8 +571,8 @@ func main() {
 		*carve, *showTableLDF,
 		*showLDF, *tabletype, *raw, strings.Split(*colnames, ","),
 		*exportFormat, *exportBlob, *exportPath, *exportIndex,
-		*exportSchema, *rowPageInfo, *exportLogInfo,
-		*sortByLSN, *walkpageLSN, *walkLSN, *rowPageInfo, *showPageLDF)
+		*exportSchema, *rowPageInfo, *rowLogInfo,
+		*sortByLSN, *walkpageLSN, *walkLSN, *rowPageInfo, *rowLogInfo, *showPageLDF)
 
 	pm.TableConfiguration = manager.TableProcessorConfiguration{
 		SelectedTables:  strings.Split(*tablenames, ","),
