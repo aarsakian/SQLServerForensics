@@ -47,9 +47,9 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 	skippedTableRows int, selectedTableRows []int, showcarved bool, showTableLDF bool,
 	showLDF bool, tabletype string, raw bool, colnames []string,
 	exportFormat string, exportBlob bool, exportPath string, exportIndex bool,
-	exportSchema bool, exportPageInfo bool, exportLogInfo bool,
+	exportSchema bool, exportPageInfo bool, rowLogInfo bool,
 	sortByLSN string,
-	walkpageLSN string, walkLSN string, showRowPageInfo bool, showPageLDF bool) {
+	walkpageLSN string, walkLSN string, showRowPageInfo bool, showRowLogInfo bool, showPageLDF bool) {
 
 	PM.reporter = reporter.Reporter{
 		ShowDBInfo:          showDBInfo,
@@ -70,6 +70,7 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 		ShowPageStats:       showPageStats,
 		ShowPageLDF:         showPageLDF,
 		ShowRowPageInfo:     showRowPageInfo,
+		ShowRowLogInfo:      showRowLogInfo,
 		ShowIndex:           showIndex,
 		ToTableRow:          toTableRow,
 		SkippedTableRows:    skippedTableRows,
@@ -87,7 +88,7 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 
 	PM.Exporter = exporter.Exporter{Format: exportFormat,
 		Blobs: exportBlob, Path: exportPath, Index: exportIndex, Schema: exportSchema,
-		PageInfo: exportPageInfo, LogInfo: exportLogInfo}
+		PageInfo: exportPageInfo, LogInfo: rowLogInfo}
 
 }
 
@@ -171,7 +172,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		}
 
-		beginLSN, endLSN, err2 := logdb.GetDbiCheckptLSNRange()
+		beginLSN, _, err2 := logdb.GetDbiCheckptLSNRange()
 		if err2 != nil {
 			fmt.Printf("skipping processing of ldf file %s due to error getting calculated DbiCheckpt LSN %s \n", inputFile, err2)
 			continue
@@ -179,7 +180,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 
 		minLsn, _ := logdb.GetMinLSN(beginLSN)
 
-		keyb := append([]byte(dir), endLSN.ToBytes()...)
+		keyb := append([]byte(dir), minLsn.ToBytes()...)
 		sum := md5.Sum(keyb)
 
 		dbkey = fmt.Sprintf("%s_%s", logdb.GetBindingID(), hex.EncodeToString(sum[:]))
