@@ -284,8 +284,9 @@ Build a binary and then run it:
         add each row's page and slot information to CSV/HTML/XLSX exports;
         requires -export and -format (see table display options for pathless display)
 
-  -exportloginfo
-        export log-correlation information for each row (works with CSV/HTML/XLSX exports)
+  -rowloginfo
+        show log-correlation information with -showcontent and include it in exports;
+        requires -showcontent or -export
 
   -exportblob
         export blobs into a folder named blobs under the database name
@@ -355,8 +356,9 @@ This project is a Go CLI. The expected entry point is the main package, and it c
         add each row's page and slot information to CSV/HTML/XLSX exports;
         requires -export and -format (see table display options for pathless display)
 
-  -exportloginfo
-        export transaction-log correlation information for each row (works with HTML exports only)
+  -rowloginfo
+        show transaction-log correlation information with -showcontent and include it in exports;
+        requires -showcontent or -export
 
   -exportblob
         export blobs (will be exported to a folder named blobs under the database name, file extension is blob)
@@ -389,6 +391,9 @@ Show table contents of table ***PersonPhone*** of database file ***AdventureWork
 Show table contents with each row's page and slot information, without exporting
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -processtables -showcontent -rowpageinfo -tables PersonPhone
 
+Show table contents with each row's transaction-log correlation information, without exporting
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -showcontent -rowloginfo -tables PersonPhone
+
 Show table contents of table ***PersonPhone*** of database file ***AdventureWorks2022.mdf*** and log file ***AdventureWorks2022_log.ldf*** from row ***99*** to row ***120*** as pulled from the data pages
 >.\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -fromrow 99  -torow 120 -showcontent
 
@@ -402,13 +407,13 @@ Export table contents of table ***PersonPhone*** of database file ***AdventureWo
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables  -export MyExports -tables PersonPhone -format html
 
 Export table contents with row-level page and log correlation details to ***Myexports*** in ***html***
-> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -rowpageinfo -exportloginfo
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -rowpageinfo -rowloginfo
 
 Export table contents with page-level metadata for each row to ***Myexports*** in ***html***
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -rowpageinfo
 
 Export table contents with transaction-log correlation details to ***Myexports*** in ***html***
-> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -exportloginfo
+> .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables PersonPhone -export MyExports -format html -rowloginfo
 
 Export blob columns for a table to ***Myexports***
 > .\MSSQLParser.exe -db ..\Shared-mssql\data\AdventureWorks2022.mdf -ldb ..\Shared-mssql\data\AdventureWorks2022_log.ldf -processtables -tables ProductPhoto -export MyExports -exportblob
