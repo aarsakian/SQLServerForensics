@@ -27,6 +27,7 @@ type Reporter struct {
 	ShowPageStats       bool
 	ShowPageLDF         bool
 	ShowRowPageInfo     bool
+	ShowRowLogInfo      bool
 	ShowIndex           bool
 	ToTableRow          int
 	SkippedTableRows    int
@@ -212,7 +213,7 @@ func (rp Reporter) ShowTableInfo(wg *sync.WaitGroup, tables <-chan *db.Table) {
 		table.Show(rp.ShowTableSchema, rp.ShowTableContent, rp.ShowTableAllocation, rp.ShowTableIndex,
 			rp.TableType, rp.ToTableRow, rp.SkippedTableRows,
 			rp.SelectedTableRows, rp.ShowCarved, rp.ShowTableLDF,
-			rp.ShowColNames, rp.Raw, rp.ShowRowPageInfo)
+			rp.ShowColNames, rp.Raw, rp.ShowRowPageInfo, rp.ShowRowLogInfo)
 
 	}
 }
