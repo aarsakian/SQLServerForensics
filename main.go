@@ -91,6 +91,13 @@ func validateRowLogInfo(rowLogInfo bool, showTableContent bool, exportPath strin
 	return nil
 }
 
+func validateTableProcessingFlags(processTables bool, requiredFlags ...string) error {
+	if processTables || len(requiredFlags) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s requires -processtables", requiredFlags[0])
+}
+
 func normalizeLogFlagArgs(args []string) []string {
 	normalized := make([]string, 0, len(args))
 	for index, arg := range args {
@@ -199,6 +206,68 @@ func main() {
 
 	os.Args = normalizeLogFlagArgs(os.Args)
 	flag.Parse()
+
+	var tableProcessingFlags []string
+	if *tablenames != "" {
+		tableProcessingFlags = append(tableProcessingFlags, "-tables")
+	}
+	if *tablepages != "" {
+		tableProcessingFlags = append(tableProcessingFlags, "-tablepages")
+	}
+	if *showTableContent {
+		tableProcessingFlags = append(tableProcessingFlags, "-showcontent")
+	}
+	if *showTableIndex {
+		tableProcessingFlags = append(tableProcessingFlags, "-showtableindex")
+	}
+	if *showTableSchema {
+		tableProcessingFlags = append(tableProcessingFlags, "-showschema")
+	}
+	if *showTableLDF {
+		tableProcessingFlags = append(tableProcessingFlags, "-showtableldf")
+	}
+	if *showTableAllocation != "" {
+		tableProcessingFlags = append(tableProcessingFlags, "-showtableallocation")
+	}
+	if *selectedTableRows != "" {
+		tableProcessingFlags = append(tableProcessingFlags, "-rows")
+	}
+	if *toTableRows != -1 {
+		tableProcessingFlags = append(tableProcessingFlags, "-torow")
+	}
+	if *skippedTableRows != 0 {
+		tableProcessingFlags = append(tableProcessingFlags, "-fromrow")
+	}
+	if *tabletype != "" {
+		tableProcessingFlags = append(tableProcessingFlags, "-tabletype")
+	}
+	if *exportPath != "" {
+		tableProcessingFlags = append(tableProcessingFlags, "-export")
+	}
+	if *exportIndex {
+		tableProcessingFlags = append(tableProcessingFlags, "-exportindex")
+	}
+	if *exportSchema {
+		tableProcessingFlags = append(tableProcessingFlags, "-exportschema")
+	}
+	if *exportBlob {
+		tableProcessingFlags = append(tableProcessingFlags, "-exportblob")
+	}
+	if *rowPageInfo {
+		tableProcessingFlags = append(tableProcessingFlags, "-rowpageinfo")
+	}
+	if *rowLogInfo {
+		tableProcessingFlags = append(tableProcessingFlags, "-rowloginfo")
+	}
+	if *raw {
+		tableProcessingFlags = append(tableProcessingFlags, "-showraw")
+	}
+	if *colnames != "" {
+		tableProcessingFlags = append(tableProcessingFlags, "-colnames")
+	}
+	if err := validateTableProcessingFlags(*processTables, tableProcessingFlags...); err != nil {
+		log.Fatal(err)
+	}
 
 	selectedPageIDs, err := utils.ParseIntRanges(*selectedPages)
 	if err != nil {
@@ -319,26 +388,6 @@ func main() {
 	// filterlop only makes sense with LDF processing
 	if *filterlop != "" && !*showLDF && !*showPageLDF && *walkLSN == "" && *walkpageLSN == "" {
 		log.Fatalf("filterlop flag is set but none of -showldf, -showpageldf, -walklsn, or -walkpagelsn are enabled")
-	}
-
-	// Table-specific display flags should be used with table processing
-	if (*showTableContent || *showTableIndex || *showTableSchema) && !*processTables && *showTableAllocation == "" && !*showTableLDF {
-		log.Fatalf("table display flags (-showcontent, -showtableindex, -showschema, ) require -processtables or -showtableldf or -showtableallocation to be set")
-	}
-
-	// Table row selection flags require table processing or showtableallocation
-	if (*selectedTableRows != "" || *toTableRows != -1 || *skippedTableRows != 0) && !*processTables && *showTableAllocation == "" {
-		log.Fatalf("row selection flags (-rows, -torow, -fromrow) require -processtables or -showtableallocation to be set")
-	}
-
-	// Table type filter requires some form of table processing
-	if *tabletype != "" && !*processTables && *showTableAllocation == "" {
-		log.Fatalf("tabletype flag requires -processtables or -showtableallocation to be set")
-	}
-
-	// Tab pages filter requires table processing or showtableallocation
-	if *tablepages != "" && !*processTables && *showTableAllocation == "" {
-		log.Fatalf("tablepages flag requires -processtables or -showtableallocation to be set")
 	}
 
 	// User table info requires DB input
