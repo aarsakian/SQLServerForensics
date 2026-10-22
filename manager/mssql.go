@@ -200,6 +200,7 @@ func (PM *ProcessManager) ProcessDBFiles(mdffiles []string, ldffiles []string,
 			//need to confirm that the checkpoint LSN is valid before adding log records to database and correlating with pages
 
 			database.AddLogRecords()
+			fmt.Printf("Correlating log records to pages for database %s \n", database.Name)
 			database.CorrelateLDFToPages()
 
 			PM.Databases[dbkey] = database
@@ -334,7 +335,8 @@ func (PM *ProcessManager) Correlate() {
 
 			correlatedRecords := CorrelationEngine.CorrelateTable(table.ObjectId)
 
-			table.AddChangesHistory(correlatedRecords, database.PagesPerAllocUnitID)
+			nofCorrelatedRecords := table.AddChangesHistory(correlatedRecords, database.PagesPerAllocUnitID)
+			fmt.Printf("Correlated %d records to table %s for database %s \n", nofCorrelatedRecords, table.Name, database.Name)
 
 		}
 
