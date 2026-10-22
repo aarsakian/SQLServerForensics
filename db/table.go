@@ -30,7 +30,7 @@ type Table struct {
 	Indexes                        []tables.Index
 	VarLenCols                     []int
 	PageIDsPerType                 map[string][]uint32 //pageType ->pageID
-	indexType                      string
+	IndexType                      string
 	logRecords                     LDF.Records
 }
 
@@ -463,7 +463,7 @@ func (table Table) printSchema() {
 }
 
 func (table Table) printTableInfo() {
-	fmt.Printf("table index type %s \n", table.indexType)
+	fmt.Printf("table index type %s \n", table.IndexType)
 	fmt.Printf("objectID %d \n",
 		table.ObjectId)
 	fmt.Printf("Partition ids:\n")
@@ -504,7 +504,7 @@ func (table Table) Show(showSchema bool, showContent bool,
 	}
 
 	if showIndex {
-		table.printIndex()
+		table.printIndexes()
 	}
 
 	switch showAllocation {
@@ -678,6 +678,18 @@ func (table Table) GetBlobs(wg *sync.WaitGroup, blobs chan<- utils.Blob) {
 
 }
 
+func (table *Table) SetIndexType() {
+	table.IndexType = "Heap"
+	for _, tindex := range table.Indexes {
+		if tindex.IsClustered {
+			table.IndexType = "Clustered"
+			break
+		}
+
+	}
+
+}
+
 func (table Table) printHeader(showcolnames []string, showldf bool, showRowPageInfo bool, showRowLogInfo bool) {
 	for _, c := range table.Schema {
 		if len(showcolnames) == 0 {
@@ -701,7 +713,7 @@ func (table Table) printHeader(showcolnames []string, showldf bool, showRowPageI
 	fmt.Printf("\n")
 }
 
-func (table Table) printIndex() {
+func (table Table) printIndexes() {
 	fmt.Printf("Table Index names\n")
 	for _, tindex := range table.Indexes {
 		if tindex.IsClustered {
@@ -934,7 +946,6 @@ func (table *Table) setContentFromPage(page page.Page,
 
 	}
 
-	table.indexType = page.GetIndexType()
 	pageAllocationUnitId := page.Header.GetMetadataAllocUnitId()
 	partitionId := table.AllocationUnitIdTopartitionId[pageAllocationUnitId]
 
