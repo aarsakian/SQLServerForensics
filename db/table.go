@@ -31,7 +31,6 @@ type Table struct {
 	VarLenCols                     []int
 	PageIDsPerType                 map[string][]uint32 //pageType ->pageID
 	IndexType                      string
-	logRecords                     LDF.Records
 }
 
 type ByRowId []tables.ColMap
@@ -127,12 +126,11 @@ func (table *Table) udateColIndex(sysiscols tables.SysIsCols) {
 }
 
 func (table *Table) AddChangesHistory(correlatedRecords []*correlation.CorrelatedRecord,
-	pagesPerAllocUnitID page.PagesPerId[uint64]) {
-
-	//flag denotes carved
-	//	table.addLogChanges(candidateRecords)
+	pagesPerAllocUnitID page.PagesPerId[uint64]) int {
 
 	partitionIDToMap := make(map[uint64]*page.Page)
+
+	nofCorrelatedRecords := 0
 
 	for _, record := range correlatedRecords {
 
@@ -165,7 +163,7 @@ func (table *Table) AddChangesHistory(correlatedRecords []*correlation.Correlate
 				}
 				row.UpdateWithLogRecord(record.LogRecord,
 					page.Header.LSN.IsGreaterEqual(record.LogRecord.CurrentLSN), table.Schema)
-
+				nofCorrelatedRecords++
 			}
 		}
 	}
@@ -182,13 +180,12 @@ func (table *Table) AddChangesHistory(correlatedRecords []*correlation.Correlate
 				}
 				table.AddLogBasedRecord(record.LogRecord,
 					page.Header.LSN.IsGreaterEqual(record.LogRecord.CurrentLSN))
-
+				nofCorrelatedRecords++
 			}
 		}
 
 	}
-
-	//table.logRecords = candidateRecords
+	return nofCorrelatedRecords
 
 }
 
@@ -520,8 +517,11 @@ func (table Table) Show(showSchema bool, showContent bool,
 
 func (table Table) printLog() {
 	fmt.Printf("Table %s log records\n", table.Name)
-	for _, record := range table.logRecords {
-		record.ShowLOPInfo("any")
+	for id, record := range table.Rows {
+		if record.Logged {
+			fmt.Printf("Row %d logged operation %s at %s\n", id+1, record.LoggedOperation, record.LogDate)
+
+		}
 	}
 
 }
