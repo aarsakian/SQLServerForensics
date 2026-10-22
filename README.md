@@ -136,7 +136,7 @@ Build a binary and then run it:
         select the page ID to end parsing (default -1)
 
   -pages string
-        select pages to parse; use a comma-separated list of page IDs
+        select pages to parse; use comma-separated page IDs and inclusive ranges (e.g. 1,3-5)
 
   -pagetype string
         filter by page type (IAM, GAM, SGAM, PFS, DATA)
@@ -163,7 +163,7 @@ Build a binary and then run it:
         show page header
 
   -showpages string
-        select specific pages to show; comma-separated page IDs
+        select pages to show; use comma-separated page IDs and inclusive ranges (e.g. 1,3-5)
 
   -showpageldf
         show LDF records for pages selected with -showpages (requires an LDF source)

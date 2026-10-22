@@ -120,7 +120,7 @@ func main() {
 	location := flag.String("location", "MDF", "the path to export MDF/LDF files")
 	carve := flag.Bool("carve", false, "Carve data recordsf")
 
-	selectedPages := flag.String("pages", "", "select pages to parse (use comma for each page id, other pages will be ignored)")
+	selectedPages := flag.String("pages", "", "select pages to parse (comma-separated page IDs and inclusive ranges, e.g. 1,3-5; other pages will be ignored)")
 	fromPage := flag.Int("from", 0, "select page id to start parsing")
 	toPage := flag.Int("to", -1, "select page id to end parsing")
 	pageType := flag.String("pagetype", "", "filter by page type IAM, GAM, SGAM, PFS, DATA")
@@ -128,7 +128,7 @@ func main() {
 	systemPages := flag.String("systempages", "", "filter pages used by system tables  (sysschobjs, sysrowsets, syscolpars)")
 
 	showHeader := flag.Bool("showheader", false, "show page header")
-	showPages := flag.String("showpages", "", "select specific pages to show info (use comma for each page id)")
+	showPages := flag.String("showpages", "", "select pages to show info (comma-separated page IDs and inclusive ranges, e.g. 1,3-5)")
 	showPageLDF := flag.Bool("showpageldf", false, "show LDF records for selected pages")
 	showPageStats := flag.Bool("showpagestats", false,
 		"show page statistics sgam, gam, pfs iam for pages")
@@ -199,6 +199,15 @@ func main() {
 
 	os.Args = normalizeLogFlagArgs(os.Args)
 	flag.Parse()
+
+	selectedPageIDs, err := utils.ParseIntRanges(*selectedPages)
+	if err != nil {
+		log.Fatalf("invalid -pages value: %v", err)
+	}
+	showPageIDs, err := utils.ParseUint32Ranges(*showPages)
+	if err != nil {
+		log.Fatalf("invalid -showpages value: %v", err)
+	}
 
 	if *loglevel != "" && !mslogger.ValidLevel(*loglevel) {
 		log.Fatalf("invalid log level %s allowed values are info|warning|error", *loglevel)
@@ -584,7 +593,7 @@ func main() {
 	processedPages := 0
 	if *baseMDF != "" {
 		basePages, err := pm.ProcessBaseMDF(*baseMDF,
-			utils.StringsToIntArray(*selectedPages), *fromPage, *toPage, *carve)
+			selectedPageIDs, *fromPage, *toPage, *carve)
 		if err != nil {
 			log.Fatalf("failed to process base MDF %s: %v", *baseMDF, err)
 		}
@@ -594,7 +603,7 @@ func main() {
 		processedPages = pm.ProcessBAKFiles(bakPayloads)
 	} else {
 		processedPages = pm.ProcessDBFiles(mdffiles, ldffiles,
-			utils.StringsToIntArray(*selectedPages),
+			selectedPageIDs,
 			*fromPage, *toPage, *carve)
 	}
 
@@ -623,6 +632,6 @@ func main() {
 		pm.ProcessTablesSystemInfo()
 	}
 
-	pm.ShowInfo(utils.StringsToUint32Array(*showPages), *filterlop)
+	pm.ShowInfo(showPageIDs, *filterlop)
 
 }

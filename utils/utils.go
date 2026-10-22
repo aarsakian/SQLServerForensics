@@ -175,6 +175,81 @@ func StringsToUint32Array(stringwithcomma string) []uint32 {
 	return ints
 }
 
+func ParseIntRanges(value string) ([]int, error) {
+	ranges, err := splitPageRanges(value)
+	if err != nil {
+		return nil, err
+	}
+
+	var pages []int
+	for _, pageRange := range ranges {
+		start, err := strconv.ParseInt(pageRange[0], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid page ID %q: %w", pageRange[0], err)
+		}
+		end, err := strconv.ParseInt(pageRange[1], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid page ID %q: %w", pageRange[1], err)
+		}
+		if start < 0 || end < start {
+			return nil, fmt.Errorf("invalid page range %q-%q", pageRange[0], pageRange[1])
+		}
+		for page := start; ; page++ {
+			pages = append(pages, int(page))
+			if page == end {
+				break
+			}
+		}
+	}
+	return pages, nil
+}
+
+func ParseUint32Ranges(value string) ([]uint32, error) {
+	ranges, err := splitPageRanges(value)
+	if err != nil {
+		return nil, err
+	}
+
+	var pages []uint32
+	for _, pageRange := range ranges {
+		start, err := strconv.ParseUint(pageRange[0], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid page ID %q: %w", pageRange[0], err)
+		}
+		end, err := strconv.ParseUint(pageRange[1], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid page ID %q: %w", pageRange[1], err)
+		}
+		if end < start {
+			return nil, fmt.Errorf("invalid page range %q-%q", pageRange[0], pageRange[1])
+		}
+		for page := start; ; page++ {
+			pages = append(pages, uint32(page))
+			if page == end {
+				break
+			}
+		}
+	}
+	return pages, nil
+}
+
+func splitPageRanges(value string) ([][2]string, error) {
+	var ranges [][2]string
+	for _, page := range strings.Split(value, ",") {
+		if page == "" {
+			continue
+		}
+		start, end, hasRange := strings.Cut(page, "-")
+		if !hasRange {
+			end = start
+		} else if strings.Contains(end, "-") || start == "" || end == "" {
+			return nil, fmt.Errorf("invalid page range %q", page)
+		}
+		ranges = append(ranges, [2]string{start, end})
+	}
+	return ranges, nil
+}
+
 func LocateLDFfile(mdffile string) (string, error) {
 	dir, fname := filepath.Split(mdffile)
 	fname = strings.Split(fname, ".")[0]
