@@ -234,12 +234,19 @@ func (db *Database) ProcessPages(file *os.File, selectedPages []int, fromPage in
 		}
 
 		allocUnitID := page_.Header.GetMetadataAllocUnitId()
+
 		if allocUnitID == 0 {
 			msg := fmt.Sprintf("Skipped Processing page at offset %d no alloc unit", offset)
 			mslogger.Mslogger.Info(msg)
 			continue
 		}
 		pages.Add(allocUnitID, page_)
+
+		//user alternative way in case the page is part of a clustered table
+		if page_.Header.IndexId == 0 {
+			allocUnitID := page_.Header.GetAlternativeMetadataAllocUnitId()
+			pages.Add(allocUnitID, page_)
+		}
 
 		totalProcessedPages++
 
@@ -408,6 +415,8 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	*/
 
 	//	fmt.Printf("Processing table %s\n", tname)
+	var table_alloc_pages page.Pages
+	var sysrscols []tables.SysRsCol
 
 	table := Table{Name: tname, ObjectId: objectid, Type: tType,
 		PageIDsPerType: map[string][]uint32{}}
@@ -438,8 +447,13 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 
 	partitions := db.tablesPartitions[objectid] //objectid ->  sysrowsets
 
-	var table_alloc_pages page.Pages
-	var sysrscols []tables.SysRsCol
+	sysiscols := db.columnsStatistics[objectid]
+	for _, indexInfo := range db.indexesInfo[objectid] {
+		sysallocunits, ok := db.tablesAllocations[indexInfo.Rowsetid]
+		table.addIndex(indexInfo, ok, sysallocunits)
+	}
+
+	table.SetIndexType()
 
 	sysrscolsLocated := false
 	for _, partition := range partitions {
@@ -478,12 +492,6 @@ func (db Database) ProcessTable(objectid int32, tname string, tType string, tabl
 	if !sysrscolsLocated {
 		mslogger.Mslogger.Info("Using alternative method to determine column offsets, no sysrscols located")
 		table.updateColOffsetsUsingOrder()
-	}
-
-	sysiscols := db.columnsStatistics[objectid]
-	for _, indexInfo := range db.indexesInfo[objectid] {
-		sysallocunits, ok := db.tablesAllocations[indexInfo.Rowsetid]
-		table.addIndex(indexInfo, ok, sysallocunits)
 	}
 
 	/*
