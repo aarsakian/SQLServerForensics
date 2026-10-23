@@ -672,6 +672,8 @@ func main() {
 
 		pm.ProcessTables()
 		pm.Correlate()
+
+		pm.ShowTableInfo()
 		pm.ExportTables(selectedTableRowsInt)
 
 		fmt.Printf("Finished in %0.2f secs\n", time.Since(now).Seconds())
