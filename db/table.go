@@ -936,17 +936,29 @@ func (table *Table) setContent(dataPages page.PagesPerId[uint32],
 	return rownum
 }
 
+func (table Table) IsClustered() bool {
+	return table.IndexType == "Clustered"
+}
+
 func (table *Table) setContentFromPage(page page.Page,
 	lobPages page.PagesPerId[uint32], textLobPages page.PagesPerId[uint32],
 	forwardPages map[uint32][]uint32) int {
 	pageId := page.Header.PageId
+
+	var pageAllocationUnitId uint64
 
 	if page.HasForwardingPointers() {
 		forwardPages[page.Header.PageId] = page.FollowForwardingPointers()
 
 	}
 
-	pageAllocationUnitId := page.Header.GetMetadataAllocUnitId()
+	pageAllocationUnitId = page.Header.GetMetadataAllocUnitId()
+
+	//table is clustered but indexId =0 => m_Index should be 1 use alternative method
+	if table.IsClustered() && page.Header.IndexId == 0 {
+		pageAllocationUnitId = page.Header.GetAlternativeMetadataAllocUnitId()
+	}
+
 	partitionId := table.AllocationUnitIdTopartitionId[pageAllocationUnitId]
 
 	if table.doesNotHaveVarLenCols() {
