@@ -661,9 +661,15 @@ func (table Table) GetRecords(wg *sync.WaitGroup, selectedRows []int, colnames [
 	close(records)
 }
 
-func (table Table) GetBlobs(wg *sync.WaitGroup, blobs chan<- utils.Blob) {
+func (table Table) GetBlobs(wg *sync.WaitGroup, selectedRows []int, blobs chan<- utils.Blob) {
 	defer wg.Done()
 	for rowid, row := range table.Rows {
+		if len(selectedRows) != 0 {
+			selected := slices.Contains(selectedRows, rowid+1)
+			if !selected {
+				continue
+			}
+		}
 
 		for _, c := range table.Schema {
 			if c.Type != "image" && c.Type != "varbinary" {
