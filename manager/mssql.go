@@ -86,9 +86,18 @@ func (PM *ProcessManager) Initialize(showDBInfo bool, showGamExtents bool, showS
 		WalkLSN:             walkLSN,
 	}
 
-	PM.Exporter = exporter.Exporter{Format: exportFormat,
-		Blobs: exportBlob, Path: exportPath, Index: exportIndex, Schema: exportSchema,
-		PageInfo: exportPageInfo, LogInfo: rowLogInfo}
+	PM.Exporter = exporter.Exporter{
+		Format:      exportFormat,
+		Blobs:       exportBlob,
+		Path:        exportPath,
+		Index:       exportIndex,
+		Schema:      exportSchema,
+		PageInfo:    exportPageInfo,
+		LogInfo:     rowLogInfo,
+		FromRow:     skippedTableRows,
+		ToRow:       toTableRow,
+		RowRangeSet: skippedTableRows != 0 || toTableRow != -1,
+	}
 
 }
 
