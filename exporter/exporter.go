@@ -24,13 +24,16 @@ type Writer interface {
 }
 
 type Exporter struct {
-	Format   string
-	Blobs    bool
-	Path     string
-	Index    bool
-	Schema   bool
-	PageInfo bool
-	LogInfo  bool
+	Format        string
+	Blobs         bool
+	Path          string
+	Index         bool
+	Schema        bool
+	PageInfo      bool
+	LogInfo       bool
+	FromRow       int
+	ToRow         int
+	RowRangeSet   bool
 }
 
 func (exp Exporter) exportHeaders(headers []string) []string {
@@ -84,13 +87,59 @@ func exportedRowCount(table *db.Table, selectedTableRow []int) int {
 	}
 
 	rowCount := 0
+	countedRows := make(map[int]struct{}, len(selectedTableRow))
 	for _, rowNum := range selectedTableRow {
-		if rowNum >= 0 && rowNum < len(table.Rows) {
-			rowCount++
+		if rowNum < 1 || rowNum > len(table.Rows) {
+			continue
 		}
+		if _, counted := countedRows[rowNum]; counted {
+			continue
+		}
+		countedRows[rowNum] = struct{}{}
+		rowCount++
 	}
 
 	return rowCount
+}
+
+func exportRowsInRange(rowCount int, selectedRows []int, fromRow, toRow int) []int {
+	firstRow := fromRow
+	if firstRow < 1 {
+		firstRow = 1
+	}
+
+	lastRow := rowCount
+	if toRow != -1 {
+		lastRow = toRow
+		if lastRow > rowCount {
+			lastRow = rowCount
+		}
+	}
+
+	if firstRow > lastRow {
+		return []int{0}
+	}
+
+	selected := make(map[int]struct{}, len(selectedRows))
+	for _, rowNum := range selectedRows {
+		selected[rowNum] = struct{}{}
+	}
+
+	rows := make([]int, 0, lastRow-firstRow+1)
+	for rowNum := firstRow; rowNum <= lastRow; rowNum++ {
+		if len(selectedRows) == 0 {
+			rows = append(rows, rowNum)
+			continue
+		}
+		if _, ok := selected[rowNum]; ok {
+			rows = append(rows, rowNum)
+		}
+	}
+
+	if len(rows) == 0 {
+		return []int{0}
+	}
+	return rows
 }
 
 func sanitizeDatabaseName(dbfname string) string {
@@ -178,6 +227,10 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 	for table := range tables {
 
 		wg := new(sync.WaitGroup)
+		tableRows := selectedTableRow
+		if exp.RowRangeSet {
+			tableRows = exportRowsInRange(len(table.Rows), selectedTableRow, exp.FromRow, exp.ToRow)
+		}
 
 		expPath := exp.CreateExportPath(databaseName, dbName, table.Type, table.Name)
 
@@ -186,7 +239,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 			blobs := make(chan utils.Blob, 10)
 
 			wginner.Add(1)
-			go table.GetBlobs(wginner, blobs)
+			go table.GetBlobs(wginner, tableRows, blobs)
 			wginner.Add(1)
 			go writeBlobs(wginner, blobs, expPath)
 			wginner.Wait()
@@ -225,7 +278,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 		indexRecordsMap := make(map[string]chan utils.Record)
 
 		wg.Add(1)
-		go table.GetRecords(wg, selectedTableRow, colnames, records)
+		go table.GetRecords(wg, tableRows, colnames, records)
 		if exp.Format == "csv" || exp.Format == "xlsx" {
 			preparedRecords := exp.prepareExportRecords(wg, records)
 			wg.Add(1)
@@ -240,7 +293,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 
 				wg.Add(1)
 				indexRecordsMap[index.Name] = make(chan utils.Record, 100)
-				go index.GetRecords(wg, selectedTableRow, colnames, indexRecordsMap[index.Name])
+				go index.GetRecords(wg, tableRows, colnames, indexRecordsMap[index.Name])
 			}
 		}
 		if exp.Schema {
@@ -269,7 +322,7 @@ func (exp Exporter) Export(expWg *sync.WaitGroup, selectedTableRow []int, colnam
 				log.Fatal(err)
 			}
 
-			writeTOC(tocTmpl, indexFile, table, exportedRowCount(table, selectedTableRow), includePaginated, exp.Schema, exp.Index)
+			writeTOC(tocTmpl, indexFile, table, exportedRowCount(table, tableRows), includePaginated, exp.Schema, exp.Index)
 		}
 
 	}
