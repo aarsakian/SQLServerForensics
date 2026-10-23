@@ -222,10 +222,10 @@ Build a binary and then run it:
         filter rows by page; comma-separated IDs
 
   -fromrow int
-        show only rows starting from this row number (default 0)
+        show/export rows starting at this row number (default 0)
 
   -torow int
-        show only the first N rows (default -1 for all)
+        show/export rows through this row number (default -1 for all)
 
   -rows string
         select specific rows using a comma-separated list (for example 1,5,10)
