@@ -252,7 +252,7 @@ func (PM *ProcessManager) ProcessTables() {
 		wg := new(sync.WaitGroup)
 		ctx, cancel := context.WithCancel(context.Background())
 
-		var listener2, listener3 <-chan *db.Table
+		var listener2 <-chan *db.Table
 		tablesCH := make(chan *db.Table, CHANNEL_SIZE)
 
 		broadcaster := channels.NewBroadcastServer(ctx, tablesCH)
@@ -266,7 +266,6 @@ func (PM *ProcessManager) ProcessTables() {
 		mslogger.Mslogger.Info(msg)
 
 		listener2 = broadcaster.Subscribe()
-		listener3 = broadcaster.Subscribe()
 
 		go database.ProcessTables(ctx, PM.TableConfiguration.SelectedTables, PM.TableConfiguration.SelectedType,
 			tablesCH, PM.TableConfiguration.SelectedPages)
@@ -283,8 +282,6 @@ func (PM *ProcessManager) ProcessTables() {
 			PM.Databases[guid] = database
 		}(wg)
 
-		wg.Add(1)
-		go PM.reporter.ShowTableInfo(wg, listener3)
 		wg.Wait()
 		cancel()
 	}
@@ -301,7 +298,23 @@ func (PM ProcessManager) ProcessTablesSystemInfo() {
 	}
 }
 
-func (PM *ProcessManager) ExportTables(selectedTableRows []int) {
+func (PM ProcessManager) ShowTableInfo() {
+	for _, database := range PM.Databases {
+		tablesCH := make(chan *db.Table, len(database.Tables))
+		for _, table := range database.Tables {
+			tablesCH <- table
+		}
+		close(tablesCH)
+
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		go PM.reporter.ShowTableInfo(wg, tablesCH)
+		wg.Wait()
+	}
+
+}
+
+func (PM ProcessManager) ExportTables(selectedTableRows []int) {
 	if PM.Exporter.Path == "" {
 		return
 	}
