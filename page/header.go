@@ -73,7 +73,8 @@ type Header struct {
 	FreeCnt               uint16    //28-30 free space in bytes
 	FreeData              uint16    //30-32 offset from the start of the page to the first byte after the last record
 	PageId                uint32    //32-36
-	FragId                uint32    //36-40
+	FragId                uint16    //36-38
+	ReservedCnt           uint16    //38-40
 	LSN                   utils.LSN //40-50  LSN of the last log record that affected the page.
 	XactReserved          uint16    //50-52 	Number of bytes reserved by the most recently started transaction
 	XdeslDPart2           uint32    //52-54
@@ -129,6 +130,10 @@ func (header Header) GetMetadataAllocUnitId() uint64 {
 	return uint64(header.IndexId)<<48 | uint64(header.ObjectId)<<16
 }
 
+func (header Header) GetAlternativeMetadataAllocUnitId() uint64 {
+	return uint64(1)<<48 | uint64(header.ObjectId)<<16
+}
+
 func (header Header) sanityCheck() bool {
 	if header.Version != 1 {
 
@@ -165,13 +170,13 @@ func (header Header) sanityCheck() bool {
 func (header Header) Print() {
 	if header.TornBits != 0 {
 
-		fmt.Printf("Page Id %d type %s objectid %d LSN %s index %d flags %s slots %d free space %d Prev page %d  Next page %d TornBits Pattern Consistent %t\n",
-			header.PageId, PageTypes[header.Type], header.ObjectId, header.LSN.ToStr(),
+		fmt.Printf("Page Id %d type %s objectid %d AllocUnitId %d LSN %s index %d flags %s slots %d free space %d Prev page %d  Next page %d TornBits Pattern Consistent %t\n",
+			header.PageId, PageTypes[header.Type], header.ObjectId, header.GetMetadataAllocUnitId(), header.LSN.ToStr(),
 			header.IndexId, header.DecodeFlagBits(),
 			header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage, header.TornPatternConsistent)
 	} else {
-		fmt.Printf("Page Id %d type %s objectid %d LSN %s index %d flags %s slots %d free space %d Prev page %d  Next page %d \n",
-			header.PageId, PageTypes[header.Type], header.ObjectId, header.LSN.ToStr(),
+		fmt.Printf("Page Id %d type %s objectid %d AllocUnitId %d  LSN %s index %d flags %s slots %d free space %d Prev page %d  Next page %d \n",
+			header.PageId, PageTypes[header.Type], header.ObjectId, header.GetMetadataAllocUnitId(), header.LSN.ToStr(),
 			header.IndexId, header.DecodeFlagBits(),
 			header.SlotCnt, header.FreeData, header.PrevPage, header.NextPage)
 	}
