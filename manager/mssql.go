@@ -351,13 +351,12 @@ func (PM *ProcessManager) Correlate() {
 		if database.LogDB == nil {
 			continue
 		}
-		CorrelationEngine := new(correlation.CorrelationEngine)
-		CorrelationEngine.CorrelateRecords(database.LogDB.GetRecords(), database.PartitionIdToObjectID)
+		correlationEngine := new(correlation.CorrelationEngine)
+		correlationEngine.CorrelateRecords(database.LogDB.GetRecords(), database.PartitionIdToObjectID)
 		for _, table := range database.Tables {
 
-			correlatedRecords := CorrelationEngine.CorrelateTable(table.ObjectId)
-
-			nofCorrelatedRecords := table.AddChangesHistory(correlatedRecords, database.PagesPerAllocUnitID)
+			nofCorrelatedRecords := table.AddChangesHistory(correlationEngine.ByObjectID,
+				database.PagesPerAllocUnitID)
 			fmt.Printf("Correlated %d records to table %s for database %s \n", nofCorrelatedRecords, table.Name, database.Name)
 
 		}
