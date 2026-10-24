@@ -99,8 +99,3 @@ func (ce *CorrelationEngine) CorrelateRecords(records LDF.Records, partitionIdTo
 		}
 	}
 }
-
-func (ce *CorrelationEngine) CorrelateTable(objectit int32) []*CorrelatedRecord {
-
-	return ce.ByObjectID[objectit]
-}
