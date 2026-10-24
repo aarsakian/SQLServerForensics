@@ -112,7 +112,7 @@ Build a binary and then run it:
   -filenames string
         select MDF files by filename; comma-separated values are allowed
 
-  -sourcedir string
+  -srcdir string
         process all MDF and LDF files found under the given directory
 
   -location string
@@ -317,7 +317,7 @@ The current CLI supports reading MDF, LDF, and BAK/TAPE files directly, as well 
 - Full backup files (BAK/TAPE via -mtf or -bak)
 - Raw images, EWF, VMDK, and VHDX evidence containers via -evidence
 - Physical disks via -physicaldrive
-- Directory scans via -sourcedir
+- Directory scans via -srcdir
 
 > Note: the implementation validates compatibility between flags before processing, so some options are only valid when a matching data source or analysis mode is enabled.
 
