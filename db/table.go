@@ -125,14 +125,19 @@ func (table *Table) udateColIndex(sysiscols tables.SysIsCols) {
 	}
 }
 
-func (table *Table) AddChangesHistory(correlatedRecords []*correlation.CorrelatedRecord,
+func (table *Table) AddChangesHistory(byObjectID map[int32][]*correlation.CorrelatedRecord,
 	pagesPerAllocUnitID page.PagesPerId[uint64]) int {
 
+	correlatedRecords := byObjectID[table.ObjectId]
 	partitionIDToMap := make(map[uint64]*page.Page)
+	recordsByRowID := make(map[utils.RowId][]*correlation.CorrelatedRecord)
 
 	nofCorrelatedRecords := 0
 
 	for _, record := range correlatedRecords {
+		if record.RowId != nil {
+			recordsByRowID[*record.RowId] = append(recordsByRowID[*record.RowId], record)
+		}
 
 		allocunitids := table.PartitionIdToAllocationsUnitId[record.PartitionId]
 		for _, alloc := range allocunitids {
@@ -153,18 +158,16 @@ func (table *Table) AddChangesHistory(correlatedRecords []*correlation.Correlate
 
 	for _, row := range table.Rows {
 
-		for _, record := range correlatedRecords {
+		for _, record := range recordsByRowID[row.RowId] {
 			// correlateRecord found
-			if record.RowId != nil && row.RowId.IsEqual(*record.RowId) {
-				page, ok := partitionIDToMap[record.PartitionId+uint64(row.RowId.PageId)]
-				//page has already been flashed record exists
-				if !ok {
-					continue
-				}
-				row.UpdateWithLogRecord(record.LogRecord,
-					page.Header.LSN.IsGreaterEqual(record.LogRecord.CurrentLSN), table.Schema)
-				nofCorrelatedRecords++
+			page, ok := partitionIDToMap[record.PartitionId+uint64(row.RowId.PageId)]
+			//page has already been flashed record exists
+			if !ok {
+				continue
 			}
+			row.UpdateWithLogRecord(record.LogRecord,
+				page.Header.LSN.IsGreaterEqual(record.LogRecord.CurrentLSN), table.Schema)
+			nofCorrelatedRecords++
 		}
 	}
 	//add records to table not existing
